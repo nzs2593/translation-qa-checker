@@ -70,4 +70,29 @@ const sourceCurrencyTypo = runRuleEngine({
 });
 assert.equal(sourceCurrencyTypo.some((issue) => issue.error_type === "CURRENCY_MISMATCH"), false);
 
+const localizedMoney = runRuleEngine({
+  source: "The total prize pool is €25,000,000.",
+  target: "El bote total es de AR$37.500.000.000.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+});
+assert.equal(localizedMoney.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
+assert.equal(localizedMoney.some((issue) => issue.error_type === "CURRENCY_MISMATCH"), true);
+
+const localizedDate = runRuleEngine({
+  source: "Runs from 1st July 2026 until 30th June 2027.",
+  target: "Disponible entre el 1 de julio de 2026 y el 30 de junio de 2027.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+});
+assert.equal(localizedDate.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
+
+const mixedPlaceholder = runRuleEngine({
+  source: "Deposit AR$Х,ХХХ.",
+  target: "Depositá AR$X.ХХХ.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+});
+assert.equal(mixedPlaceholder.some((issue) => issue.error_type === "PLACEHOLDER_MISMATCH"), true);
+
 console.log("Engine tests passed");
