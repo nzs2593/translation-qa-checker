@@ -4,33 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Translation QA Checker</title>
-    <link rel="stylesheet" href="styles.css?v=1.6" />
+    <link rel="stylesheet" href="styles.css?v=1.7" />
   </head>
   <body>
     <main class="app-shell">
       <header class="app-header">
         <div class="header-main">
           <div class="header-copy">
-            <p class="eyebrow">LOCAL · RULE-BASED QA</p>
-            <h1>Translation QA Checker</h1>
-            <p class="subtitle">Find translation inconsistencies without changing the target.</p>
+            <p class="eyebrow" id="eyebrow">LOCAL · RULE-BASED QA</p>
+            <h1 id="app-title">Translation QA Checker</h1>
+            <p class="subtitle" id="app-subtitle">Find translation inconsistencies without changing the target.</p>
+          </div>
+          <div class="header-actions">
+            <div class="locale-switch" role="group" aria-label="Interface language">
+              <button class="locale-button" type="button" data-locale="en">EN</button>
+              <button class="locale-button" type="button" data-locale="ru">RU</button>
+            </div>
+            <button id="error-table-open" type="button">Error table</button>
           </div>
         </div>
       </header>
 
-      <section class="workspace-grid" aria-label="Translation workspace">
+      <section class="workspace-grid" id="workspace-grid" aria-label="Translation workspace">
         <div class="left-stack">
           <article class="text-card source-card">
             <div class="card-heading">
               <div>
-                <span class="panel-kicker">ORIGINAL</span>
+                <span class="panel-kicker" id="original-label">ORIGINAL</span>
                 <h2 id="source-heading">Source language</h2>
               </div>
               <div class="card-tools">
                 <span class="char-count" id="source-count">0 characters</span>
-                <label class="select-label" for="source-language">Source language</label>
+                <label class="select-label" id="source-language-label" for="source-language">Source language</label>
                 <select id="source-language" aria-label="Source language"></select>
-                <label class="file-button" for="source-file-input">Open file</label>
+                <label class="file-button" id="source-open-file" for="source-file-input">Open file</label>
                 <input id="source-file-input" type="file" accept=".txt,.html,.htm,.docx,text/plain,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
               </div>
             </div>
@@ -39,40 +46,40 @@
                 <div id="source-highlight-layer" class="source-highlight-layer" aria-hidden="true"></div>
                 <textarea id="source-text" spellcheck="false" placeholder="Paste the source text here or drop a file…"></textarea>
               </div>
-              <div class="drop-hint">Drop Original file here</div>
+              <div class="drop-hint" id="source-drop-hint">Drop Original file here</div>
             </div>
           </article>
 
           <article class="language-card drop-zone" id="target-drop-zone">
             <div class="card-heading">
               <div>
-                <span class="panel-kicker">GOAL LANGUAGE</span>
+                <span class="panel-kicker" id="goal-language-label">GOAL LANGUAGE</span>
                 <h2 id="target-language-heading">Auto-detect</h2>
               </div>
               <div class="card-tools">
-                <label class="select-label" for="target-language">Goal language</label>
+                <label class="select-label" id="target-language-label" for="target-language">Goal language</label>
                 <select id="target-language" aria-label="Goal language"></select>
-                <label class="file-button" for="target-file-input">Open file</label>
+                <label class="file-button" id="target-open-file" for="target-file-input">Open file</label>
                 <input id="target-file-input" type="file" accept=".txt,.html,.htm,.docx,text/plain,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
               </div>
             </div>
             <div class="language-body">
-              <p>Choose a profile or use Auto-detect. The selected profile controls date formats, punctuation and numeric conventions.</p>
-              <p class="drop-copy">Drop the Goal file here or use Open file. It will appear in Target Review.</p>
+              <p id="profile-copy">Choose a profile or use Auto-detect. The selected profile controls date formats, punctuation and numeric conventions.</p>
+              <p class="drop-copy" id="goal-drop-copy">Drop the Goal file here or use Open file. It will appear in Target Review.</p>
               <p class="language-status" id="language-state">Waiting for goal text</p>
               <div class="profile-summary">
-                <span>Supported profiles</span>
-                <strong>11 language profiles</strong>
+                <span id="supported-profiles">Supported profiles</span>
+                <strong id="profiles-count">11 language profiles</strong>
               </div>
             </div>
-            <div class="drop-hint">Drop Goal file here</div>
+            <div class="drop-hint" id="goal-drop-hint">Drop Goal file here</div>
           </article>
         </div>
 
         <article class="target-review-card">
           <div class="card-heading">
               <div>
-                <span class="panel-kicker">TARGET REVIEW</span>
+                <span class="panel-kicker" id="target-review-label">TARGET REVIEW</span>
                 <h2 id="target-heading">Goal language</h2>
               </div>
               <div class="card-tools">
@@ -89,8 +96,8 @@
       <section class="issues-card" aria-live="polite">
         <div class="issues-heading">
           <div>
-            <span class="panel-kicker">ISSUES</span>
-            <h2>Review findings</h2>
+            <span class="panel-kicker" id="issues-label">ISSUES</span>
+            <h2 id="review-findings">Review findings</h2>
           </div>
           <div class="issues-actions">
             <div class="issue-summary" id="issue-summary">Checking…</div>
@@ -101,10 +108,28 @@
       </section>
 
       <footer class="app-footer">
-        <span>Deterministic checks · No LLM · No auto-correction</span>
+        <span id="footer-copy">Deterministic checks · No LLM · No auto-correction</span>
         <span id="checked-at">Ready</span>
       </footer>
     </main>
-    <script type="module" src="src/main.js?v=1.12"></script>
+    <dialog id="error-table-dialog" aria-labelledby="error-table-title">
+      <div class="dialog-heading">
+        <div>
+          <span class="panel-kicker" id="error-table-kicker">ERROR REFERENCE</span>
+          <h2 id="error-table-title">Error table</h2>
+          <p id="error-table-description">Supported checks and their default severity</p>
+        </div>
+        <button id="error-table-close" class="dialog-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="error-table-wrap">
+        <table>
+          <thead>
+            <tr><th id="error-type-heading">Error type</th><th id="pool-heading">Pool</th><th id="severity-heading">Severity</th><th id="description-heading">Description</th></tr>
+          </thead>
+          <tbody id="error-table-body"></tbody>
+        </table>
+      </div>
+    </dialog>
+    <script type="module" src="src/main.js?v=1.13"></script>
   </body>
 </html>
