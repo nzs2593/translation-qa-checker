@@ -134,7 +134,9 @@ function renderErrorTable() {
 
 function updateProfileRulesVisibility() {
   const rules = document.querySelector(".profile-rules");
-  if (rules) rules.hidden = !(sourceText.value.trim() && targetText.value.trim());
+  const hasBothTexts = Boolean(sourceText.value.trim() && targetText.value.trim());
+  if (rules) rules.hidden = !hasBothTexts;
+  $("header-main")?.classList.toggle("has-profile-rules", hasBothTexts);
 }
 
 function renderProfileRules(code) {
