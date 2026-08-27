@@ -135,7 +135,7 @@ export const ISSUE_CATALOG = Object.freeze([
   { type: "TRAILING_SPACE", pool: "Spacing", severity: "Minor", en: "Target contains a space at the end of a line.", ru: "В конце строки перевода стоит лишний пробел." },
   { type: "SPACE_BEFORE_PUNCTUATION", pool: "Spacing", severity: "Minor", en: "There is an unnecessary space before punctuation.", ru: "Перед знаком препинания стоит лишний пробел." },
   { type: "NON_BREAKING_SPACE", pool: "Spacing", severity: "Minor", en: "Digit groups should use a non-breaking space in this language profile.", ru: "В этом языковом профиле между разрядами нужен неразрывный пробел." },
-  { type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Critical", en: "A placeholder is missing or changed in the target.", ru: "Плейсхолдер отсутствует или изменён в переводе." },
+  { type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", en: "A placeholder is missing or changed in the target.", ru: "Плейсхолдер отсутствует или изменён в переводе." },
   { type: "TIMEZONE_MISSING", pool: "Dates & Time", severity: "Major", en: "Timezone is present in the source but missing in the target.", ru: "В оригинале есть часовой пояс, но в переводе он отсутствует." },
   { type: "TIMEZONE_EXTRA", pool: "Dates & Time", severity: "Minor", en: "Target adds a timezone that is not present in the source.", ru: "В переводе добавлен часовой пояс, которого нет в оригинале." },
   { type: "TIMEZONE_MISMATCH", pool: "Dates & Time", severity: "Major", en: "The local date/time matches, but the timezone offset differs.", ru: "Местные дата и время совпадают, но смещение часового пояса различается." },
@@ -147,7 +147,10 @@ export const ISSUE_CATALOG = Object.freeze([
 const POOL_LABELS = {
   ru: { Numbers: "Числа", Currency: "Валюта", Percentage: "Проценты", Punctuation: "Пунктуация", Spacing: "Пробелы", Capitalization: "Регистр", Placeholders: "Плейсхолдеры", Terminology: "Терминология", Formatting: "Форматирование", Transliteration: "Транслитерация", "Dates & Time": "Даты и время", "File structure": "Структура файла" }
 };
-const SEVERITY_LABELS = { ru: { Critical: "Критическая", Major: "Серьёзная", Minor: "Незначительная", Info: "Информация" } };
+const SEVERITY_LABELS = {
+  en: { Critical: "CRITICAL", Major: "MAJOR", Minor: "MINOR", Info: "INFO" },
+  ru: { Critical: "CRITICAL", Major: "MAJOR", Minor: "MINOR", Info: "INFO" }
+};
 
 export function getLocale() {
   return localStorage.getItem("translation-qa-locale") === "ru" ? "ru" : "en";
