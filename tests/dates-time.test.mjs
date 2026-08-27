@@ -12,5 +12,7 @@ assert.equal(checkDatesAndTime("20:59 GMT", "21:00 GMT", { sourceProfile: profil
 assert.equal(checkDatesAndTime("2026-08-27 20:59 GMT", "27.08.2026 17:59 GMT-3", { sourceProfile: { dateOrder: "YMD", language: "en" }, targetProfile: { dateOrder: "DMY", language: "ru" } }).length, 0);
 assert.equal(checkDatesAndTime("2026-08-27", "27.08.2026", { sourceProfile: { dateOrder: "YMD", language: "en" }, targetProfile: { dateOrder: "DMY", language: "ru" } }).length, 0);
 assert.equal(checkDatesAndTime("2026-08-27", "28.08.2026", { sourceProfile: { dateOrder: "YMD", language: "en" }, targetProfile: { dateOrder: "DMY", language: "ru" } })[0].error_type, "DATE_MISMATCH");
+assert.equal(checkDatesAndTime("00:01 GMT on 01/07/2026", "21:01 GMT-3 del 30/06/2026", { sourceProfile: { dateOrder: "DMY", language: "en" }, targetProfile: { dateOrder: "DMY", language: "es" } }).length, 0);
+assert.equal(checkDatesAndTime("00:01 GMT on 01/07/2026", "21:01 GMT-3 del 31/06/2026", { sourceProfile: { dateOrder: "DMY", language: "en" }, targetProfile: { dateOrder: "DMY", language: "es" } })[0].error_type, "INVALID_DATE");
 
 console.log("Dates & Time tests passed");
