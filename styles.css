@@ -253,7 +253,7 @@ dialog { border-color: var(--green-dark); border-radius: 5px; box-shadow: 8px 8p
 
 /* Clean white / blue product pass. */
 :root {
-  --bg: #f6f8fb;
+  --bg: #ffffff;
   --panel: #ffffff;
   --text: #263242;
   --muted: #687588;
@@ -267,7 +267,7 @@ dialog { border-color: var(--green-dark); border-radius: 5px; box-shadow: 8px 8p
   --shadow: 0 8px 24px rgba(35, 82, 140, .08);
 }
 
-body { background: var(--bg); }
+body { background: #ffffff; }
 .app-shell { gap: 14px; padding: clamp(12px, 1.4vw, 22px); }
 .header-main {
   padding: 21px 23px 19px;
@@ -288,6 +288,7 @@ button:active { transform: none; box-shadow: none; }
 .locale-button.active { background: #fff; color: var(--green-dark); box-shadow: 0 1px 4px rgba(30,70,130,.16); }
 .eyebrow, .panel-kicker { color: var(--green-dark); font-size: 10px; letter-spacing: .13em; }
 h1 { margin-top: 7px; color: var(--ink); font-family: Arial, Helvetica, sans-serif; font-size: clamp(25px, 2.1vw, 32px); font-weight: 700; letter-spacing: -.035em; }
+#app-title { font-family: "Trebuchet MS", "Aptos Display", Arial, sans-serif; font-size: clamp(27px, 2.25vw, 35px); font-weight: 800; letter-spacing: -.055em; }
 h2 { color: var(--ink); letter-spacing: -.01em; }
 .workspace-grid, .left-stack { gap: 14px; }
 .text-card, .language-card, .target-review-card, .issues-card { border-color: var(--line); border-radius: 10px; box-shadow: var(--shadow); }
