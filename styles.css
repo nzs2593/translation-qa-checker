@@ -341,3 +341,20 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
   .header-main .profile-rules tr:nth-child(3n + 1) { border-left: 1px solid #e1eaf5; }
   .header-main .profile-rules tr:nth-child(2n + 1) { border-left: 0; }
 }
+
+/* Compact first screen: keep findings visible without squeezing the editors. */
+.workspace-grid { min-height: clamp(390px, 52vh, 500px); }
+.left-stack { grid-template-rows: minmax(210px, 1.25fr) minmax(145px, .75fr); }
+.target-review-card { min-height: 0; }
+
+@media (max-width: 920px) {
+  .left-stack { min-height: 500px; }
+  .target-review-card { min-height: 420px; }
+}
+
+@media (max-width: 760px) {
+  .workspace-grid { min-height: 0; }
+  .left-stack { min-height: 0; }
+  .source-card { min-height: 300px; }
+  .target-review-card { min-height: 360px; }
+}
