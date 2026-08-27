@@ -4,7 +4,7 @@ const UI = {
   en: {
     eyebrow: "LOCAL · RULE-BASED QA",
     title: "CHECKform",
-    subtitle: "Find translation inconsistencies without changing the target.",
+    subtitle: "Find what others miss",
     workspace: "Translation workspace",
     original: "ORIGINAL",
     sourceLanguage: "Source language",
@@ -72,7 +72,7 @@ const UI = {
   ru: {
     eyebrow: "ЛОКАЛЬНАЯ · RULE-BASED QA",
     title: "CHECKform",
-    subtitle: "Находит несоответствия, не изменяя целевой текст.",
+    subtitle: "Находим то, что другие не видят",
     workspace: "Рабочая область перевода",
     original: "ОРИГИНАЛ",
     sourceLanguage: "Язык оригинала",
