@@ -3,7 +3,7 @@ export const INTERFACE_LOCALES = Object.freeze(["en", "ru"]);
 const UI = {
   en: {
     eyebrow: "LOCAL · RULE-BASED QA",
-    title: "Translation QA Checker",
+    title: "CHECKform",
     subtitle: "Find translation inconsistencies without changing the target.",
     workspace: "Translation workspace",
     original: "ORIGINAL",
@@ -71,7 +71,7 @@ const UI = {
   },
   ru: {
     eyebrow: "ЛОКАЛЬНАЯ · RULE-BASED QA",
-    title: "Проверка качества перевода",
+    title: "CHECKform",
     subtitle: "Находит несоответствия, не изменяя целевой текст.",
     workspace: "Рабочая область перевода",
     original: "ОРИГИНАЛ",
