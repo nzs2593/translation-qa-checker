@@ -1,9 +1,9 @@
-import { runRuleEngine } from "./engine.js?v=2.4";
+import { runRuleEngine } from "./engine.js?v=2.5";
 import { detectLanguage } from "./language-detection.js?v=1.3";
 import { LANGUAGE_PROFILES } from "./profiles.js";
 import { readDocxText } from "./docx.js";
 import { selectPrimaryLanguageBlock } from "./text-segmentation.js?v=1.4";
-import { ISSUE_CATALOG, getLocale, issueDescription, poolLabel, profileLabel, setLocale, severityLabel, t } from "./i18n.js?v=1.1";
+import { ISSUE_CATALOG, getLocale, issueDescription, poolLabel, profileLabel, setLocale, severityLabel, t } from "./i18n.js?v=1.2";
 
 const $ = (id) => document.getElementById(id);
 const sourceLanguage = $("source-language");
@@ -100,6 +100,7 @@ function applyTranslations() {
   $("error-table-kicker").textContent = currentLocale === "ru" ? "СПРАВОЧНИК ОШИБОК" : "ERROR REFERENCE";
   $("error-table-title").textContent = t(currentLocale, "errorTableTitle");
   $("error-table-description").textContent = t(currentLocale, "errorTableDescription");
+  $("profile-rules-title").textContent = t(currentLocale, "profileRulesTitle");
   $("error-table-close").setAttribute("aria-label", t(currentLocale, "close"));
   $("error-type-heading").textContent = t(currentLocale, "errorType");
   $("pool-heading").textContent = t(currentLocale, "pool");
@@ -128,6 +129,32 @@ function renderErrorTable() {
     const badge = document.createElement("span"); badge.className = `severity-badge ${entry.severity.toLowerCase()}`; badge.textContent = severityLabel(currentLocale, entry.severity); severity.append(badge);
     const description = document.createElement("td"); description.textContent = entry[currentLocale] ?? entry.en;
     row.append(type, pool, severity, description); body.append(row);
+  }
+}
+
+function renderProfileRules(code) {
+  const body = $("profile-rules-body");
+  if (!body) return;
+  const profile = LANGUAGE_PROFILES[code] ?? LANGUAGE_PROFILES.en;
+  const dateFormats = { MDY: "MM/DD/YYYY", DMY: "DD/MM/YYYY", YMD: "YYYY-MM-DD" };
+  const separatorLabel = (value) => value === "nbsp" ? (currentLocale === "ru" ? "неразрывный пробел (1 000)" : "non-breaking space (1 000)") : value;
+  const currencySpace = profile.currencySpace === "nbsp" ? " " : profile.currencySpace ?? "";
+  const currencyExample = profile.currencyPlacement === "prefix" ? `€${currencySpace}100` : `100${currencySpace}€`;
+  const quoteExample = profile.quoteStyle === "guillemets" ? "«…»" : profile.quoteStyle === "uk-single" ? "‘…’" : profile.quoteStyle === "double" ? "“…”" : t(currentLocale, "notSpecified");
+  const rows = [
+    [t(currentLocale, "dateFormat"), dateFormats[profile.dateOrder] ?? t(currentLocale, "notSpecified")],
+    [t(currentLocale, "decimalSeparator"), profile.decimal],
+    [t(currentLocale, "thousandSeparator"), separatorLabel(profile.grouping)],
+    [t(currentLocale, "currencyFormat"), `${currencyExample} (${profile.currencyPlacement === "prefix" ? t(currentLocale, "before") : t(currentLocale, "after")})`],
+    [t(currentLocale, "percentageFormat"), `100${profile.percentSpace ? " " : ""}%`],
+    [t(currentLocale, "quotationMarks"), quoteExample]
+  ];
+  body.replaceChildren();
+  for (const [label, value] of rows) {
+    const row = document.createElement("tr");
+    const labelCell = document.createElement("td"); labelCell.textContent = label;
+    const valueCell = document.createElement("td"); valueCell.textContent = value;
+    row.append(labelCell, valueCell); body.append(row);
   }
 }
 
@@ -200,6 +227,7 @@ function render() {
   const targetCode = targetLanguage.value === "auto" ? targetDetection.code : targetLanguage.value;
   const sourceLabel = LANGUAGE_PROFILES[sourceCode].label;
   const targetLabel = LANGUAGE_PROFILES[targetCode].label;
+  renderProfileRules(targetCode);
   $("source-heading").textContent = t(currentLocale, "sourceLanguage");
   $("target-language-heading").textContent = t(currentLocale, "goalLanguage");
   $("target-heading").textContent = t(currentLocale, "goalLanguage");
