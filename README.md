@@ -1,4 +1,4 @@
-# Translation QA Checker — first increment
+# CHECKform — first increment
 
 Local, deterministic translation QA checker. It uses only rule-based checks and never rewrites the target text. The first UI increment follows the existing LOCform visual language: compact white panels, thin gray-green borders, Arial/system UI, and LOCform's green action color.
 
