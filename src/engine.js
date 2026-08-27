@@ -1,4 +1,4 @@
-import { checkDatesAndTime } from "./dates-time.js?v=1.2";
+import { checkDatesAndTime } from "./dates-time.js?v=1.3";
 import { createIssue, location } from "./domain.js?v=1.1";
 import { getProfile } from "./profiles.js";
 import { pairHeaderBlocks, pairLabeledSegments } from "./segments.js?v=1.1";
