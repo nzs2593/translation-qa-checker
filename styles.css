@@ -247,3 +247,71 @@ dialog { border-color: var(--green-dark); border-radius: 5px; box-shadow: 8px 8p
   .header-main { padding: 19px 16px 17px; }
   .header-main::after { right: 16px; }
 }
+
+/* Clean white / blue product pass. */
+:root {
+  --bg: #f6f8fb;
+  --panel: #ffffff;
+  --text: #263242;
+  --muted: #687588;
+  --line: #d9e1eb;
+  --green: #2167d5;
+  --green-dark: #164a9f;
+  --ink: #152033;
+  --soft: #eef5ff;
+  --warning: #d98a1f;
+  --danger: #c74743;
+  --shadow: 0 8px 24px rgba(35, 82, 140, .08);
+}
+
+body { background: var(--bg); }
+.app-shell { gap: 14px; padding: clamp(12px, 1.4vw, 22px); }
+.header-main {
+  padding: 21px 23px 19px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.header-main::before { height: 3px; background: var(--green); border-radius: 10px 10px 0 0; }
+.header-main::after { display: none; }
+.header-actions { gap: 8px; }
+button { border-color: var(--line); border-radius: 7px; font-weight: 600; transition: background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease; }
+button:hover { background: var(--green); color: #fff; transform: none; box-shadow: 0 4px 10px rgba(33,103,213,.18); }
+button:active { transform: none; box-shadow: none; }
+.locale-switch { padding: 2px; border-radius: 7px; background: var(--soft); }
+.locale-button { border-radius: 5px; letter-spacing: .06em; }
+.locale-button:hover { background: transparent; color: var(--green-dark); box-shadow: none; }
+.locale-button.active { background: #fff; color: var(--green-dark); box-shadow: 0 1px 4px rgba(30,70,130,.16); }
+.eyebrow, .panel-kicker { color: var(--green-dark); font-size: 10px; letter-spacing: .13em; }
+h1 { margin-top: 7px; color: var(--ink); font-family: Arial, Helvetica, sans-serif; font-size: clamp(25px, 2.1vw, 32px); font-weight: 700; letter-spacing: -.035em; }
+h2 { color: var(--ink); letter-spacing: -.01em; }
+.workspace-grid, .left-stack { gap: 14px; }
+.text-card, .language-card, .target-review-card, .issues-card { border-color: var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.card-heading, .issues-heading { padding: 16px 18px 14px; background: #fff; }
+select { border-color: var(--line); border-radius: 7px; background: #fff; }
+select:focus, button:focus-visible, textarea:focus-visible { border-color: var(--green); outline: 3px solid rgba(33,103,213,.14); }
+.file-button { border-color: #a9c5ef; border-radius: 7px; color: var(--green-dark); background: #f8fbff; }
+.file-button:hover { border-color: var(--green); background: var(--soft); color: var(--green-dark); }
+.language-body { padding: 16px 18px 18px; }
+.profile-rules { border-color: #c7d9f2; border-radius: 7px; background: #f8fbff; }
+.profile-rules-heading { border-color: #d9e7f8; color: var(--green-dark); letter-spacing: .1em; }
+.profile-rules td { border-color: #e1eaf5; }
+.profile-rules td:first-child { color: var(--muted); }
+.profile-rules td:last-child { color: var(--green-dark); }
+.target-editor { background: #fff; }
+.target-highlight-layer mark, .source-highlight-layer mark { border-radius: 4px; background: #d8e8ff; }
+.target-highlight-layer mark.major { background: #d8e8ff; }
+.target-highlight-layer mark.minor { background: #dff4e8; }
+.target-highlight-layer mark::before, .source-highlight-layer mark::before { border-radius: 5px; background: var(--green-dark); }
+.issue-row { border-left: 3px solid var(--green); border-radius: 8px; background: #fff; box-shadow: 0 2px 10px rgba(35,82,140,.04); }
+.issue-row:hover, .issue-row:focus-visible { border-color: var(--green); box-shadow: 0 5px 14px rgba(33,103,213,.13); transform: none; }
+.issue-index { border-radius: 6px; background: var(--green-dark); }
+.app-footer { font-size: 11px; }
+dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px rgba(32,64,110,.22); }
+.dialog-heading { background: #fff; }
+.dialog-close { border-radius: 7px; }
+
+@media (max-width: 640px) {
+  .header-main { padding: 18px 16px 16px; }
+}
