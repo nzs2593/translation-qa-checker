@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Translation QA Checker</title>
-    <link rel="stylesheet" href="styles.css?v=1.7" />
+    <link rel="stylesheet" href="styles.css?v=1.8" />
   </head>
   <body>
     <main class="app-shell">
@@ -64,13 +64,21 @@
               </div>
             </div>
             <div class="language-body">
-              <p id="profile-copy">Choose a profile or use Auto-detect. The selected profile controls date formats, punctuation and numeric conventions.</p>
-              <p class="drop-copy" id="goal-drop-copy">Drop the Goal file here or use Open file. It will appear in Target Review.</p>
-              <p class="language-status" id="language-state">Waiting for goal text</p>
-              <div class="profile-summary">
-                <span id="supported-profiles">Supported profiles</span>
-                <strong id="profiles-count">11 language profiles</strong>
+              <div class="language-copy">
+                <p id="profile-copy">Choose a profile or use Auto-detect. The selected profile controls date formats, punctuation and numeric conventions.</p>
+                <p class="drop-copy" id="goal-drop-copy">Drop the Goal file here or use Open file. It will appear in Target Review.</p>
+                <p class="language-status" id="language-state">Waiting for goal text</p>
+                <div class="profile-summary">
+                  <span id="supported-profiles">Supported profiles</span>
+                  <strong id="profiles-count">11 language profiles</strong>
+                </div>
               </div>
+              <aside class="profile-rules" aria-live="polite">
+                <div class="profile-rules-heading" id="profile-rules-title">Profile conventions</div>
+                <table>
+                  <tbody id="profile-rules-body"></tbody>
+                </table>
+              </aside>
             </div>
             <div class="drop-hint" id="goal-drop-hint">Drop Goal file here</div>
           </article>
@@ -130,6 +138,6 @@
         </table>
       </div>
     </dialog>
-    <script type="module" src="src/main.js?v=1.13"></script>
+    <script type="module" src="src/main.js?v=1.14"></script>
   </body>
 </html>
