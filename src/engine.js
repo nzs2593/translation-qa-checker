@@ -67,7 +67,7 @@ function coreChecks(source, target, sourceProfile, targetProfile, includePunctua
   const issues = [];
   issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile }));
   issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
-  issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Critical", explanation: "A placeholder is missing or changed in the target." }));
+  issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", explanation: "A placeholder is missing or changed in the target." }));
   if (includePunctuation && /[.!?]$/.test(source.trim()) !== /[.!?]$/.test(target.trim())) {
     issues.push(createIssue({ error_type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", location_in_source: location(Math.max(source.trim().length - 1, 0), source.trim().length), location_in_target: location(Math.max(target.length - 1, 0), target.length), explanation: "Terminal punctuation differs between source and target." }));
   }
