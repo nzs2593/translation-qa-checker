@@ -22,7 +22,14 @@ button:hover, select:hover { border-color: var(--green); }
 .app-shell, .app-header, .header-main, .workspace-grid, .left-stack, .text-card, .language-card, .target-review-card, .issues-card { min-width: 0; }
 .app-shell { display: grid; gap: 14px; min-height: 100vh; padding: clamp(8px, 1.1vw, 16px); }
 .app-header { display: block; }
-.header-main { display: block; padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.header-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.header-copy { min-width: 0; }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.header-actions > button { min-height: 32px; padding: 0 12px; color: var(--green-dark); font-size: 12px; font-weight: 700; }
+.locale-switch { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); }
+.locale-button { min-height: 27px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); font-size: 11px; font-weight: 700; }
+.locale-button:hover { border: 0; color: var(--green-dark); }
+.locale-button.active { background: #fff; color: var(--green-dark); box-shadow: 0 1px 4px rgba(32,35,31,.12); }
 .eyebrow, .panel-kicker { margin: 0; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
 h1, h2, p { margin-top: 0; }
 h1 { margin: 5px 0 4px; font-size: 22px; line-height: 1.2; letter-spacing: 0; }
@@ -102,8 +109,23 @@ textarea::placeholder { color: #8a9187; }
 .issue-type { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 13px; }.issue-index { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; border-radius: 50%; background: var(--green-dark); color: #fff; font-size: 11px; font-weight: 700; }.excluded .issue-index { background: var(--muted); }
 .issue-meta { color: var(--muted); font-size: 12px; }.issue-explanation { color: #424740; font-size: 13px; line-height: 1.35; }
 .app-footer { display: flex; justify-content: space-between; gap: 12px; padding: 0 4px 8px; color: var(--muted); font-size: 12px; }
+dialog { width: min(980px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); box-shadow: 0 22px 70px rgba(32,35,31,.24); }
+dialog::backdrop { background: rgba(32,35,31,.28); backdrop-filter: blur(2px); }
+.dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+.dialog-heading h2 { margin-top: 4px; }
+.dialog-heading p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+.dialog-close { width: 32px; min-height: 32px; padding: 0; border-radius: 50%; color: var(--muted); font-size: 22px; line-height: 1; }
+.error-table-wrap { max-height: calc(100vh - 190px); overflow: auto; padding: 4px 20px 20px; }
+.error-table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.error-table-wrap th, .error-table-wrap td { padding: 11px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.error-table-wrap th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.error-table-wrap td:first-child { color: var(--ink); font-family: Consolas, "Courier New", monospace; font-weight: 700; white-space: nowrap; }
+.error-table-wrap td:nth-child(2) { color: var(--muted); white-space: nowrap; }
+.severity-badge { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.severity-badge::before { width: 7px; height: 7px; border-radius: 50%; background: var(--warning); content: ""; }
+.severity-badge.critical::before { background: var(--danger); }.severity-badge.major::before { background: var(--warning); }.severity-badge.minor::before { background: var(--green); }.severity-badge.info::before { background: #4785a8; }
 @media (max-width: 920px) {
-  .header-main { grid-template-columns: 1fr; }
+  .header-main { flex-direction: column; }
   .workspace-grid { grid-template-columns: 1fr; }
   .left-stack { min-height: 620px; }
   .target-review-card { min-height: 480px; }
@@ -133,6 +155,7 @@ textarea::placeholder { color: #8a9187; }
   h1 { font-size: 19px; }
   h2 { font-size: 15px; }
   .header-main { padding: 13px; }
+  .header-actions { width: 100%; justify-content: space-between; }
   .card-tools { display: grid; grid-template-columns: auto minmax(0, 1fr); width: 100%; }
   .card-tools .char-count { grid-column: 1 / -1; }
   .card-tools .select-label { align-self: center; }
