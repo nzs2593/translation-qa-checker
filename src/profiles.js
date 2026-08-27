@@ -1,6 +1,6 @@
 export const LANGUAGE_PROFILES = Object.freeze({
   "en": {
-    label: "English", dateOrder: "MDY", decimal: ".", grouping: ",", percentSpace: false,
+    label: "English", dateOrder: "DMY", decimal: ".", grouping: ",", percentSpace: false,
     quoteStyle: "uk-single", currencyPlacement: "prefix", currencySpace: "", defaultTimezone: null
   },
   "ru": {
