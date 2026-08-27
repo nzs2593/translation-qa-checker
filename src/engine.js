@@ -1,11 +1,15 @@
-import { checkDatesAndTime } from "./dates-time.js?v=1.1";
+import { checkDatesAndTime } from "./dates-time.js?v=1.2";
 import { createIssue, location } from "./domain.js?v=1.1";
 import { getProfile } from "./profiles.js";
 import { pairHeaderBlocks, pairLabeledSegments } from "./segments.js?v=1.1";
 
 const NUMBER_RE = /(?<![\w.,])(?:\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(?![\w]|[.,](?=\d))/g;
 const PLACEHOLDER_RE = /\{[^{}]+\}|%\w+|\$\{[^}]+\}/g;
-const TEMPORAL_TOKEN_RE = /\b\d{4}[-/.]\d{1,2}[-/.]\d{1,2}\b|\b\d{1,2}[-/.]\d{1,2}(?:[-/.]\d{2,4})?\b|\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?\s*(?:(?:GMT|UTC)\s*[+-]?\s*\d{0,2}(?::?\d{2})?)?/gi;
+const MASKED_PLACEHOLDER_RE = /(?:(?:AR|ARS)\$)?[XХ](?:[.,][XХ]{3})+/gu;
+const DATE_WORDS = "january|february|march|april|may|june|july|august|september|october|november|december|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря";
+const DAY = "(?:0?[1-9]|[12]\\d|3[01])";
+const MONTH = "(?:0?[1-9]|1[0-2])";
+const TEMPORAL_TOKEN_RE = new RegExp(`\\b\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}\\b|\\b${DAY}[/]${MONTH}(?:[/]\\d{2,4})?\\b|\\b${DAY}\\.${MONTH}(?:\\.\\d{2,4})?(?!\\.\\d)\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:(?:the|of|de)\\s+)?(?:${DATE_WORDS})(?:\\s+(?:de|of))?(?:\\s+\\d{4})?\\b|\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:AM|PM)?\\s*(?:(?:(?:GMT|UTC)\\s*[+-]?\\s*\\d{0,2}(?::?\\d{2})?))?`, "giu");
 const CURRENCY_RE = /ARS\$|AR\$|US\$|R\$|[€$£₽₮₼]|(?<![\w])(USD|EUR|GBP|RUB|UAH|KZT|MNT|AZN|UZS|BRL)(?![\w])/gi;
 
 function compareTokens(source, target, regex, issue) {
@@ -35,32 +39,92 @@ function normalizeNumber(token, profile) {
     return canonicalNumber(`${value.slice(0, lastSeparator).replace(/[.,]/g, "")}.${value.slice(lastSeparator + 1)}`);
   }
   if (hasAlternate) {
-    const [integer, fraction] = value.split(alternateSeparator);
-    return canonicalNumber(fraction.length === 3 ? integer + fraction : `${integer}.${fraction}`);
+    const parts = value.split(alternateSeparator);
+    const isGrouped = parts.length > 1 && parts.slice(1).every((part) => part.length === 3);
+    if (isGrouped) return canonicalNumber(parts.join(""));
+    const [integer, fraction] = parts;
+    return canonicalNumber(`${integer}.${fraction}`);
   }
   return canonicalNumber(hasDecimal ? value.replace(decimalSeparator, ".") : value);
 }
 
 function numberTokens(text, profile) {
-  return [...text.replace(TEMPORAL_TOKEN_RE, " ").matchAll(NUMBER_RE)].map((match) => ({
+  return [...text.replace(TEMPORAL_TOKEN_RE, (token) => " ".repeat(token.length)).matchAll(NUMBER_RE)].map((match) => ({
     raw: match[0], normalized: normalizeNumber(match[0], profile), index: match.index ?? 0
-  }));
+  })).filter((token) => {
+    const before = text.slice(Math.max(0, token.index - 12), token.index).toLowerCase();
+    return !/(?:\bdel|\bon the|\bthe)\s*$/.test(before);
+  });
+}
+
+function currencyForNumber(text, token) {
+  for (const currency of text.matchAll(CURRENCY_RE)) {
+    const start = currency.index ?? 0;
+    const end = start + currency[0].length;
+    const touches = (token.index >= end && /^[ \t\u00a0]*$/.test(text.slice(end, token.index))) ||
+      (token.index + token.raw.length <= start && /^[ \t\u00a0]*$/.test(text.slice(token.index + token.raw.length, start)));
+    if (touches) return canonicalCurrency(currency[0]);
+  }
+  return null;
 }
 
 function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true) {
-  const sourceTokens = numberTokens(source, sourceProfile);
-  const targetTokens = numberTokens(target, targetProfile);
+  const sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
+  const targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
   if (!compareCount && sourceTokens.length !== targetTokens.length) return [];
-  const same = sourceTokens.length === targetTokens.length && sourceTokens.every((token, index) => token.normalized === targetTokens[index].normalized);
+  const comparable = sourceTokens.map((sourceToken, index) => [sourceToken, targetTokens[index]])
+    .filter(([sourceToken, targetToken]) => !(sourceToken?.currency && targetToken?.currency && sourceToken.currency !== targetToken.currency));
+  const same = sourceTokens.length === targetTokens.length && comparable.every(([sourceToken, targetToken]) => sourceToken.normalized === targetToken?.normalized);
   if (same) return [];
-  const mismatchIndex = targetTokens.findIndex((token, index) => token.normalized !== sourceTokens[index]?.normalized);
-  const targetToken = targetTokens[mismatchIndex >= 0 ? mismatchIndex : 0];
-  const sourceToken = sourceTokens[mismatchIndex >= 0 ? mismatchIndex : 0];
+  const mismatch = comparable.find(([sourceToken, targetToken]) => sourceToken.normalized !== targetToken?.normalized);
+  const sourceToken = mismatch?.[0] ?? sourceTokens[0];
+  const targetToken = mismatch?.[1] ?? targetTokens[0];
   return [createIssue({ error_type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major", location_in_source: sourceToken ? location(sourceToken.index, sourceToken.index + sourceToken.raw.length) : location(0, 0), location_in_target: targetToken ? location(targetToken.index, targetToken.index + targetToken.raw.length) : location(0, 0), explanation: "Numeric values outside dates and times differ between source and target." })];
+}
+
+function maskedPlaceholderTokens(text) {
+  return [...text.matchAll(MASKED_PLACEHOLDER_RE)].map((match) => ({
+    raw: match[0], index: match.index ?? 0,
+    shape: match[0].replace(/[XХ]/gu, "X").replace(/[.,]/g, "")
+  }));
+}
+
+function compareMaskedPlaceholders(source, target) {
+  const sourceTokens = maskedPlaceholderTokens(source);
+  const targetTokens = maskedPlaceholderTokens(target);
+  for (const [index, targetToken] of targetTokens.entries()) {
+    if (!/[XХ]/u.test(targetToken.raw) || !/[X]/u.test(targetToken.raw) || !/[Х]/u.test(targetToken.raw)) continue;
+    const sourceToken = sourceTokens[index];
+    return [createIssue({
+      error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major",
+      location_in_source: sourceToken ? location(sourceToken.index, sourceToken.index + sourceToken.raw.length) : location(0, 0),
+      location_in_target: location(targetToken.index, targetToken.index + targetToken.raw.length),
+      explanation: "A placeholder mixes Latin and Cyrillic characters in the target."
+    })];
+  }
+  return [];
 }
 
 function offsetIssues(issues, offset) {
   return issues.map((issue) => ({ ...issue, location_in_target: location(issue.location_in_target.start + offset, issue.location_in_target.end + offset) }));
+}
+
+function pairPlainLines(source, target) {
+  const sourceLines = source.split(/\r?\n/);
+  const targetLines = target.split(/\r?\n/);
+  if (sourceLines.length < 8 || sourceLines.length !== targetLines.length) return [];
+  let sourceOffset = 0;
+  let targetOffset = 0;
+  const sourceNewlineLength = source.includes("\r\n") ? 2 : 1;
+  const targetNewlineLength = target.includes("\r\n") ? 2 : 1;
+  const pairs = sourceLines.map((sourceLine, index) => {
+    const targetLine = targetLines[index];
+    const pair = { source: { text: sourceLine, start: sourceOffset }, target: { text: targetLine, start: targetOffset } };
+    sourceOffset += sourceLine.length + sourceNewlineLength;
+    targetOffset += targetLine.length + targetNewlineLength;
+    return pair;
+  });
+  return pairs.some((pair) => pair.source.text.trim() && pair.target.text.trim()) ? pairs : [];
 }
 
 function coreChecks(source, target, sourceProfile, targetProfile, includePunctuation = true, compareCount = true) {
@@ -68,6 +132,7 @@ function coreChecks(source, target, sourceProfile, targetProfile, includePunctua
   issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile }));
   issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
   issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", explanation: "A placeholder is missing or changed in the target." }));
+  issues.push(...compareMaskedPlaceholders(source, target));
   if (includePunctuation && /[.!?]$/.test(source.trim()) !== /[.!?]$/.test(target.trim())) {
     issues.push(createIssue({ error_type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", location_in_source: location(Math.max(source.trim().length - 1, 0), source.trim().length), location_in_target: location(Math.max(target.length - 1, 0), target.length), explanation: "Terminal punctuation differs between source and target." }));
   }
@@ -146,12 +211,15 @@ function addCurrencyChecks(target, targetProfile, issues) {
 }
 
 function addCurrencyMismatch(source, target, issues) {
-  const sourceCurrencies = [...source.matchAll(CURRENCY_RE)].map((match) => canonicalCurrency(match[0]));
-  const targetCurrencies = [...target.matchAll(CURRENCY_RE)].map((match) => canonicalCurrency(match[0]));
+  const sourceMatches = [...source.matchAll(CURRENCY_RE)];
+  const targetMatches = [...target.matchAll(CURRENCY_RE)];
+  const sourceCurrencies = sourceMatches.map((match) => canonicalCurrency(match[0]));
+  const targetCurrencies = targetMatches.map((match) => canonicalCurrency(match[0]));
   if (sourceCurrencies.length !== targetCurrencies.length) return;
   if (sourceCurrencies.join("|") === targetCurrencies.join("|")) return;
-  const sourceMatch = source.matchAll(CURRENCY_RE).next().value;
-  const targetMatch = target.matchAll(CURRENCY_RE).next().value;
+  const mismatchIndex = sourceCurrencies.findIndex((currency, index) => currency !== targetCurrencies[index]);
+  const sourceMatch = sourceMatches[mismatchIndex] ?? sourceMatches[0];
+  const targetMatch = targetMatches[mismatchIndex] ?? targetMatches[0];
   issues.push(createIssue({ error_type: "CURRENCY_MISMATCH", pool: "Currency", severity: "Major", location_in_source: sourceMatch ? location(sourceMatch.index, sourceMatch.index + sourceMatch[0].length) : location(0, 0), location_in_target: targetMatch ? location(targetMatch.index, targetMatch.index + targetMatch[0].length) : location(0, 0), explanation: "Currency markers differ between source and target." }));
 }
 
@@ -177,10 +245,13 @@ export function runRuleEngine({ source, target, sourceLanguage = "en", targetLan
   const issues = [];
   const headerBlocks = pairHeaderBlocks(source, target);
   const pairs = pairLabeledSegments(source, target);
+  const plainLinePairs = pairPlainLines(source, target);
   if (headerBlocks.length >= 2) {
     for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false), pair.target.start));
   } else if (pairs.length >= 2) {
     for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start));
+  } else if (plainLinePairs.length >= 8) {
+    for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start));
   } else {
     issues.push(...coreChecks(source, target, sourceProfile, targetProfile));
   }
