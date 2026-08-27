@@ -132,12 +132,15 @@ function renderErrorTable() {
   }
 }
 
+function updateProfileRulesVisibility() {
+  const rules = document.querySelector(".profile-rules");
+  if (rules) rules.hidden = !(sourceText.value.trim() && targetText.value.trim());
+}
+
 function renderProfileRules(code) {
   const body = $("profile-rules-body");
   if (!body) return;
-  const rules = body.closest(".profile-rules");
-  const hasBothTexts = Boolean(sourceText.value.trim() && targetText.value.trim());
-  if (rules) rules.hidden = !hasBothTexts;
+  updateProfileRulesVisibility();
   const profile = LANGUAGE_PROFILES[code] ?? LANGUAGE_PROFILES.en;
   const dateFormats = { MDY: "MM/DD/YYYY", DMY: "DD/MM/YYYY", YMD: "YYYY-MM-DD" };
   const separatorLabel = (value) => value === "nbsp" ? (currentLocale === "ru" ? "неразрывный пробел (1 000)" : "non-breaking space (1 000)") : value;
@@ -368,7 +371,7 @@ document.addEventListener("drop", (event) => event.preventDefault());
 
 let timer;
 for (const element of [sourceText, targetText, sourceLanguage, targetLanguage]) {
-  element.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(render, 120); });
+  element.addEventListener("input", () => { updateProfileRulesVisibility(); clearTimeout(timer); timer = setTimeout(render, 120); });
   element.addEventListener("change", render);
 }
 sourceLanguage.addEventListener("change", () => {
