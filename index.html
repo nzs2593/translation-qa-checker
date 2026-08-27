@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Translation QA Checker</title>
+    <link rel="stylesheet" href="styles.css?v=1.6" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div class="header-main">
+          <div class="header-copy">
+            <p class="eyebrow">LOCAL · RULE-BASED QA</p>
+            <h1>Translation QA Checker</h1>
+            <p class="subtitle">Find translation inconsistencies without changing the target.</p>
+          </div>
+        </div>
+      </header>
+
+      <section class="workspace-grid" aria-label="Translation workspace">
+        <div class="left-stack">
+          <article class="text-card source-card">
+            <div class="card-heading">
+              <div>
+                <span class="panel-kicker">ORIGINAL</span>
+                <h2 id="source-heading">Source language</h2>
+              </div>
+              <div class="card-tools">
+                <span class="char-count" id="source-count">0 characters</span>
+                <label class="select-label" for="source-language">Source language</label>
+                <select id="source-language" aria-label="Source language"></select>
+                <label class="file-button" for="source-file-input">Open file</label>
+                <input id="source-file-input" type="file" accept=".txt,.html,.htm,.docx,text/plain,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+              </div>
+            </div>
+            <div class="drop-zone" id="source-drop-zone">
+              <div class="source-editor">
+                <div id="source-highlight-layer" class="source-highlight-layer" aria-hidden="true"></div>
+                <textarea id="source-text" spellcheck="false" placeholder="Paste the source text here or drop a file…"></textarea>
+              </div>
+              <div class="drop-hint">Drop Original file here</div>
+            </div>
+          </article>
+
+          <article class="language-card drop-zone" id="target-drop-zone">
+            <div class="card-heading">
+              <div>
+                <span class="panel-kicker">GOAL LANGUAGE</span>
+                <h2 id="target-language-heading">Auto-detect</h2>
+              </div>
+              <div class="card-tools">
+                <label class="select-label" for="target-language">Goal language</label>
+                <select id="target-language" aria-label="Goal language"></select>
+                <label class="file-button" for="target-file-input">Open file</label>
+                <input id="target-file-input" type="file" accept=".txt,.html,.htm,.docx,text/plain,text/html,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+              </div>
+            </div>
+            <div class="language-body">
+              <p>Choose a profile or use Auto-detect. The selected profile controls date formats, punctuation and numeric conventions.</p>
+              <p class="drop-copy">Drop the Goal file here or use Open file. It will appear in Target Review.</p>
+              <p class="language-status" id="language-state">Waiting for goal text</p>
+              <div class="profile-summary">
+                <span>Supported profiles</span>
+                <strong>11 language profiles</strong>
+              </div>
+            </div>
+            <div class="drop-hint">Drop Goal file here</div>
+          </article>
+        </div>
+
+        <article class="target-review-card">
+          <div class="card-heading">
+              <div>
+                <span class="panel-kicker">TARGET REVIEW</span>
+                <h2 id="target-heading">Goal language</h2>
+              </div>
+              <div class="card-tools">
+                <span class="char-count" id="target-count">0 characters</span>
+              </div>
+            </div>
+          <div class="target-editor">
+            <div id="target-highlight-layer" class="target-highlight-layer" aria-hidden="true"></div>
+            <textarea id="target-text" spellcheck="false" placeholder="Paste the translation here…"></textarea>
+          </div>
+        </article>
+      </section>
+
+      <section class="issues-card" aria-live="polite">
+        <div class="issues-heading">
+          <div>
+            <span class="panel-kicker">ISSUES</span>
+            <h2>Review findings</h2>
+          </div>
+          <div class="issues-actions">
+            <div class="issue-summary" id="issue-summary">Checking…</div>
+            <button id="export-pdf" type="button" disabled>Export PDF</button>
+          </div>
+        </div>
+        <div id="issues-list" class="issues-list"></div>
+      </section>
+
+      <footer class="app-footer">
+        <span>Deterministic checks · No LLM · No auto-correction</span>
+        <span id="checked-at">Ready</span>
+      </footer>
+    </main>
+    <script type="module" src="src/main.js?v=1.12"></script>
+  </body>
+</html>
