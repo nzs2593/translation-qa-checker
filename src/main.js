@@ -1,4 +1,4 @@
-import { runRuleEngine } from "./engine.js?v=2.5";
+import { runRuleEngine } from "./engine.js?v=2.6";
 import { detectLanguage } from "./language-detection.js?v=1.3";
 import { LANGUAGE_PROFILES } from "./profiles.js";
 import { readDocxText } from "./docx.js";
