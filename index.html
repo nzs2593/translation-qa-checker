@@ -9,12 +9,18 @@
   <body>
     <main class="app-shell">
       <header class="app-header">
-        <div class="header-main">
+        <div class="header-main" id="header-main">
           <div class="header-copy">
             <p class="eyebrow" id="eyebrow">LOCAL · RULE-BASED QA</p>
             <h1 id="app-title">CHECKform</h1>
             <p class="subtitle" id="app-subtitle">Find translation inconsistencies without changing the target.</p>
           </div>
+          <aside class="profile-rules" aria-live="polite" hidden>
+            <div class="profile-rules-heading" id="profile-rules-title">Profile conventions</div>
+            <table>
+              <tbody id="profile-rules-body"></tbody>
+            </table>
+          </aside>
           <div class="header-actions">
             <div class="locale-switch" role="group" aria-label="Interface language">
               <button class="locale-button" type="button" data-locale="en">EN</button>
@@ -73,12 +79,6 @@
                   <strong id="profiles-count">11 language profiles</strong>
                 </div>
               </div>
-              <aside class="profile-rules" aria-live="polite" hidden>
-                <div class="profile-rules-heading" id="profile-rules-title">Profile conventions</div>
-                <table>
-                  <tbody id="profile-rules-body"></tbody>
-                </table>
-              </aside>
             </div>
             <div class="drop-hint" id="goal-drop-hint">Drop Goal file here</div>
           </article>
@@ -139,6 +139,6 @@
         </table>
       </div>
     </dialog>
-    <script type="module" src="src/main.js?v=1.17"></script>
+    <script type="module" src="src/main.js?v=1.18"></script>
   </body>
 </html>
