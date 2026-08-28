@@ -9,7 +9,8 @@ const MASKED_PLACEHOLDER_RE = /(?:(?:AR|ARS)\$)?[XХ](?:[.,][XХ]{3})+/gu;
 const DATE_WORDS = "january|february|march|april|may|june|july|august|september|october|november|december|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря";
 const DAY = "(?:0?[1-9]|[12]\\d|3[01])";
 const MONTH = "(?:0?[1-9]|1[0-2])";
-const TEMPORAL_TOKEN_RE = new RegExp(`\\b\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}\\b|\\b${DAY}[/]${MONTH}(?:[/]\\d{2,4})?\\b|\\b${DAY}\\.${MONTH}(?:\\.\\d{2,4})?(?!\\.\\d)\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:(?:the|of|de)\\s+)?(?:${DATE_WORDS})(?:\\s+(?:de|of))?(?:\\s+\\d{4})?\\b|\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:AM|PM)?\\s*(?:(?:(?:GMT|UTC)\\s*[+-]?\\s*\\d{0,2}(?::?\\d{2})?))?`, "giu");
+const TEMPORAL_TOKEN_RE = new RegExp(`\\b\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}\\b|\\b${DAY}[/]${MONTH}(?:[/]\\d{2,4})?\\b|\\b${DAY}\\.${MONTH}(?:\\.\\d{2,4})?(?!\\.\\d)\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:(?:the|of|de)\\s+)?(?:${DATE_WORDS})(?:\\s+(?:de|of))?(?:\\s+\\d{4})?\\b|\\b(?:\\d{1,3}(?:st|nd|rd|th)?\\s+(?:minute|minutes)|(?:minute|minuto|minutos)\\s+\\d{1,3})\\b|\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:AM|PM)?\\s*(?:(?:(?:GMT|UTC)\\s*[+-]?\\s*\\d{0,2}(?::?\\d{2})?))?`, "giu");
+const SCORE_RE = /\b\d{1,3}\s*[-:]\s*\d{1,3}\b/g;
 const CURRENCY_RE = /ARS\$|AR\$|US\$|R\$|[€$£₽₮₼]|(?<![\w])(USD|EUR|GBP|RUB|UAH|KZT|MNT|AZN|UZS|BRL)(?![\w])/gi;
 
 function compareTokens(source, target, regex, issue) {
@@ -49,12 +50,33 @@ function normalizeNumber(token, profile) {
 }
 
 function numberTokens(text, profile) {
-  return [...text.replace(TEMPORAL_TOKEN_RE, (token) => " ".repeat(token.length)).matchAll(NUMBER_RE)].map((match) => ({
+  const masked = text
+    .replace(TEMPORAL_TOKEN_RE, (token) => " ".repeat(token.length))
+    .replace(SCORE_RE, (token) => " ".repeat(token.length));
+  return [...masked.matchAll(NUMBER_RE)].map((match) => ({
     raw: match[0], normalized: normalizeNumber(match[0], profile), index: match.index ?? 0
   })).filter((token) => {
     const before = text.slice(Math.max(0, token.index - 12), token.index).toLowerCase();
     return !/(?:\bdel|\bon the|\bthe)\s*$/.test(before);
   });
+}
+
+function shouldCompareTerminalPunctuation(source, target) {
+  const sourceText = source.trim();
+  const targetText = target.trim();
+  const sourceTerminal = sourceText.match(/[.!?]$/)?.[0] ?? "";
+  const targetTerminal = targetText.match(/[.!?]$/)?.[0] ?? "";
+  if (Boolean(sourceTerminal) === Boolean(targetTerminal)) return false;
+
+  // Short headings and FAQ labels are not sentence-level punctuation pairs.
+  const headingLike = sourceText.length < 90 && targetText.length < 120 &&
+    !/[.!?,;]/.test(sourceText.slice(0, -1)) && !/[.!?,;]/.test(targetText.slice(0, -1));
+  if (headingLike) return false;
+
+  // List entries commonly use a semicolon in the target while the source
+  // uses a full stop. This is formatting, not a translation defect.
+  if (sourceTerminal === "." && targetText.endsWith(";") && /^[a-záéíóúüñ]/u.test(sourceText) && /^[a-záéíóúüñ]/u.test(targetText)) return false;
+  return true;
 }
 
 function currencyForNumber(text, token) {
@@ -105,8 +127,35 @@ function compareMaskedPlaceholders(source, target) {
   return [];
 }
 
-function offsetIssues(issues, offset) {
-  return issues.map((issue) => ({ ...issue, location_in_target: location(issue.location_in_target.start + offset, issue.location_in_target.end + offset) }));
+function offsetIssues(issues, targetOffset, sourceOffset = 0) {
+  return issues.map((issue) => ({
+    ...issue,
+    location_in_source: issue.location_in_source ? location(issue.location_in_source.start + sourceOffset, issue.location_in_source.end + sourceOffset) : issue.location_in_source,
+    location_in_target: location(issue.location_in_target.start + targetOffset, issue.location_in_target.end + targetOffset)
+  }));
+}
+
+function splitParagraphs(text) {
+  const paragraphs = [];
+  const separator = /\r?\n(?:[ \t]*\r?\n)+/g;
+  let start = 0;
+  for (const match of text.matchAll(separator)) {
+    const raw = text.slice(start, match.index);
+    const leading = raw.search(/\S/);
+    if (leading >= 0) paragraphs.push({ text: raw.trim(), start: start + leading });
+    start = (match.index ?? 0) + match[0].length;
+  }
+  const raw = text.slice(start);
+  const leading = raw.search(/\S/);
+  if (leading >= 0) paragraphs.push({ text: raw.trim(), start: start + leading });
+  return paragraphs;
+}
+
+function pairPlainParagraphs(source, target) {
+  const sourceParagraphs = splitParagraphs(source);
+  const targetParagraphs = splitParagraphs(target);
+  if (sourceParagraphs.length < 8 || sourceParagraphs.length !== targetParagraphs.length) return [];
+  return sourceParagraphs.map((sourceParagraph, index) => ({ source: sourceParagraph, target: targetParagraphs[index] }));
 }
 
 function pairPlainLines(source, target) {
@@ -133,7 +182,7 @@ function coreChecks(source, target, sourceProfile, targetProfile, includePunctua
   issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
   issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", explanation: "A placeholder is missing or changed in the target." }));
   issues.push(...compareMaskedPlaceholders(source, target));
-  if (includePunctuation && /[.!?]$/.test(source.trim()) !== /[.!?]$/.test(target.trim())) {
+  if (includePunctuation && shouldCompareTerminalPunctuation(source, target)) {
     issues.push(createIssue({ error_type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", location_in_source: location(Math.max(source.trim().length - 1, 0), source.trim().length), location_in_target: location(Math.max(target.length - 1, 0), target.length), explanation: "Terminal punctuation differs between source and target." }));
   }
   return issues;
@@ -245,13 +294,16 @@ export function runRuleEngine({ source, target, sourceLanguage = "en", targetLan
   const issues = [];
   const headerBlocks = pairHeaderBlocks(source, target);
   const pairs = pairLabeledSegments(source, target);
+  const plainParagraphPairs = pairPlainParagraphs(source, target);
   const plainLinePairs = pairPlainLines(source, target);
   if (headerBlocks.length >= 2) {
-    for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false), pair.target.start));
+    for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false), pair.target.start, pair.source.start));
   } else if (pairs.length >= 2) {
-    for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start));
+    for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start, pair.source.start));
+  } else if (plainParagraphPairs.length >= 8) {
+    for (const pair of plainParagraphPairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start, pair.source.start));
   } else if (plainLinePairs.length >= 8) {
-    for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start));
+    for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start, pair.source.start));
   } else {
     issues.push(...coreChecks(source, target, sourceProfile, targetProfile));
   }
