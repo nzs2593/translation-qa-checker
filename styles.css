@@ -57,12 +57,12 @@ textarea { display: block; width: 100%; min-height: 0; border: 0; outline: 0; re
 .text-card > .drop-zone textarea { height: 100%; }
 .source-card textarea { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
 .source-editor { position: relative; min-height: 0; overflow: hidden; }
-.source-highlight-layer { position: absolute; inset: 0; overflow: auto; padding: 18px 16px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; color: var(--ink); font: 14px Arial, sans-serif; line-height: 1.55; pointer-events: none; }
+.source-highlight-layer { position: absolute; inset: 0; overflow: auto; padding: 18px 16px; scrollbar-gutter: stable; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; color: var(--ink); font: 14px Arial, sans-serif; line-height: 1.55; pointer-events: none; }
 .source-highlight-layer { scrollbar-width: none; }
 .source-highlight-layer::-webkit-scrollbar { display: none; }
 .source-highlight-layer mark { position: relative; padding: 1px 2px; border-radius: 3px; color: inherit; background: #ffe4a8; }
 .source-highlight-layer mark::before { content: attr(data-number); position: absolute; left: 0; top: -1.25em; min-width: 14px; padding: 1px 3px; border-radius: 8px; background: var(--green-dark); color: #fff; font: 10px Arial, sans-serif; text-align: center; }
-.source-editor textarea { position: relative; height: 100%; padding: 18px 16px; background: transparent; color: transparent; caret-color: var(--ink); overflow: auto; }
+.source-editor textarea { position: relative; height: 100%; padding: 18px 16px; scrollbar-gutter: stable; background: transparent; color: transparent; caret-color: var(--ink); overflow: auto; }
 .source-editor textarea::selection { background: rgba(7, 151, 77, .25); color: transparent; }
 textarea::placeholder { color: #8a9187; }
 .drop-zone { position: relative; }
@@ -92,17 +92,21 @@ textarea::placeholder { color: #8a9187; }
 .issues-actions button:disabled { cursor: not-allowed; opacity: .5; }
 .target-review-card { min-height: 540px; }
 .target-editor { position: relative; min-height: 0; overflow: hidden; }
-.target-highlight-layer { position: absolute; inset: 0; overflow: auto; padding: 18px 16px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; color: var(--ink); font-family: Consolas, "Courier New", monospace; font-size: 13px; line-height: 1.48; pointer-events: none; }
+.target-highlight-layer { position: absolute; inset: 0; overflow: auto; padding: 18px 16px; scrollbar-gutter: stable; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; color: var(--ink); font-family: Consolas, "Courier New", monospace; font-size: 13px; line-height: 1.48; pointer-events: none; }
 .target-highlight-layer { scrollbar-width: none; }
 .target-highlight-layer::-webkit-scrollbar { display: none; }
 .target-highlight-layer mark { padding: 1px 2px; border-radius: 3px; color: inherit; background: #ffe4a8; }
 .target-highlight-layer mark { position: relative; }
 .target-highlight-layer mark::before { content: attr(data-number); position: absolute; left: 0; top: -1.25em; min-width: 14px; padding: 1px 3px; border-radius: 8px; background: var(--green-dark); color: #fff; font: 10px Arial, sans-serif; text-align: center; }
 .target-highlight-layer mark.critical { background: #ffd0cc; }.target-highlight-layer mark.major { background: #ffe0ad; }.target-highlight-layer mark.minor { background: #ccefd9; }
-.target-editor textarea { position: relative; height: 100%; padding: 18px 16px; background: transparent; color: transparent; caret-color: var(--ink); overflow: auto; }
+.target-editor textarea { position: relative; height: 100%; padding: 18px 16px; scrollbar-gutter: stable; background: transparent; color: transparent; caret-color: var(--ink); overflow: auto; }
 .target-editor textarea::selection { background: rgba(7, 151, 77, .25); color: transparent; }
-.paragraph-number { position: relative; z-index: 2; display: inline; width: 0; height: 0; margin: 0; padding: 0; }
+.paragraph-number { position: relative; z-index: 2; display: inline-block; width: 0; height: 0; margin: 0; padding: 0; font-size: 0; line-height: 0; }
 .paragraph-number::after { content: attr(data-number); position: absolute; left: 7px; top: -1.15em; width: 20px; height: 17px; overflow: visible; white-space: nowrap; color: #fff; background: var(--green-dark); border-radius: 999px; padding: 2px 3px; font: 700 10px/13px Arial, sans-serif; text-align: center; }
+.source-highlight-layer, .target-highlight-layer { padding-right: 31px; }
+@media (max-width: 760px) {
+  .source-highlight-layer, .target-highlight-layer { padding-right: 28px; }
+}
 .issues-card { overflow: hidden; }
 .issues-list { display: grid; gap: 8px; padding: 14px 16px 16px; }
 .empty-state { padding: 28px 16px; border: 1px dashed var(--line); border-radius: 6px; background: var(--soft); color: var(--muted); text-align: center; font-size: 13px; }
