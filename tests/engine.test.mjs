@@ -129,6 +129,14 @@ const extraDateDigit = runRuleEngine({
 }).find((issue) => issue.error_type === "NUMBER_MISMATCH");
 assert.equal("Disponible el 30/06/20277.".slice(extraDateDigit.location_in_target.start, extraDateDigit.location_in_target.end), "30/06/20277");
 
+const joinedNumberWord = runRuleEngine({
+  source: "Ahora es el momento de descubrir por qué el básquetbol es emocionante.",
+  target: "Ahora es el momento de descubrir por 1que el básquetbol es emocionante.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+}).find((issue) => issue.error_type === "NUMBER_WORD_JOINED");
+assert.equal("Ahora es el momento de descubrir por 1que el básquetbol es emocionante.".slice(joinedNumberWord.location_in_target.start, joinedNumberWord.location_in_target.end), "1que");
+
 const mixedPlaceholder = runRuleEngine({
   source: "Deposit AR$Х,ХХХ.",
   target: "Depositá AR$X.ХХХ.",
