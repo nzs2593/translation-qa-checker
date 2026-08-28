@@ -82,6 +82,32 @@ function shouldCompareTerminalPunctuation(source, target) {
   return true;
 }
 
+function spanishQuestionMarkChecks(target) {
+  const issues = [];
+  for (const match of target.matchAll(/\?/g)) {
+    const sentenceStart = Math.max(target.lastIndexOf(".", match.index - 1), target.lastIndexOf("!", match.index - 1), target.lastIndexOf("?", match.index - 1), target.lastIndexOf("\\n", match.index - 1)) + 1;
+    if (!target.slice(sentenceStart, match.index + 1).includes("¿")) {
+      issues.push(createIssue({
+        error_type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor",
+        location_in_target: location(match.index, match.index + 1),
+        explanation: "In Spanish, a question should open with ¿ and close with ?."
+      }));
+    }
+  }
+  for (const match of target.matchAll(/¿/g)) {
+    const nextBoundary = target.slice(match.index + 1).search(/[.!?\\n]/);
+    const end = nextBoundary < 0 ? target.length : match.index + 1 + nextBoundary;
+    if (!target.slice(match.index + 1, end + 1).includes("?")) {
+      issues.push(createIssue({
+        error_type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor",
+        location_in_target: location(match.index, match.index + 1),
+        explanation: "In Spanish, a question should open with ¿ and close with ?."
+      }));
+    }
+  }
+  return issues;
+}
+
 function currencyForNumber(text, token) {
   for (const currency of text.matchAll(CURRENCY_RE)) {
     const start = currency.index ?? 0;
@@ -221,9 +247,11 @@ function coreChecks(source, target, sourceProfile, targetProfile, includePunctua
   issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile }));
   issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
   issues.push(...compareAttachedNumberWords(source, target));
+  const spanishQuestionIssues = targetProfile.language === "es" ? spanishQuestionMarkChecks(target) : [];
+  issues.push(...spanishQuestionIssues);
   issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", explanation: "A placeholder is missing or changed in the target." }));
   issues.push(...compareMaskedPlaceholders(source, target));
-  if (includePunctuation && shouldCompareTerminalPunctuation(source, target)) {
+  if (includePunctuation && shouldCompareTerminalPunctuation(source, target) && !spanishQuestionIssues.length) {
     issues.push(createIssue({ error_type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", location_in_source: location(Math.max(source.trim().length - 1, 0), source.trim().length), location_in_target: location(Math.max(target.length - 1, 0), target.length), explanation: "Terminal punctuation differs between source and target." }));
   }
   return issues;
