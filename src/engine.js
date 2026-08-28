@@ -11,6 +11,9 @@ const DAY = "(?:0?[1-9]|[12]\\d|3[01])";
 const MONTH = "(?:0?[1-9]|1[0-2])";
 const TEMPORAL_TOKEN_RE = new RegExp(`\\b\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}\\b|\\b${DAY}[/]${MONTH}(?:[/]\\d{2,4})?\\b|\\b${DAY}\\.${MONTH}(?:\\.\\d{2,4})?(?!\\.\\d)\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:(?:the|of|de)\\s+)?(?:${DATE_WORDS})(?:\\s+(?:de|of))?(?:\\s+\\d{4})?\\b|\\b(?:\\d{1,3}(?:st|nd|rd|th)?\\s+(?:minute|minutes)|(?:minute|minuto|minutos)\\s+\\d{1,3})\\b|\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:AM|PM)?\\s*(?:(?:(?:GMT|UTC)\\s*[+-]?\\s*\\d{0,2}(?::?\\d{2})?))?`, "giu");
 const SCORE_RE = /\b\d{1,3}\s*[-:]\s*\d{1,3}\b/g;
+const MALFORMED_DATE_RE = /\b(?:\d{1,2}[-/.]\d{1,2}[-/.]\d{5,}|\d{4}[-/.]\d{1,2}[-/.]\d{3,})\b/g;
+const DATE_SHAPE_RE = /\b\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}\b/g;
+const ATTACHED_NUMBER_WORD_RE = /(?:\b\d+(?:[.,]\d+)?[\p{Ll}][\p{L}]*\b|\b[\p{Ll}][\p{L}]*\d+(?:[.,]\d+)?\b)/gu;
 const CURRENCY_RE = /ARS\$|AR\$|US\$|R\$|[€$£₽₮₼]|(?<![\w])(USD|EUR|GBP|RUB|UAH|KZT|MNT|AZN|UZS|BRL)(?![\w])/gi;
 
 function compareTokens(source, target, regex, issue) {
@@ -91,6 +94,18 @@ function currencyForNumber(text, token) {
 }
 
 function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true) {
+  MALFORMED_DATE_RE.lastIndex = 0;
+  const malformedDate = MALFORMED_DATE_RE.exec(target);
+  if (malformedDate) {
+    DATE_SHAPE_RE.lastIndex = 0;
+    const sourceDate = DATE_SHAPE_RE.exec(source);
+    return [createIssue({
+      error_type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major",
+      location_in_source: sourceDate ? location(sourceDate.index, sourceDate.index + sourceDate[0].length) : location(0, 0),
+      location_in_target: location(malformedDate.index, malformedDate.index + malformedDate[0].length),
+      explanation: "A numeric date token contains an extra or malformed digit."
+    })];
+  }
   const sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
   const targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
   if (!compareCount && sourceTokens.length !== targetTokens.length) return [];
@@ -99,9 +114,34 @@ function compareNumbersOutsideTemporalText(source, target, sourceProfile, target
   const same = sourceTokens.length === targetTokens.length && comparable.every(([sourceToken, targetToken]) => sourceToken.normalized === targetToken?.normalized);
   if (same) return [];
   const mismatch = comparable.find(([sourceToken, targetToken]) => sourceToken.normalized !== targetToken?.normalized);
-  const sourceToken = mismatch?.[0] ?? sourceTokens[0];
-  const targetToken = mismatch?.[1] ?? targetTokens[0];
+  let sourceToken = mismatch?.[0];
+  let targetToken = mismatch?.[1];
+  if (!mismatch && sourceTokens.length !== targetTokens.length) {
+    const commonLength = Math.min(sourceTokens.length, targetTokens.length);
+    const firstDifferent = Array.from({ length: commonLength }, (_, index) => index)
+      .find((index) => sourceTokens[index].normalized !== targetTokens[index].normalized);
+    const index = firstDifferent ?? commonLength;
+    sourceToken = sourceTokens[index];
+    targetToken = targetTokens[index];
+  }
+  sourceToken ??= sourceTokens[0];
+  targetToken ??= targetTokens[0];
   return [createIssue({ error_type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major", location_in_source: sourceToken ? location(sourceToken.index, sourceToken.index + sourceToken.raw.length) : location(0, 0), location_in_target: targetToken ? location(targetToken.index, targetToken.index + targetToken.raw.length) : location(0, 0), explanation: "Numeric values outside dates and times differ between source and target." })];
+}
+
+function compareAttachedNumberWords(source, target) {
+  ATTACHED_NUMBER_WORD_RE.lastIndex = 0;
+  const targetMatch = ATTACHED_NUMBER_WORD_RE.exec(target);
+  if (!targetMatch) return [];
+  ATTACHED_NUMBER_WORD_RE.lastIndex = 0;
+  const sourceTokens = [...source.matchAll(ATTACHED_NUMBER_WORD_RE)].map((match) => match[0].toLowerCase());
+  if (sourceTokens.includes(targetMatch[0].toLowerCase())) return [];
+  return [createIssue({
+    error_type: "NUMBER_WORD_JOINED", pool: "Numbers", severity: "Minor",
+    location_in_source: location(0, 0),
+    location_in_target: location(targetMatch.index, targetMatch.index + targetMatch[0].length),
+    explanation: "A number is attached to a word; check whether a space or a missing letter is required."
+  })];
 }
 
 function maskedPlaceholderTokens(text) {
@@ -180,6 +220,7 @@ function coreChecks(source, target, sourceProfile, targetProfile, includePunctua
   const issues = [];
   issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile }));
   issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
+  issues.push(...compareAttachedNumberWords(source, target));
   issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", explanation: "A placeholder is missing or changed in the target." }));
   issues.push(...compareMaskedPlaceholders(source, target));
   if (includePunctuation && shouldCompareTerminalPunctuation(source, target)) {
