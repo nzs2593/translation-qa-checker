@@ -87,6 +87,48 @@ const localizedDate = runRuleEngine({
 });
 assert.equal(localizedDate.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
 
+const equivalentMinute = runRuleEngine({
+  source: "A red card in the 30th minute can change the game.",
+  target: "Una tarjeta roja al minuto 30 puede cambiar el partido.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+});
+assert.equal(equivalentMinute.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
+
+const equivalentScore = runRuleEngine({
+  source: "The score after the first half is 54:41 in favour of the Thunder.",
+  target: "El marcador después de la primera mitad es 54-41 a favor de los Thunder.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+});
+assert.equal(equivalentScore.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
+
+const paragraphLocalMismatch = runRuleEngine({
+  source: "The campaign is live.\n\nAvailable for 30 days from 30/06/2027.",
+  target: "La campaña está activa.\n\nDisponible durante 30 días desde el 30/06/20277.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+});
+const paragraphIssue = paragraphLocalMismatch.find((issue) => issue.error_type === "NUMBER_MISMATCH");
+assert.ok(paragraphIssue);
+assert.ok(paragraphIssue.location_in_target.start > "La campaña está activa.\n\n".length);
+
+const extraNumericToken = runRuleEngine({
+  source: "The offer is valid for 30 days.",
+  target: "La oferta es válida por 30 2 días.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+}).find((issue) => issue.error_type === "NUMBER_MISMATCH");
+assert.equal("La oferta es válida por 30 2 días.".slice(extraNumericToken.location_in_target.start, extraNumericToken.location_in_target.end), "2");
+
+const extraDateDigit = runRuleEngine({
+  source: "Available on 30/06/2027.",
+  target: "Disponible el 30/06/20277.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+}).find((issue) => issue.error_type === "NUMBER_MISMATCH");
+assert.equal("Disponible el 30/06/20277.".slice(extraDateDigit.location_in_target.start, extraDateDigit.location_in_target.end), "30/06/20277");
+
 const mixedPlaceholder = runRuleEngine({
   source: "Deposit AR$Х,ХХХ.",
   target: "Depositá AR$X.ХХХ.",
