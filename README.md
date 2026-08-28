@@ -1,4 +1,4 @@
-# CHECKform — v1.8
+# CHECKform — v1.9
 
 Local, deterministic translation QA checker. It uses only rule-based checks and never rewrites the target text. The UI follows the existing LOCform visual language with compact white panels, thin blue borders and blue actions.
 
