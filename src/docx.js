@@ -57,5 +57,5 @@ export async function readDocxText(file) {
   return paragraphs
     .map((paragraph) => Array.from(paragraph.getElementsByTagNameNS("*", "t")).map((node) => node.textContent).join(""))
     .filter((paragraph) => paragraph.length > 0)
-    .join("\n");
+    .join("\n\n");
 }
