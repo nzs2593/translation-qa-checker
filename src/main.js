@@ -1,8 +1,8 @@
-import { runRuleEngine } from "./engine.js?v=2.6";
+import { runRuleEngine } from "./engine.js?v=2.7";
 import { detectLanguage } from "./language-detection.js?v=1.3";
 import { LANGUAGE_PROFILES } from "./profiles.js";
 import { readDocxText } from "./docx.js";
-import { selectPrimaryLanguageBlock } from "./text-segmentation.js?v=1.4";
+import { selectPrimaryLanguageBlock } from "./text-segmentation.js?v=1.5";
 import { ISSUE_CATALOG, getLocale, issueDescription, poolLabel, profileLabel, setLocale, severityLabel, t } from "./i18n.js?v=1.3";
 
 const $ = (id) => document.getElementById(id);
@@ -166,6 +166,16 @@ function renderProfileRules(code) {
   }
 }
 
+function paragraphBreakPositions(text) {
+  const positions = [...text.matchAll(/\r?\n(?:[ \t]*\r?\n)+/g)].map((match) => match.index ?? 0);
+  if (text.trim()) positions.push(text.length);
+  return positions;
+}
+
+function paragraphMarkerHtml(number) {
+  return `<span class="paragraph-number" aria-hidden="true">${number}</span>`;
+}
+
 function highlightedTextHtml(text, issues, locationKey = "location_in_target") {
   const ranges = issues
     .map((issue, index) => ({ ...(issue[locationKey] ?? {}), severity: issue.severity, label: issue.error_type, number: index + 1 }))
@@ -182,14 +192,28 @@ function highlightedTextHtml(text, issues, locationKey = "location_in_target") {
       mergedRanges.push({ ...range });
     }
   }
+  const paragraphEnds = paragraphBreakPositions(text);
+  let paragraphIndex = 0;
+  const appendText = (start, end) => {
+    let html = "";
+    let cursor = start;
+    while (paragraphIndex < paragraphEnds.length && paragraphEnds[paragraphIndex] <= end) {
+      const paragraphEnd = paragraphEnds[paragraphIndex];
+      if (paragraphEnd >= cursor) html += escapeHtml(text.slice(cursor, paragraphEnd));
+      html += paragraphMarkerHtml(paragraphIndex + 1);
+      cursor = Math.max(cursor, paragraphEnd);
+      paragraphIndex += 1;
+    }
+    return html + escapeHtml(text.slice(cursor, end));
+  };
   let cursor = 0;
   let html = "";
   for (const range of mergedRanges) {
-    html += escapeHtml(text.slice(cursor, range.start));
+    html += appendText(cursor, range.start);
     html += `<mark class="${range.severity.toLowerCase()}" data-number="${range.number}" title="${escapeHtml(range.label)}">${escapeHtml(text.slice(range.start, range.end))}</mark>`;
     cursor = range.end;
   }
-  return html + escapeHtml(text.slice(cursor));
+  return html + appendText(cursor, text.length);
 }
 
 function renderTargetHighlights(text, issues) {
