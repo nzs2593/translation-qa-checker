@@ -101,6 +101,7 @@ textarea::placeholder { color: #8a9187; }
 .target-highlight-layer mark.critical { background: #ffd0cc; }.target-highlight-layer mark.major { background: #ffe0ad; }.target-highlight-layer mark.minor { background: #ccefd9; }
 .target-editor textarea { position: relative; height: 100%; padding: 18px 16px; background: transparent; color: transparent; caret-color: var(--ink); overflow: auto; }
 .target-editor textarea::selection { background: rgba(7, 151, 77, .25); color: transparent; }
+.paragraph-number { position: relative; z-index: 2; display: inline-block; width: 0; min-width: 0; margin-left: 7px; transform: translateY(-.15em); overflow: visible; white-space: nowrap; color: #fff; background: var(--green-dark); border-radius: 999px; padding: 1px 5px; font: 700 10px/1.2 Arial, sans-serif; text-align: center; }
 .issues-card { overflow: hidden; }
 .issues-list { display: grid; gap: 8px; padding: 14px 16px 16px; }
 .empty-state { padding: 28px 16px; border: 1px dashed var(--line); border-radius: 6px; background: var(--soft); color: var(--muted); text-align: center; font-size: 13px; }
