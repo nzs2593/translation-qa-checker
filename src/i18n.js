@@ -150,6 +150,7 @@ export const PROFILE_LABELS = Object.freeze({
 export const ISSUE_CATALOG = Object.freeze([
   { type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major", en: "Numeric values outside dates and times differ between source and target.", ru: "Числовое значение вне даты или времени отличается в оригинале и переводе." },
   { type: "NUMBER_WORD_JOINED", pool: "Numbers", severity: "Minor", en: "A number is attached to a word and may indicate a typo or a missing space.", ru: "Цифра присоединена к слову — возможно, это опечатка или пропущен пробел." },
+  { type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish questions should use an opening ¿ and a closing ?.", ru: "В испанском вопросе должны быть открывающий знак ¿ и закрывающий ?." },
   { type: "NUMBER_FORMAT", pool: "Numbers", severity: "Minor", en: "Digit grouping does not follow the selected language profile.", ru: "Разделители разрядов не соответствуют выбранному языковому профилю." },
   { type: "CURRENCY_MISMATCH", pool: "Currency", severity: "Major", en: "Currency markers differ between source and target.", ru: "Обозначения валюты отличаются в оригинале и переводе." },
   { type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", en: "Currency placement or spacing does not follow the selected profile.", ru: "Положение валюты или пробелы не соответствуют выбранному профилю." },
