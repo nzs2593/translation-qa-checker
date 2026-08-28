@@ -3,7 +3,7 @@ import { detectLanguage } from "./language-detection.js?v=1.3";
 import { LANGUAGE_PROFILES } from "./profiles.js";
 import { readDocxText } from "./docx.js";
 import { selectPrimaryLanguageBlock } from "./text-segmentation.js?v=1.5";
-import { ISSUE_CATALOG, getLocale, issueDescription, poolLabel, profileLabel, setLocale, severityLabel, t } from "./i18n.js?v=1.4";
+import { ISSUE_CATALOG, getLocale, issueDescription, poolLabel, profileLabel, setLocale, severityLabel, t } from "./i18n.js?v=1.5";
 
 const $ = (id) => document.getElementById(id);
 const sourceLanguage = $("source-language");
