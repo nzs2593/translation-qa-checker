@@ -85,7 +85,7 @@ function shouldCompareTerminalPunctuation(source, target) {
 function spanishQuestionMarkChecks(target) {
   const issues = [];
   for (const match of target.matchAll(/\?/g)) {
-    const sentenceStart = Math.max(target.lastIndexOf(".", match.index - 1), target.lastIndexOf("!", match.index - 1), target.lastIndexOf("?", match.index - 1), target.lastIndexOf("\\n", match.index - 1)) + 1;
+    const sentenceStart = Math.max(target.lastIndexOf(".", match.index - 1), target.lastIndexOf("!", match.index - 1), target.lastIndexOf("?", match.index - 1), target.lastIndexOf("\n", match.index - 1)) + 1;
     if (!target.slice(sentenceStart, match.index + 1).includes("¿")) {
       issues.push(createIssue({
         error_type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor",
@@ -95,7 +95,7 @@ function spanishQuestionMarkChecks(target) {
     }
   }
   for (const match of target.matchAll(/¿/g)) {
-    const nextBoundary = target.slice(match.index + 1).search(/[.!?\\n]/);
+    const nextBoundary = target.slice(match.index + 1).search(/[.!?\n]/);
     const end = nextBoundary < 0 ? target.length : match.index + 1 + nextBoundary;
     if (!target.slice(match.index + 1, end + 1).includes("?")) {
       issues.push(createIssue({
