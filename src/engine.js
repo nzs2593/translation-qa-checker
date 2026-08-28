@@ -154,7 +154,7 @@ function splitParagraphs(text) {
 function pairPlainParagraphs(source, target) {
   const sourceParagraphs = splitParagraphs(source);
   const targetParagraphs = splitParagraphs(target);
-  if (sourceParagraphs.length < 8 || sourceParagraphs.length !== targetParagraphs.length) return [];
+  if (sourceParagraphs.length < 2 || sourceParagraphs.length !== targetParagraphs.length) return [];
   return sourceParagraphs.map((sourceParagraph, index) => ({ source: sourceParagraph, target: targetParagraphs[index] }));
 }
 
