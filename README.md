@@ -1,6 +1,6 @@
-# CHECKform — v1.2
+# CHECKform — v1.4
 
-Local, deterministic translation QA checker. It uses only rule-based checks and never rewrites the target text. The first UI increment follows the existing LOCform visual language: compact white panels, thin gray-green borders, Arial/system UI, and LOCform's green action color.
+Local, deterministic translation QA checker. It uses only rule-based checks and never rewrites the target text. The UI follows the existing LOCform visual language with compact white panels, thin blue borders and blue actions.
 
 Original and Goal text can be pasted, loaded from `.txt`/`.html`, or dropped as `.docx` files. Drop the Original file into the Original card and the Goal file into the Goal Language card; after both are received, the Original file appears on the left and the Goal file appears in the large review window on the right. DOCX extraction is performed locally in the browser, without an external service.
 
@@ -22,6 +22,7 @@ Issue[]
 - `src/dates-time.js` parses dates, times, and GMT/UTC offsets, then compares normalized instants.
 - `src/engine.js` runs deterministic checks. Glossary is intentionally only a future extension point.
 - `src/segments.js` pairs repeated labelled blocks such as `Header`, `Text` and `Button`, so numbers and dates are compared inside the corresponding block instead of across a whole multi-document file.
+- DOCX paragraphs are preserved as blank-line-separated blocks in both Source and Target Review. Each visible paragraph is numbered, and matching paragraph pairs are checked independently for numbers, dates, times, currencies, placeholders and other deterministic rules.
 - `src/main.js` connects the engine to the browser UI.
 - The right-side Target Review keeps the target editable while mirroring issue ranges as inline highlights; Issues remains the detailed audit list.
 - `tests/dates-time.test.mjs` covers timezone-sensitive behavior.
@@ -48,6 +49,7 @@ node tests/dates-time.test.mjs
 - Profiles are driven by the supplied language guidance first: decimal/thousand separators, currency placement, percentage spacing, quotation style and local month names are explicit profile data.
 - Light deterministic checks include `MULTIPLE_SPACES`, `TRAILING_SPACE`, `SPACE_BEFORE_PUNCTUATION`, `NON_BREAKING_SPACE`, `NUMBER_FORMAT`, `CURRENCY_FORMAT`, `CURRENCY_MISMATCH`, `PERCENTAGE_FORMAT` and `QUOTATION_STYLE`.
 - Number formatting is normalized before value comparison, so a valid localized rendering such as English `7,500` → Argentine Spanish `7.500` is not reported as a numeric mismatch.
+- Score notation such as `54:41` → `54-41` is treated as the same score, while an extra or missing numeric token inside a paragraph remains reportable.
 - Highlight numbers and the numbered Review findings use the same included-finding order; overlapping checks are shown together on one marked fragment (for example `2, 3`).
 - Clicking a finding focuses and scrolls to the corresponding positions in both Source and Goal when both locations are available.
 - The other pools have conservative deterministic baseline checks; deeper linguistic rules and glossary matching are future increments.
