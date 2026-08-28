@@ -173,7 +173,7 @@ function paragraphBreakPositions(text) {
 }
 
 function paragraphMarkerHtml(number) {
-  return `<span class="paragraph-number" aria-hidden="true">${number}</span>`;
+  return `<span class="paragraph-number" data-number="${number}" aria-hidden="true"></span>`;
 }
 
 function highlightedTextHtml(text, issues, locationKey = "location_in_target") {
