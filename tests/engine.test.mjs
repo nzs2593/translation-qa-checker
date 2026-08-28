@@ -137,6 +137,14 @@ const joinedNumberWord = runRuleEngine({
 }).find((issue) => issue.error_type === "NUMBER_WORD_JOINED");
 assert.equal("Ahora es el momento de descubrir por 1que el básquetbol es emocionante.".slice(joinedNumberWord.location_in_target.start, joinedNumberWord.location_in_target.end), "1que");
 
+const decimalMismatch = runRuleEngine({
+  source: "The pre-match odds were 3.80.",
+  target: "Las cuotas previas fueron 3.10.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+}).find((issue) => issue.error_type === "NUMBER_MISMATCH");
+assert.equal("Las cuotas previas fueron 3.10.".slice(decimalMismatch.location_in_target.start, decimalMismatch.location_in_target.end), "3.10");
+
 const mixedPlaceholder = runRuleEngine({
   source: "Deposit AR$Х,ХХХ.",
   target: "Depositá AR$X.ХХХ.",
