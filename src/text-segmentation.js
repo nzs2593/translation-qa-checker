@@ -7,7 +7,8 @@ function scriptFamily(text) {
 }
 
 export function selectPrimaryLanguageBlock(text, preferredCode = "auto") {
-  const paragraphs = text.split(/\r?\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
+  const separator = /\r?\n(?:[ \t]*\r?\n)+/;
+  const paragraphs = (separator.test(text) ? text.split(separator) : text.split(/\r?\n/)).map((paragraph) => paragraph.trim()).filter(Boolean);
   if (paragraphs.length < 2) return text;
 
   const signals = paragraphs.map((paragraph) => detectLanguage(paragraph));
@@ -19,5 +20,5 @@ export function selectPrimaryLanguageBlock(text, preferredCode = "auto") {
   if (!primaryCode || (preferredCode !== "auto" && !strongCodes.has(primaryCode))) return text;
 
   const primaryScript = scriptFamily(paragraphs[primaryIndex >= 0 ? primaryIndex : 0]);
-  return paragraphs.filter((paragraph, index) => scriptFamily(paragraph) === primaryScript || signals[index].confidence < 0.7).join("\n");
+  return paragraphs.filter((paragraph, index) => scriptFamily(paragraph) === primaryScript || signals[index].confidence < 0.7).join("\n\n");
 }
