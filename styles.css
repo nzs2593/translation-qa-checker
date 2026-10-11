@@ -334,6 +334,46 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
   .header-main { padding: 18px 16px 16px; }
 }
 
+/* Glossary is a first-class workspace view. */
+.qa-view { display: contents; }
+.qa-view[hidden], .glossary-view[hidden] { display: none; }
+.workspace-tabs { display: flex; align-items: end; gap: 5px; padding: 0 2px; border-bottom: 1px solid var(--line); }
+.workspace-tab { min-height: 38px; padding: 0 18px; border: 0; border-bottom: 3px solid transparent; border-radius: 7px 7px 0 0; color: var(--muted); background: transparent; font-size: 13px; }
+.workspace-tab.active { color: var(--green-dark); border-bottom-color: var(--green); background: var(--soft); }
+.workspace-tab:hover { color: var(--green-dark); background: var(--soft); box-shadow: none; }
+.glossary-view { min-width: 0; overflow: hidden; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+.glossary-head { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
+.glossary-head h2 { margin: 5px 0 3px; font-size: 22px; }
+.glossary-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.glossary-tools { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.glossary-toolbar { display: flex; align-items: center; gap: 16px; padding: 14px 22px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.glossary-toolbar input, .glossary-add-form input, .glossary-term-input { min-width: 0; min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--ink); font: 13px Arial, sans-serif; }
+.glossary-toolbar input { flex: 1 1 300px; max-width: 460px; }
+.glossary-toolbar #glossary-count { margin-left: auto; white-space: nowrap; }
+.glossary-add-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; padding: 14px 22px; background: #f8fbff; border-bottom: 1px solid var(--line); }
+.glossary-add-form button { min-height: 36px; color: #fff; background: var(--green); }
+.glossary-table-scroll { max-height: min(65vh, 720px); overflow: auto; }
+.glossary-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.glossary-table th { position: sticky; top: 0; z-index: 1; padding: 11px 12px; border-bottom: 1px solid var(--line); color: var(--muted); background: #f8fbff; text-align: left; font-size: 11px; letter-spacing: .04em; }
+.glossary-table td { padding: 7px 12px; border-bottom: 1px solid #edf1f6; vertical-align: middle; }
+.glossary-table th:first-child { width: 62px; }
+.glossary-table th:nth-child(2), .glossary-table th:nth-child(3) { width: 29%; }
+.glossary-row-number { color: var(--muted); font: 11px Consolas, monospace; }
+.glossary-term-input { width: 100%; border-color: transparent; background: transparent; }
+.glossary-term-input:hover, .glossary-term-input:focus { border-color: #a9c5ef; background: #fff; outline: none; }
+.glossary-term-input::placeholder { color: #a7b1bd; }
+.glossary-note { color: var(--muted); font-size: 11px; line-height: 1.35; }
+.glossary-empty { padding: 28px !important; color: var(--muted); text-align: center; }
+.glossary-footer { display: flex; justify-content: space-between; align-items: center; min-height: 50px; padding: 8px 22px; color: var(--green-dark); font-size: 12px; }
+.glossary-footer button { min-height: 30px; font-size: 12px; }
+@media (max-width: 760px) {
+  .glossary-head, .glossary-toolbar { align-items: stretch; flex-direction: column; gap: 10px; }
+  .glossary-toolbar input { max-width: none; flex-basis: auto; }
+  .glossary-toolbar #glossary-count { margin-left: 0; }
+  .glossary-add-form { grid-template-columns: 1fr; }
+  .glossary-table { min-width: 740px; }
+}
+
 @media (max-width: 920px) {
   .header-main.has-profile-rules { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
   .header-main.has-profile-rules .profile-rules { grid-column: 1 / -1; grid-row: 2; }

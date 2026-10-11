@@ -1,9 +1,11 @@
-import { runRuleEngine } from "./engine.js?v=2.7";
+import { runRuleEngine } from "./engine.js?v=3.0";
 import { detectLanguage } from "./language-detection.js?v=1.3";
 import { LANGUAGE_PROFILES } from "./profiles.js";
 import { readDocxText } from "./docx.js";
+import { getGlossaryRows, loadGlossaryEdits } from "./glossary.js?v=2.2";
+import { initGlossaryView } from "./glossary-view.js";
 import { selectPrimaryLanguageBlock } from "./text-segmentation.js?v=1.5";
-import { ISSUE_CATALOG, getLocale, issueDescription, poolLabel, profileLabel, setLocale, severityLabel, t } from "./i18n.js?v=1.5";
+import { ISSUE_CATALOG, getLocale, issueDescription, poolLabel, profileLabel, setLocale, severityLabel, t } from "./i18n.js?v=2.2";
 
 const $ = (id) => document.getElementById(id);
 const sourceLanguage = $("source-language");
@@ -22,6 +24,8 @@ const issuePreferences = new Map();
 let filesCommitted = false;
 let currentIssues = [];
 let currentLocale = getLocale();
+let glossaryView;
+loadGlossaryEdits();
 
 function populateLanguageOptions() {
   const sourceValue = sourceLanguage.value || "auto";
@@ -44,7 +48,7 @@ function escapeHtml(value) {
 }
 
 function issueKey(issue) {
-  return `${issue.error_type}:${issue.pool}:${issue.location_in_target.start}:${issue.location_in_target.end}`;
+  return `${issue.error_type}:${issue.pool}:${issue.location_in_target.start}:${issue.location_in_target.end}:${issue.location_in_source?.start ?? ""}:${issue.glossary?.sourceTerm ?? ""}`;
 }
 
 function getIssuePreference(issue) {
@@ -114,6 +118,7 @@ function applyTranslations() {
     button.setAttribute("aria-pressed", String(active));
   }
   populateLanguageOptions();
+  glossaryView?.refresh();
   renderErrorTable();
 }
 
@@ -151,6 +156,7 @@ function renderProfileRules(code) {
   const quoteExample = profile.quoteStyle === "guillemets" ? "«…»" : profile.quoteStyle === "uk-single" ? "‘…’" : profile.quoteStyle === "double" ? "“…”" : t(currentLocale, "notSpecified");
   const rows = [
     [t(currentLocale, "dateFormat"), dateFormats[profile.dateOrder] ?? t(currentLocale, "notSpecified")],
+    ...(profile.preferredTimezoneOffsetMinutes == null ? [] : [[t(currentLocale, "targetTimezone"), `GMT${profile.preferredTimezoneOffsetMinutes < 0 ? "−" : "+"}${Math.abs(profile.preferredTimezoneOffsetMinutes) / 60}`]]),
     [t(currentLocale, "decimalSeparator"), profile.decimal],
     [t(currentLocale, "thousandSeparator"), separatorLabel(profile.grouping)],
     [t(currentLocale, "currencyFormat"), `${currencyExample} (${profile.currencyPlacement === "prefix" ? t(currentLocale, "before") : t(currentLocale, "after")})`],
@@ -259,6 +265,7 @@ function render() {
   const targetCode = targetLanguage.value === "auto" ? targetDetection.code : targetLanguage.value;
   const sourceLabel = LANGUAGE_PROFILES[sourceCode].label;
   const targetLabel = LANGUAGE_PROFILES[targetCode].label;
+  glossaryView?.syncLanguage(targetCode);
   renderProfileRules(targetCode);
   $("source-heading").textContent = t(currentLocale, "sourceLanguage");
   $("target-language-heading").textContent = t(currentLocale, "goalLanguage");
@@ -266,7 +273,7 @@ function render() {
   $("language-state").textContent = targetLanguage.value === "auto" ? targetText.value.trim() ? `${t(currentLocale, "detected")} · ${detectionReason(targetDetection.reason)}` : t(currentLocale, "waitingForGoal") : t(currentLocale, "manualProfile");
   $("source-count").textContent = `${sourceText.value.length} characters`;
   $("target-count").textContent = `${targetText.value.length} characters`;
-  const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode });
+  const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows() });
   currentIssues = issues;
   const includedIssues = issues.filter((issue) => getIssuePreference(issue).included);
   renderTargetHighlights(targetText.value, includedIssues);
@@ -430,6 +437,27 @@ $("error-table-open").addEventListener("click", () => {
 });
 $("error-table-close").addEventListener("click", () => errorTableDialog.close());
 errorTableDialog.addEventListener("click", (event) => { if (event.target === errorTableDialog) errorTableDialog.close(); });
+
+glossaryView = initGlossaryView({
+  getLocale: () => currentLocale,
+  getGoalLanguage: () => targetLanguage.value === "auto" ? detectLanguage(targetText.value).code : targetLanguage.value,
+  onChange: render
+});
+
+for (const tab of document.querySelectorAll(".workspace-tab")) {
+  tab.addEventListener("click", () => {
+    const glossary = tab.dataset.view === "glossary";
+    $("qa-view").hidden = glossary;
+    $("glossary-view").hidden = !glossary;
+    for (const button of document.querySelectorAll(".workspace-tab")) {
+      const active = button === tab;
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    }
+    if (glossary) glossaryView.refresh();
+  });
+}
 
 applyTranslations();
 render();

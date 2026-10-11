@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHECKform</title>
-    <link rel="stylesheet" href="styles.css?v=2.4" />
+    <link rel="stylesheet" href="styles.css?v=2.5" />
   </head>
   <body>
     <main class="app-shell">
@@ -30,6 +30,13 @@
           </div>
         </div>
       </header>
+
+      <nav class="workspace-tabs" aria-label="CHECKform sections">
+        <button type="button" class="workspace-tab active" id="check-tab" data-view="check" aria-current="page">Check</button>
+        <button type="button" class="workspace-tab" id="glossary-tab" data-view="glossary">Glossary</button>
+      </nav>
+
+      <div id="qa-view" class="qa-view">
 
       <section class="workspace-grid" id="workspace-grid" aria-label="Translation workspace">
         <div class="left-stack">
@@ -114,10 +121,42 @@
         </div>
         <div id="issues-list" class="issues-list"></div>
       </section>
+      </div>
+
+      <section id="glossary-view" class="glossary-view" hidden aria-labelledby="glossary-title">
+        <div class="glossary-head">
+          <div>
+            <span class="panel-kicker">TERMINOLOGY</span>
+            <h2 id="glossary-title">Glossary</h2>
+            <p id="glossary-intro">Edit a term here and CHECKform will use the new translation in the next check.</p>
+          </div>
+          <div class="glossary-tools">
+            <label id="glossary-language-label" for="glossary-language">Goal language</label>
+            <select id="glossary-language"></select>
+          </div>
+        </div>
+        <div class="glossary-toolbar">
+          <input id="glossary-search" type="search" placeholder="Search terms or translations…" autocomplete="off" />
+          <span id="glossary-source-rule"></span>
+          <span id="glossary-count"></span>
+        </div>
+        <form id="glossary-add-form" class="glossary-add-form">
+          <input id="glossary-add-source" required placeholder="New source term" />
+          <input id="glossary-add-target" placeholder="New goal term" />
+          <button type="submit" id="glossary-add-button">Add term</button>
+        </form>
+        <div class="glossary-table-scroll">
+          <table class="glossary-table">
+            <thead><tr><th>#</th><th id="glossary-from-heading">Source term</th><th id="glossary-to-heading">Goal term</th><th id="glossary-notes-heading">Notes</th></tr></thead>
+            <tbody id="glossary-table-body"></tbody>
+          </table>
+        </div>
+        <div class="glossary-footer"><span id="glossary-status" role="status"></span><button type="button" id="glossary-show-more" hidden>Show more</button></div>
+      </section>
 
       <footer class="app-footer">
         <span id="footer-copy">Deterministic checks · No LLM · No auto-correction</span>
-        <span class="app-version" id="app-version">CHECKform v1.9</span>
+        <span class="app-version" id="app-version">CHECKform v2.2</span>
         <span id="checked-at">Ready</span>
       </footer>
     </main>
@@ -139,6 +178,6 @@
         </table>
       </div>
     </dialog>
-    <script type="module" src="src/main.js?v=1.26"></script>
+    <script type="module" src="src/main.js?v=2.2"></script>
   </body>
 </html>

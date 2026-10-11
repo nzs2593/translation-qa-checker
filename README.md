@@ -1,4 +1,4 @@
-# CHECKform — v1.9
+# CHECKform — v2.2
 
 Local, deterministic translation QA checker. It uses only rule-based checks and never rewrites the target text. The UI follows the existing LOCform visual language with compact white panels, thin blue borders and blue actions.
 
@@ -19,8 +19,10 @@ Issue[]
 - `src/domain.js` contains the issue contract and the supported rule pools. Findings keep `location_in_target` and, when a source counterpart exists, `location_in_source`.
 - `src/profiles.js` contains language-profile defaults for the first supported languages.
 - `src/language-detection.js` provides deterministic script/marker-based language detection with confidence; manual Source/Goal profile selection can override it.
-- `src/dates-time.js` parses dates, times, and GMT/UTC offsets, then compares normalized instants.
-- `src/engine.js` runs deterministic checks. Glossary is intentionally only a future extension point.
+- `src/dates-time.js` pairs every date and clock time in a passage, validates calendar dates (including leap years), and compares instants after GMT/UTC normalization. The `es-AR` profile expects converted target times at GMT−3; parenthetical repetitions of the original GMT values do not hide an incorrect primary conversion.
+- `src/engine.js` runs deterministic checks, including glossary term matching within corresponding segments or paragraphs.
+- `data/5820713_glossary-0-3.xlsx` is the preserved source glossary; `scripts/build-glossary-data.py` converts its 821 rows into `src/glossary-data.js` for local browser use.
+- The Glossary tab shows the source and goal columns, supports searching and editing terms, and stores browser edits in `localStorage`. A change takes effect in the next check, without changing source or target text. Source entries that differ by capitalization remain distinct; when a capitalized glossary entry is used, a translation found with the wrong letter case produces a separate Minor finding. Ordinary lowercase entries allow sentence-initial capitalization.
 - `src/segments.js` pairs repeated labelled blocks such as `Header`, `Text` and `Button`, so numbers and dates are compared inside the corresponding block instead of across a whole multi-document file.
 - DOCX paragraphs are preserved as blank-line-separated blocks in both Source and Target Review. Each visible paragraph is numbered, and matching paragraph pairs are checked independently for numbers, dates, times, currencies, placeholders and other deterministic rules.
 - `src/main.js` connects the engine to the browser UI.
@@ -52,4 +54,5 @@ node tests/dates-time.test.mjs
 - Score notation such as `54:41` → `54-41` is treated as the same score, while an extra or missing numeric token inside a paragraph remains reportable.
 - Highlight numbers and the numbered Review findings use the same included-finding order; overlapping checks are shown together on one marked fragment (for example `2, 3`).
 - Clicking a finding focuses and scrolls to the corresponding positions in both Source and Goal when both locations are available.
-- The other pools have conservative deterministic baseline checks; deeper linguistic rules and glossary matching are future increments.
+- Glossary checks use English as the source for most goal languages and Russian for Ukrainian. A term present in the source must have its listed translation in the corresponding goal paragraph. Longer glossary phrases take precedence over contained single words; duplicate source rows supply alternative acceptable translations. Empty glossary translations are displayed for editing and do not produce a finding.
+- The other pools have conservative deterministic baseline checks; deeper linguistic rules remain future increments.

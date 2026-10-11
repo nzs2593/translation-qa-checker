@@ -145,6 +145,22 @@ const decimalMismatch = runRuleEngine({
 }).find((issue) => issue.error_type === "NUMBER_MISMATCH");
 assert.equal("Las cuotas previas fueron 3.10.".slice(decimalMismatch.location_in_target.start, decimalMismatch.location_in_target.end), "3.10");
 
+const missingSpanishOpeningQuestionMark = runRuleEngine({
+  source: "What other sports are available?",
+  target: "Qué otros deportes están disponibles?",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+}).find((issue) => issue.error_type === "SPANISH_QUESTION_MARKS");
+assert.equal("Qué otros deportes están disponibles?".slice(missingSpanishOpeningQuestionMark.location_in_target.start, missingSpanishOpeningQuestionMark.location_in_target.end), "?");
+
+const missingSpanishClosingQuestionMark = runRuleEngine({
+  source: "What other sports are available?",
+  target: "¿Qué otros deportes están disponibles",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+}).find((issue) => issue.error_type === "SPANISH_QUESTION_MARKS");
+assert.equal("¿Qué otros deportes están disponibles".slice(missingSpanishClosingQuestionMark.location_in_target.start, missingSpanishClosingQuestionMark.location_in_target.end), "¿");
+
 const mixedPlaceholder = runRuleEngine({
   source: "Deposit AR$Х,ХХХ.",
   target: "Depositá AR$X.ХХХ.",

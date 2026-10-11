@@ -1,6 +1,7 @@
-import { checkDatesAndTime } from "./dates-time.js?v=1.3";
+import { checkDatesAndTime } from "./dates-time.js?v=2.1";
 import { createIssue, location } from "./domain.js?v=1.1";
 import { getProfile } from "./profiles.js";
+import { checkGlossary } from "./glossary.js?v=2.2";
 import { pairHeaderBlocks, pairLabeledSegments } from "./segments.js?v=1.1";
 
 const NUMBER_RE = /(?<![\w.,])(?:\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(?![\w]|[.,](?=\d))/g;
@@ -356,7 +357,7 @@ function addLightChecks(source, target, targetProfile, issues) {
   addQuotationChecks(target, targetProfile, issues);
 }
 
-export function runRuleEngine({ source, target, sourceLanguage = "en", targetLanguage = "ru" }) {
+export function runRuleEngine({ source, target, sourceLanguage = "en", targetLanguage = "ru", glossaryRows }) {
   if (!source.trim() || !target.trim()) return [];
   const sourceProfile = { ...getProfile(sourceLanguage), language: sourceLanguage.split("-")[0] };
   const targetProfile = { ...getProfile(targetLanguage), language: targetLanguage.split("-")[0] };
@@ -375,6 +376,20 @@ export function runRuleEngine({ source, target, sourceLanguage = "en", targetLan
     for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start, pair.source.start));
   } else {
     issues.push(...coreChecks(source, target, sourceProfile, targetProfile));
+  }
+  const glossaryPairs = headerBlocks.length >= 2 ? headerBlocks
+    : pairs.length >= 2 ? pairs
+    : plainParagraphPairs.length >= 2 ? plainParagraphPairs
+    : plainLinePairs.length >= 8 ? plainLinePairs : [];
+  if (glossaryPairs.length) {
+    for (const pair of glossaryPairs) {
+      issues.push(...offsetIssues(
+        checkGlossary(pair.source.text, pair.target.text, sourceLanguage, targetLanguage, glossaryRows),
+        pair.target.start, pair.source.start
+      ));
+    }
+  } else {
+    issues.push(...checkGlossary(source, target, sourceLanguage, targetLanguage, glossaryRows));
   }
   addLightChecks(source, target, targetProfile, issues);
   return issues;

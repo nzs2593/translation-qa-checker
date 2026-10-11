@@ -41,6 +41,24 @@ const UI = {
     ready: "Ready",
     footer: "Deterministic checks · No LLM · No auto-correction",
     errorTable: "Error table",
+    checkTab: "Check",
+    glossaryTab: "Glossary",
+    glossaryTitle: "Glossary",
+    glossaryIntro: "Edit a term here and CHECKform will use the new translation in the next check. Changes are saved in this browser.",
+    glossarySearch: "Search terms or translations…",
+    glossaryFrom: "Source term",
+    glossaryTo: "Goal term",
+    glossaryNotes: "Notes",
+    glossaryAdd: "Add term",
+    glossaryAddSource: "New source term",
+    glossaryAddTarget: "New goal term",
+    glossarySaved: "Saved in this browser",
+    glossarySaveError: "Could not save changes in this browser",
+    glossaryRows: "{count} entries",
+    glossaryEmpty: "No entries match the search.",
+    glossaryMissing: "No translation in glossary",
+    glossaryShowMore: "Show more",
+    glossarySourceRule: "Source: {language}",
     errorTableTitle: "Error table",
     errorTableDescription: "Supported checks and their default severity",
     close: "Close",
@@ -50,6 +68,7 @@ const UI = {
     description: "Description",
     profileRulesTitle: "Profile conventions",
     dateFormat: "Date format",
+    targetTimezone: "Target time zone",
     decimalSeparator: "Decimal separator",
     thousandSeparator: "Thousand separator",
     currencyFormat: "Currency",
@@ -109,6 +128,24 @@ const UI = {
     ready: "Готово",
     footer: "Детерминированные проверки · Без LLM · Без автокоррекции",
     errorTable: "Таблица ошибок",
+    checkTab: "Проверка",
+    glossaryTab: "Словарь",
+    glossaryTitle: "Словарь",
+    glossaryIntro: "Измените термин здесь — CHECKform учтёт новый перевод при следующей проверке. Изменения сохраняются в этом браузере.",
+    glossarySearch: "Поиск по терминам и переводам…",
+    glossaryFrom: "Термин оригинала",
+    glossaryTo: "Термин перевода",
+    glossaryNotes: "Примечания",
+    glossaryAdd: "Добавить термин",
+    glossaryAddSource: "Новый термин оригинала",
+    glossaryAddTarget: "Новый термин перевода",
+    glossarySaved: "Сохранено в этом браузере",
+    glossarySaveError: "Не удалось сохранить изменения в браузере",
+    glossaryRows: "{count} записей",
+    glossaryEmpty: "По запросу записей нет.",
+    glossaryMissing: "Нет перевода в словаре",
+    glossaryShowMore: "Показать ещё",
+    glossarySourceRule: "Оригинал: {language}",
     errorTableTitle: "Таблица ошибок",
     errorTableDescription: "Доступные проверки и их градация по умолчанию",
     close: "Закрыть",
@@ -118,6 +155,7 @@ const UI = {
     description: "Описание",
     profileRulesTitle: "Правила профиля",
     dateFormat: "Формат даты",
+    targetTimezone: "Часовой пояс перевода",
     decimalSeparator: "Десятичный разделитель",
     thousandSeparator: "Разделитель тысяч",
     currencyFormat: "Валюта",
@@ -148,6 +186,8 @@ export const PROFILE_LABELS = Object.freeze({
 });
 
 export const ISSUE_CATALOG = Object.freeze([
+  { type: "GLOSSARY_TRANSLATION_MISSING", pool: "Terminology", severity: "Major", en: "A source term is present, but its listed glossary translation is missing from the matching target passage.", ru: "Термин есть в оригинале, но его перевод из словаря отсутствует в соответствующем фрагменте." },
+  { type: "GLOSSARY_CASE_MISMATCH", pool: "Terminology", severity: "Minor", en: "The glossary translation is present but its letter case differs.", ru: "Перевод из словаря найден, но регистр букв отличается." },
   { type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major", en: "Numeric values outside dates and times differ between source and target.", ru: "Числовое значение вне даты или времени отличается в оригинале и переводе." },
   { type: "NUMBER_WORD_JOINED", pool: "Numbers", severity: "Minor", en: "A number is attached to a word and may indicate a typo or a missing space.", ru: "Цифра присоединена к слову — возможно, это опечатка или пропущен пробел." },
   { type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish questions should use an opening ¿ and a closing ?.", ru: "В испанском вопросе должны быть открывающий знак ¿ и закрывающий ?." },
@@ -164,8 +204,8 @@ export const ISSUE_CATALOG = Object.freeze([
   { type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", en: "A placeholder is missing or changed in the target.", ru: "Плейсхолдер отсутствует или изменён в переводе." },
   { type: "TIMEZONE_MISSING", pool: "Dates & Time", severity: "Major", en: "Timezone is present in the source but missing in the target.", ru: "В оригинале есть часовой пояс, но в переводе он отсутствует." },
   { type: "TIMEZONE_EXTRA", pool: "Dates & Time", severity: "Minor", en: "Target adds a timezone that is not present in the source.", ru: "В переводе добавлен часовой пояс, которого нет в оригинале." },
-  { type: "TIMEZONE_MISMATCH", pool: "Dates & Time", severity: "Major", en: "The local date/time matches, but the timezone offset differs.", ru: "Местные дата и время совпадают, но смещение часового пояса различается." },
-  { type: "INVALID_DATE", pool: "Dates & Time", severity: "Major", en: "A calendar date is not valid in the source or target.", ru: "Календарная дата некорректна в оригинале или переводе." },
+  { type: "TIMEZONE_MISMATCH", pool: "Dates & Time", severity: "Major", en: "The target uses an incorrect GMT offset for the selected locale or the local time was not converted.", ru: "В переводе неверное смещение GMT для выбранного профиля или местное время не пересчитано." },
+  { type: "INVALID_DATE", pool: "Dates & Time", severity: "Major", en: "A calendar date, clock time, or GMT offset is invalid in the source or target.", ru: "В оригинале или переводе некорректны календарная дата, время или смещение GMT." },
   { type: "DATE_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target contain different calendar dates.", ru: "Календарные даты в оригинале и переводе различаются." },
   { type: "TIME_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target contain different clock times.", ru: "Время на часах в оригинале и переводе различается." },
   { type: "DATETIME_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target resolve to different moments after timezone normalization.", ru: "После нормализации часовых поясов оригинал и перевод указывают на разные моменты." }
@@ -212,6 +252,18 @@ export function catalogEntry(errorType) {
 }
 
 export function issueDescription(locale, issue) {
+  if (issue.error_type === "GLOSSARY_CASE_MISMATCH" && issue.glossary) {
+    const expected = issue.glossary.expectedTerms.join(" / ");
+    return locale === "ru"
+      ? `Регистр перевода отличается: найдено «${issue.glossary.actualTerm}», в словаре «${expected}» (строка ${issue.glossary.rows.join(", ")}).`
+      : `Translation case differs: found “${issue.glossary.actualTerm}”, glossary expects “${expected}” (row ${issue.glossary.rows.join(", ")}).`;
+  }
+  if (issue.glossary) {
+    const expected = issue.glossary.expectedTerms.join(" / ");
+    return locale === "ru"
+      ? `В оригинале «${issue.glossary.sourceTerm}». В соответствующем фрагменте перевода ожидается «${expected}» (строка словаря ${issue.glossary.rows.join(", ")}).`
+      : `Source term “${issue.glossary.sourceTerm}” is present. Expected “${expected}” in the matching target passage (glossary row ${issue.glossary.rows.join(", ")}).`;
+  }
   const entry = catalogEntry(issue.error_type);
   return entry?.[locale] ?? entry?.en ?? issue.explanation ?? "";
 }

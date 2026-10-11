@@ -14,7 +14,7 @@ export const LANGUAGE_PROFILES = Object.freeze({
   },
   "es-AR": {
     label: "Argentine Spanish", dateOrder: "DMY", decimal: ",", grouping: ".", percentSpace: false,
-    quoteStyle: null, currencyPlacement: "prefix", currencySpace: "", defaultTimezone: null,
+    quoteStyle: null, currencyPlacement: "prefix", currencySpace: "", defaultTimezone: null, preferredTimezoneOffsetMinutes: -180,
     currencyRules: { "AR$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" } }
   },
   "uz-Cyrl": {

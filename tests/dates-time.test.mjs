@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { checkDatesAndTime, parseTemporal } from "../src/dates-time.js";
+import { checkDatesAndTime, parseTemporal, parseTemporals } from "../src/dates-time.js";
+import { getProfile } from "../src/profiles.js";
 
 const profile = { dateOrder: "YMD", language: "en" };
 
@@ -14,5 +15,23 @@ assert.equal(checkDatesAndTime("2026-08-27", "27.08.2026", { sourceProfile: { da
 assert.equal(checkDatesAndTime("2026-08-27", "28.08.2026", { sourceProfile: { dateOrder: "YMD", language: "en" }, targetProfile: { dateOrder: "DMY", language: "ru" } })[0].error_type, "DATE_MISMATCH");
 assert.equal(checkDatesAndTime("00:01 GMT on 01/07/2026", "21:01 GMT-3 del 30/06/2026", { sourceProfile: { dateOrder: "DMY", language: "en" }, targetProfile: { dateOrder: "DMY", language: "es" } }).length, 0);
 assert.equal(checkDatesAndTime("00:01 GMT on 01/07/2026", "21:01 GMT-3 del 31/06/2026", { sourceProfile: { dateOrder: "DMY", language: "en" }, targetProfile: { dateOrder: "DMY", language: "es" } })[0].error_type, "INVALID_DATE");
+
+const english = { dateOrder: "DMY", language: "en" };
+const spanish = { dateOrder: "DMY", language: "es" };
+const sourceRange = "between 00:01 GMT on 01/07/2026 and 23:59 GMT on 30/06/2027";
+const targetRange = "entre las 21:01 GMT-3 del 30/06/2026 y las 20:59 GMT-3 del 30/06/2027 (las 00:01 GMT del 01/07/2026 y las 23:59 GMT del 30/06/2027)";
+assert.equal(parseTemporals(sourceRange, english).length, 2);
+assert.equal(parseTemporals(targetRange, spanish).length, 4);
+assert.deepEqual(checkDatesAndTime(sourceRange, targetRange, { sourceProfile: english, targetProfile: spanish }), []);
+assert.equal(checkDatesAndTime(sourceRange, targetRange.replace("21:01 GMT-3", "21:02 GMT-3"), { sourceProfile: english, targetProfile: spanish })[0].error_type, "DATETIME_MISMATCH");
+assert.equal(checkDatesAndTime(sourceRange, targetRange.replace("20:59 GMT-3", "20:58 GMT-3"), { sourceProfile: english, targetProfile: spanish })[0].error_type, "TIME_MISMATCH");
+assert.equal(checkDatesAndTime("00:30 GMT on 01/01/2027", "21:30 GMT-3 del 31/12/2026", { sourceProfile: english, targetProfile: spanish }).length, 0);
+assert.equal(checkDatesAndTime("00:30 GMT on 01/03/2028", "21:30 GMT-3 del 29/02/2028", { sourceProfile: english, targetProfile: spanish }).length, 0);
+assert.equal(checkDatesAndTime("00:30 GMT on 01/03/2027", "21:30 GMT-3 del 29/02/2027", { sourceProfile: english, targetProfile: spanish })[0].error_type, "INVALID_DATE");
+assert.equal(parseTemporal("1st July 2026", english).date.month, 7);
+assert.equal(parseTemporal("30 de junio de 2027", spanish).date.day, 30);
+const argentine = { ...getProfile("es-AR"), language: "es" };
+assert.deepEqual(checkDatesAndTime(sourceRange, targetRange, { sourceProfile: english, targetProfile: argentine }), []);
+assert.equal(checkDatesAndTime("00:01 GMT on 01/07/2026", "22:01 GMT-2 del 30/06/2026", { sourceProfile: english, targetProfile: argentine })[0].error_type, "TIMEZONE_MISMATCH");
 
 console.log("Dates & Time tests passed");
