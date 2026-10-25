@@ -4,6 +4,9 @@ import { LANGUAGE_PROFILES } from "./profiles.js";
 import { readDocxText } from "./docx.js";
 import { getGlossaryRows, loadGlossaryEdits } from "./glossary.js?v=2.2";
 import { initGlossaryView } from "./glossary-view.js";
+import { initGmtView } from "./gmt-view.js";
+import { initLanguageRulesView } from "./language-rules-view.js";
+import { formatTimezone, getTimezoneRule, loadTimezoneRules } from "./timezone-rules.js";
 import { selectPrimaryLanguageBlock } from "./text-segmentation.js?v=1.5";
 import { ISSUE_CATALOG, getLocale, issueDescription, poolLabel, profileLabel, setLocale, severityLabel, t } from "./i18n.js?v=2.2";
 
@@ -25,7 +28,10 @@ let filesCommitted = false;
 let currentIssues = [];
 let currentLocale = getLocale();
 let glossaryView;
+let gmtView;
+let languageRulesView;
 loadGlossaryEdits();
+loadTimezoneRules();
 
 function populateLanguageOptions() {
   const sourceValue = sourceLanguage.value || "auto";
@@ -119,6 +125,8 @@ function applyTranslations() {
   }
   populateLanguageOptions();
   glossaryView?.refresh();
+  gmtView?.refresh();
+  languageRulesView?.refresh();
   renderErrorTable();
 }
 
@@ -149,14 +157,14 @@ function renderProfileRules(code) {
   if (!body) return;
   updateProfileRulesVisibility();
   const profile = LANGUAGE_PROFILES[code] ?? LANGUAGE_PROFILES.en;
-  const dateFormats = { MDY: "MM/DD/YYYY", DMY: "DD/MM/YYYY", YMD: "YYYY-MM-DD" };
+  const timezoneRule = getTimezoneRule(code);
   const separatorLabel = (value) => value === "nbsp" ? (currentLocale === "ru" ? "неразрывный пробел (1 000)" : "non-breaking space (1 000)") : value;
   const currencySpace = profile.currencySpace === "nbsp" ? " " : profile.currencySpace ?? "";
   const currencyExample = profile.currencyPlacement === "prefix" ? `€${currencySpace}100` : `100${currencySpace}€`;
   const quoteExample = profile.quoteStyle === "guillemets" ? "«…»" : profile.quoteStyle === "uk-single" ? "‘…’" : profile.quoteStyle === "double" ? "“…”" : t(currentLocale, "notSpecified");
   const rows = [
-    [t(currentLocale, "dateFormat"), dateFormats[profile.dateOrder] ?? t(currentLocale, "notSpecified")],
-    ...(profile.preferredTimezoneOffsetMinutes == null ? [] : [[t(currentLocale, "targetTimezone"), `GMT${profile.preferredTimezoneOffsetMinutes < 0 ? "−" : "+"}${Math.abs(profile.preferredTimezoneOffsetMinutes) / 60}`]]),
+    [t(currentLocale, "dateFormat"), profile.dateFormat ?? t(currentLocale, "notSpecified")],
+    [t(currentLocale, "targetTimezone"), timezoneRule.mode === "source" ? t(currentLocale, "gmtInherit") : timezoneRule.mode === "equivalent" ? t(currentLocale, "gmtEquivalent") : formatTimezone(timezoneRule.label, timezoneRule.offsetMinutes)],
     [t(currentLocale, "decimalSeparator"), profile.decimal],
     [t(currentLocale, "thousandSeparator"), separatorLabel(profile.grouping)],
     [t(currentLocale, "currencyFormat"), `${currencyExample} (${profile.currencyPlacement === "prefix" ? t(currentLocale, "before") : t(currentLocale, "after")})`],
@@ -443,19 +451,25 @@ glossaryView = initGlossaryView({
   getGoalLanguage: () => targetLanguage.value === "auto" ? detectLanguage(targetText.value).code : targetLanguage.value,
   onChange: render
 });
+gmtView = initGmtView({ getLocale: () => currentLocale, onChange: render });
+languageRulesView = initLanguageRulesView({ getLocale: () => currentLocale });
 
 for (const tab of document.querySelectorAll(".workspace-tab")) {
   tab.addEventListener("click", () => {
-    const glossary = tab.dataset.view === "glossary";
-    $("qa-view").hidden = glossary;
-    $("glossary-view").hidden = !glossary;
+    const view = tab.dataset.view;
+    $("qa-view").hidden = view !== "check";
+    $("glossary-view").hidden = view !== "glossary";
+    $("gmt-view").hidden = view !== "gmt";
+    $("language-rules-view").hidden = view !== "rules";
     for (const button of document.querySelectorAll(".workspace-tab")) {
       const active = button === tab;
       button.classList.toggle("active", active);
       if (active) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     }
-    if (glossary) glossaryView.refresh();
+    if (view === "glossary") glossaryView.refresh();
+    if (view === "gmt") gmtView.refresh();
+    if (view === "rules") languageRulesView.refresh();
   });
 }
 

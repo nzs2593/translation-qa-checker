@@ -1,4 +1,5 @@
 import { createIssue, location } from "./domain.js?v=1.1";
+import { expectedTimezone, formatTimezone } from "./timezone-rules.js";
 
 const MONTHS = {
   en: "january february march april may june july august september october november december",
@@ -11,13 +12,15 @@ const MONTHS = {
 const MONTH_MAP = Object.fromEntries(Object.entries(MONTHS).flatMap(([language, words]) => words.split(" ").map((word, index) => [`${language}:${word}`, index + 1])));
 const MONTH_WORDS = Object.values(MONTHS).join("|").replaceAll(" ", "|");
 const DATE_RE = new RegExp(`(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})|(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{2,4})|(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:de\\s+)?(${MONTH_WORDS})(?:\\s+(?:de|of))?\\s+(\\d{4})`, "giu");
-const TIME_RE = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?\s*(?:(GMT|UTC)\s*([+-])?\s*(\d{1,2})?(?::?(\d{2}))?)?/giu;
+const TIME_RE = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?\s*(?:(GMT|UTC|MSK|МСК)(?:\s*([+\-−])\s*(\d{1,2})?(?::?(\d{2}))?)?)?/giu;
 
 function parseTimezone(zone, sign, hours = "0", minutes = "0") {
   if (!zone) return null;
-  const h = Number(hours); const m = Number(minutes);
+  const name = zone.toUpperCase();
+  const h = (name === "MSK" || name === "МСК") && !sign ? 3 : Number(hours);
+  const m = Number(minutes);
   if (h > 14 || m > 59 || (h === 14 && m !== 0)) return null;
-  return { label: `${zone.toUpperCase()}${sign ?? "+"}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`, offsetMinutes: (sign === "-" ? -1 : 1) * (h * 60 + m) };
+  return { name, label: formatTimezone(name, (sign === "-" || sign === "−" ? -1 : 1) * (h * 60 + m)), offsetMinutes: (sign === "-" || sign === "−" ? -1 : 1) * (h * 60 + m) };
 }
 
 function resolveDate(match, profile) {
@@ -52,6 +55,8 @@ function makeTemporal(text, dateMatch, timeMatch, profile) {
   if (ampm === "PM" && hour < 12) hour += 12;
   if (ampm === "AM" && hour === 12) hour = 0;
   const timezone = timeMatch ? parseTimezone(timeMatch[5], timeMatch[6], timeMatch[7] ?? "0", timeMatch[8] ?? "0") : null;
+  const zoneStart = timeMatch?.[5] ? timeMatch.index + timeMatch[0].search(/GMT|UTC|MSK|МСК/iu) : null;
+  const zoneRaw = zoneStart == null ? null : text.slice(zoneStart, timeMatch.index + timeMatch[0].length);
   const validTimezone = !timeMatch?.[5] || Boolean(timezone);
   const index = Math.min(dateMatch?.index ?? Infinity, timeMatch?.index ?? Infinity);
   const end = Math.max(dateMatch ? dateMatch.index + dateMatch[0].length : 0, timeMatch ? timeMatch.index + timeMatch[0].length : 0);
@@ -63,7 +68,8 @@ function makeTemporal(text, dateMatch, timeMatch, profile) {
     raw: text.slice(index, end), index, date,
     dateLocation: dateMatch ? location(dateMatch.index, dateMatch.index + dateMatch[0].length) : null,
     validDate: validDate(date), validTime, validTimezone, hasTime: Boolean(timeMatch),
-    hour, minute, second, timezone,
+    hour, minute, second, timezone, zoneRaw,
+    timezoneLocation: zoneStart == null ? null : location(zoneStart, zoneStart + zoneRaw.length),
     utcMillis: validDate(date) && validTime && validTimezone ? utc.getTime() - (timezone?.offsetMinutes ?? 0) * 60000 : null,
     localKey: `${base.year}-${String(base.month).padStart(2, "0")}-${String(base.day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`
   };
@@ -116,16 +122,16 @@ function sameMoment(source, target) {
   return source.localKey === target.localKey;
 }
 
-function issueFor(source, target, error_type, explanation) {
+function issueFor(source, target, error_type, explanation, targetLocation = null, timezone = null) {
   return createIssue({
-    error_type, pool: "Dates & Time", severity: error_type === "TIMEZONE_EXTRA" ? "Minor" : "Major",
+    error_type, pool: "Dates & Time", severity: ["TIMEZONE_EXTRA", "TIMEZONE_FORMAT"].includes(error_type) ? "Minor" : "Major",
     location_in_source: source ? location(source.index, source.index + source.raw.length) : location(0, 0),
-    location_in_target: target ? location(target.index, target.index + target.raw.length) : location(0, 0),
-    explanation
+    location_in_target: targetLocation ?? (target ? location(target.index, target.index + target.raw.length) : location(0, 0)),
+    explanation, timezone
   });
 }
 
-export function checkDatesAndTime(source, target, { sourceProfile, targetProfile }) {
+export function checkDatesAndTime(source, target, { sourceProfile, targetProfile, targetTimezoneRule = null }) {
   const sourceItems = parseTemporals(source, sourceProfile);
   const targetItems = parseTemporals(target, targetProfile);
   const invalid = [...sourceItems, ...targetItems].filter((item) => !item.validDate || !item.validTime || !item.validTimezone);
@@ -134,20 +140,29 @@ export function checkDatesAndTime(source, target, { sourceProfile, targetProfile
   // repetitions cannot excuse an incorrect converted time earlier in the line.
   const pairs = sourceItems.map((sourceItem, index) => [sourceItem, targetItems[index]]);
   return pairs.flatMap(([sourceItem, targetItem]) => {
-    if (targetItem && sameMoment(sourceItem, targetItem)) {
-      const preferredOffset = targetProfile.preferredTimezoneOffsetMinutes;
-      if (preferredOffset != null && sourceItem.timezone && targetItem.timezone &&
-          sourceItem.timezone.offsetMinutes !== preferredOffset && targetItem.timezone.offsetMinutes !== preferredOffset) {
-        return issueFor(sourceItem, targetItem, "TIMEZONE_MISMATCH", "Target time is equivalent, but does not use the selected locale's GMT offset.");
-      }
-      return [];
-    }
     if (!targetItem) return issueFor(sourceItem, null, "DATETIME_MISMATCH", "A source date or time is missing from the target.");
     if (sourceItem.timezone && !targetItem.timezone) return issueFor(sourceItem, targetItem, "TIMEZONE_MISSING", "Timezone is present in the source but missing in the target.");
     if (!sourceItem.timezone && targetItem.timezone) return issueFor(sourceItem, targetItem, "TIMEZONE_EXTRA", "Target adds a timezone that is not present in the source.");
+    const expected = targetTimezoneRule ? expectedTimezone(targetTimezoneRule, sourceItem.timezone) : null;
+    const canonicalTarget = targetItem.timezone ? formatTimezone(targetItem.timezone.name, targetItem.timezone.offsetMinutes) : null;
+    const formatIssue = targetItem.timezone && targetItem.zoneRaw !== canonicalTarget
+      ? issueFor(sourceItem, targetItem, "TIMEZONE_FORMAT", `Timezone marker must not contain spaces or non-standard characters: use ${canonicalTarget}.`, targetItem.timezoneLocation, { expected: canonicalTarget, actual: targetItem.zoneRaw }) : null;
+    const expectedMarker = expected ? formatTimezone(expected.label, expected.offsetMinutes) : null;
+    if (expected && targetItem.timezone && targetItem.timezone.offsetMinutes !== expected.offsetMinutes)
+      return [issueFor(sourceItem, targetItem, "TIMEZONE_OFFSET_MISMATCH", `Expected ${expectedMarker} for the selected target profile; found ${targetItem.zoneRaw}.`, targetItem.timezoneLocation, { expected: expectedMarker, actual: targetItem.zoneRaw }), ...(formatIssue ? [formatIssue] : [])];
+    if (expected && targetItem.timezone && targetItem.timezone.name !== expected.label)
+      return [issueFor(sourceItem, targetItem, "TIMEZONE_LABEL_MISMATCH", `Expected timezone marker ${expectedMarker}; found ${targetItem.zoneRaw}.`, targetItem.timezoneLocation, { expected: expectedMarker, actual: targetItem.zoneRaw }), ...(formatIssue ? [formatIssue] : [])];
+    if (targetItem && sameMoment(sourceItem, targetItem)) {
+      const preferredOffset = targetProfile.preferredTimezoneOffsetMinutes;
+      if (!targetTimezoneRule && preferredOffset != null && sourceItem.timezone && targetItem.timezone &&
+          sourceItem.timezone.offsetMinutes !== preferredOffset && targetItem.timezone.offsetMinutes !== preferredOffset) {
+        return issueFor(sourceItem, targetItem, "TIMEZONE_MISMATCH", "Target time is equivalent, but does not use the selected locale's GMT offset.");
+      }
+      return formatIssue ? [formatIssue] : [];
+    }
     if (sourceItem.timezone && targetItem.timezone && sourceItem.localKey === targetItem.localKey && sourceItem.timezone.offsetMinutes !== targetItem.timezone.offsetMinutes) return issueFor(sourceItem, targetItem, "TIMEZONE_MISMATCH", "The local date/time matches, but the timezone offset differs.");
     if (sourceItem.date && targetItem.date && !sourceItem.hasTime && !targetItem.hasTime) return issueFor(sourceItem, targetItem, "DATE_MISMATCH", "Source and target contain different calendar dates.");
-    if (sourceItem.date && targetItem.date && sourceItem.hasTime && targetItem.hasTime && sourceItem.localKey.slice(0, 10) === targetItem.localKey.slice(0, 10) && sourceItem.localKey.slice(11) !== targetItem.localKey.slice(11)) return issueFor(sourceItem, targetItem, "TIME_MISMATCH", "Source and target contain different clock times.");
-    return issueFor(sourceItem, targetItem, "DATETIME_MISMATCH", "Source and target resolve to different moments in time after timezone normalization.");
+    if (sourceItem.date && targetItem.date && sourceItem.hasTime && targetItem.hasTime && sourceItem.localKey.slice(0, 10) === targetItem.localKey.slice(0, 10) && sourceItem.localKey.slice(11) !== targetItem.localKey.slice(11)) return [issueFor(sourceItem, targetItem, "TIME_MISMATCH", "Source and target contain different clock times."), ...(formatIssue ? [formatIssue] : [])];
+    return [issueFor(sourceItem, targetItem, "DATETIME_MISMATCH", "Source and target resolve to different moments in time after timezone normalization."), ...(formatIssue ? [formatIssue] : [])];
   }).flat();
 }

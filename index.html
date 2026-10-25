@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHECKform</title>
-    <link rel="stylesheet" href="styles.css?v=2.5" />
+    <link rel="stylesheet" href="styles.css?v=2.6" />
   </head>
   <body>
     <main class="app-shell">
@@ -34,6 +34,8 @@
       <nav class="workspace-tabs" aria-label="CHECKform sections">
         <button type="button" class="workspace-tab active" id="check-tab" data-view="check" aria-current="page">Check</button>
         <button type="button" class="workspace-tab" id="glossary-tab" data-view="glossary">Glossary</button>
+        <button type="button" class="workspace-tab" id="gmt-tab" data-view="gmt">GMT</button>
+        <button type="button" class="workspace-tab" id="language-rules-tab" data-view="rules">Language rules</button>
       </nav>
 
       <div id="qa-view" class="qa-view">
@@ -154,9 +156,49 @@
         <div class="glossary-footer"><span id="glossary-status" role="status"></span><button type="button" id="glossary-show-more" hidden>Show more</button></div>
       </section>
 
+      <section id="gmt-view" class="gmt-view" hidden aria-labelledby="gmt-title">
+        <div class="glossary-head">
+          <div>
+            <span class="panel-kicker">TIME ZONES</span>
+            <h2 id="gmt-title">GMT rules</h2>
+            <p id="gmt-intro">Set the expected time marker for each target language. Changes are saved in this browser and used in the next check.</p>
+          </div>
+        </div>
+        <p id="gmt-note" class="gmt-note">A language is not a time zone. Unconfirmed locales inherit the source marker; edit a row when the project's market rule is known. English is the usual source; Ukrainian normally uses Russian as source.</p>
+        <div class="glossary-table-scroll">
+          <table class="gmt-table">
+            <thead><tr><th id="gmt-language-heading">Goal language</th><th id="gmt-source-heading">Usual source</th><th id="gmt-rule-heading">Rule</th><th id="gmt-marker-heading">Marker</th><th id="gmt-offset-heading">Offset from GMT (hours)</th><th id="gmt-example-heading">Example from 20:59 GMT</th></tr></thead>
+            <tbody id="gmt-table-body"></tbody>
+          </table>
+        </div>
+        <div class="gmt-examples">
+          <strong id="gmt-examples-title">What CHECKform checks</strong>
+          <span id="gmt-examples-copy">20:59 GMT → 17:59 GMT-3 passes for Argentine Spanish. 17:59 GMT -3 is a formatting error. 12:00 MSK equals 09:00 GMT.</span>
+        </div>
+        <div class="glossary-footer"><span id="gmt-status" role="status"></span></div>
+      </section>
+
+      <section id="language-rules-view" class="gmt-view" hidden aria-labelledby="language-rules-title">
+        <div class="glossary-head">
+          <div>
+            <span class="panel-kicker">STYLE GUIDES</span>
+            <h2 id="language-rules-title">Language rules</h2>
+            <p id="language-rules-intro">These examples come from the supplied style guides and the same profiles used by CHECKform's checks.</p>
+          </div>
+        </div>
+        <p class="gmt-note" id="language-rules-note">Examples show default short-date, number, money and punctuation conventions. Market and text-type exceptions are noted below; review ambiguous cases manually.</p>
+        <div class="glossary-table-scroll">
+          <table class="language-rules-table">
+            <thead><tr><th id="rules-language-heading">Language</th><th id="rules-date-heading">Date</th><th id="rules-number-heading">Numbers</th><th id="rules-currency-heading">Currency</th><th id="rules-percent-heading">Percent</th><th id="rules-quotes-heading">Quotes</th><th id="rules-notes-heading">Exceptions / guide</th></tr></thead>
+            <tbody id="language-rules-body"></tbody>
+          </table>
+        </div>
+        <div class="gmt-examples"><strong id="language-rules-checks-title">Automated checks</strong><span id="language-rules-checks-copy">Dates, number values, currency position and spacing, percent spacing, quotation style and extra spaces are checked by profile. Contextual exceptions still need human review.</span></div>
+      </section>
+
       <footer class="app-footer">
         <span id="footer-copy">Deterministic checks · No LLM · No auto-correction</span>
-        <span class="app-version" id="app-version">CHECKform v2.2</span>
+        <span class="app-version" id="app-version">CHECKform v2.4</span>
         <span id="checked-at">Ready</span>
       </footer>
     </main>
@@ -178,6 +220,6 @@
         </table>
       </div>
     </dialog>
-    <script type="module" src="src/main.js?v=2.2"></script>
+    <script defer src="checkform.bundle.js?v=2.4"></script>
   </body>
 </html>

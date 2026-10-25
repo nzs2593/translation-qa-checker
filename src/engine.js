@@ -1,4 +1,5 @@
 import { checkDatesAndTime } from "./dates-time.js?v=2.1";
+import { getTimezoneRule } from "./timezone-rules.js";
 import { createIssue, location } from "./domain.js?v=1.1";
 import { getProfile } from "./profiles.js";
 import { checkGlossary } from "./glossary.js?v=2.2";
@@ -10,7 +11,7 @@ const MASKED_PLACEHOLDER_RE = /(?:(?:AR|ARS)\$)?[XХ](?:[.,][XХ]{3})+/gu;
 const DATE_WORDS = "january|february|march|april|may|june|july|august|september|october|november|december|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря";
 const DAY = "(?:0?[1-9]|[12]\\d|3[01])";
 const MONTH = "(?:0?[1-9]|1[0-2])";
-const TEMPORAL_TOKEN_RE = new RegExp(`\\b\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}\\b|\\b${DAY}[/]${MONTH}(?:[/]\\d{2,4})?\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:(?:the|of|de)\\s+)?(?:${DATE_WORDS})(?:\\s+(?:de|of))?(?:\\s+\\d{4})?\\b|\\b(?:\\d{1,3}(?:st|nd|rd|th)?\\s+(?:minute|minutes)|(?:minute|minuto|minutos)\\s+\\d{1,3})\\b|\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:AM|PM)?\\s*(?:(?:(?:GMT|UTC)\\s*[+-]?\\s*\\d{0,2}(?::?\\d{2})?))?`, "giu");
+const TEMPORAL_TOKEN_RE = new RegExp(`\\b\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}\\b|\\b${DAY}[/]${MONTH}(?:[/]\\d{2,4})?\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:(?:the|of|de)\\s+)?(?:${DATE_WORDS})(?:\\s+(?:de|of))?(?:\\s+\\d{4})?\\b|\\b(?:\\d{1,3}(?:st|nd|rd|th)?\\s+(?:minute|minutes)|(?:minute|minuto|minutos)\\s+\\d{1,3})\\b|\\b\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:AM|PM)?\\s*(?:(?:(?:GMT|UTC|MSK|МСК)(?:\\s*[+\\-−]\\s*\\d{0,2}(?::?\\d{2})?)?))?`, "giu");
 const SCORE_RE = /\b\d{1,3}\s*[-:]\s*\d{1,3}\b/g;
 const MALFORMED_DATE_RE = /\b(?:\d{1,2}[-/.]\d{1,2}[-/.]\d{5,}|\d{4}[-/.]\d{1,2}[-/.]\d{3,})\b/g;
 const DATE_SHAPE_RE = /\b\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}\b/g;
@@ -243,9 +244,10 @@ function pairPlainLines(source, target) {
   return pairs.some((pair) => pair.source.text.trim() && pair.target.text.trim()) ? pairs : [];
 }
 
-function coreChecks(source, target, sourceProfile, targetProfile, includePunctuation = true, compareCount = true) {
+function coreChecks(source, target, sourceProfile, targetProfile, includePunctuation = true, compareCount = true, targetTimezoneRule = null) {
   const issues = [];
-  issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile }));
+  issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile, targetTimezoneRule }));
+  issues.push(...checkNumericDateFormat(source, target, targetProfile));
   issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
   issues.push(...compareAttachedNumberWords(source, target));
   const spanishQuestionIssues = targetProfile.language === "es" ? spanishQuestionMarkChecks(target) : [];
@@ -256,6 +258,25 @@ function coreChecks(source, target, sourceProfile, targetProfile, includePunctua
     issues.push(createIssue({ error_type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", location_in_source: location(Math.max(source.trim().length - 1, 0), source.trim().length), location_in_target: location(Math.max(target.length - 1, 0), target.length), explanation: "Terminal punctuation differs between source and target." }));
   }
   return issues;
+}
+
+function checkNumericDateFormat(source, target, profile) {
+  if (!profile.dateSeparator) return [];
+  const sourceDates = [...source.matchAll(DATE_SHAPE_RE)];
+  return [...target.matchAll(DATE_SHAPE_RE)].flatMap((match, index) => {
+    const parts = match[0].split(/[-/.]/);
+    const actualOrder = parts[0].length === 4 ? "YMD" : "DMY";
+    const separators = match[0].match(/[-/.]/g) ?? [];
+    if (actualOrder === profile.dateOrder && separators.every((separator) => separator === profile.dateSeparator)) return [];
+    const counterpart = sourceDates[index];
+    return [createIssue({
+      error_type: "DATE_FORMAT", pool: "Dates & Time", severity: "Minor",
+      location_in_source: counterpart ? location(counterpart.index, counterpart.index + counterpart[0].length) : location(0, 0),
+      location_in_target: location(match.index, match.index + match[0].length),
+      explanation: `Numeric dates in this language should use ${profile.dateFormat}.`,
+      format: { expected: profile.dateFormat, actual: match[0] }
+    })];
+  });
 }
 
 function addSpacingChecks(target, targetProfile, issues) {
@@ -361,21 +382,22 @@ export function runRuleEngine({ source, target, sourceLanguage = "en", targetLan
   if (!source.trim() || !target.trim()) return [];
   const sourceProfile = { ...getProfile(sourceLanguage), language: sourceLanguage.split("-")[0] };
   const targetProfile = { ...getProfile(targetLanguage), language: targetLanguage.split("-")[0] };
+  const timezoneRule = getTimezoneRule(targetLanguage);
   const issues = [];
   const headerBlocks = pairHeaderBlocks(source, target);
   const pairs = pairLabeledSegments(source, target);
   const plainParagraphPairs = pairPlainParagraphs(source, target);
   const plainLinePairs = pairPlainLines(source, target);
   if (headerBlocks.length >= 2) {
-    for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false), pair.target.start, pair.source.start));
+    for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false, timezoneRule), pair.target.start, pair.source.start));
   } else if (pairs.length >= 2) {
-    for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start, pair.source.start));
+    for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
   } else if (plainParagraphPairs.length >= 8) {
-    for (const pair of plainParagraphPairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start, pair.source.start));
+    for (const pair of plainParagraphPairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
   } else if (plainLinePairs.length >= 8) {
-    for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile), pair.target.start, pair.source.start));
+    for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
   } else {
-    issues.push(...coreChecks(source, target, sourceProfile, targetProfile));
+    issues.push(...coreChecks(source, target, sourceProfile, targetProfile, true, true, timezoneRule));
   }
   const glossaryPairs = headerBlocks.length >= 2 ? headerBlocks
     : pairs.length >= 2 ? pairs

@@ -1,4 +1,4 @@
-# CHECKform — v2.2
+# CHECKform — v2.4
 
 Local, deterministic translation QA checker. It uses only rule-based checks and never rewrites the target text. The UI follows the existing LOCform visual language with compact white panels, thin blue borders and blue actions.
 
@@ -20,6 +20,10 @@ Issue[]
 - `src/profiles.js` contains language-profile defaults for the first supported languages.
 - `src/language-detection.js` provides deterministic script/marker-based language detection with confidence; manual Source/Goal profile selection can override it.
 - `src/dates-time.js` pairs every date and clock time in a passage, validates calendar dates (including leap years), and compares instants after GMT/UTC normalization. The `es-AR` profile expects converted target times at GMT−3; parenthetical repetitions of the original GMT values do not hide an incorrect primary conversion.
+- The GMT tab stores a per-language timezone rule in the browser. Argentine Spanish defaults to `GMT-3`; Russian to Cyrillic `МСК` (GMT+3). Ukrainian accepts an equivalent instant from a Russian source; other unconfirmed markets inherit the source timezone until a project-specific rule is entered. Exact marker spelling and spacing are checked.
+- The Language rules tab shows short dates, number separators, currency examples, percent spacing, quotation marks and guide-specific exceptions for all 11 profiles. The table is a quick reference to the profile values used by the checker.
+- `CHECKform-presentation-brief.md` is a Russian product description and presentation outline.
+- The planned Chrome extension is the primary future review surface for Crowdin: it will run this engine on visible source/target segment pairs as they appear on scroll. A timezone finding will highlight its exact marker, time or date in the segment and appear under the same finding number in a collapsible panel. The extension is not included in this site release.
 - `src/engine.js` runs deterministic checks, including glossary term matching within corresponding segments or paragraphs.
 - `data/5820713_glossary-0-3.xlsx` is the preserved source glossary; `scripts/build-glossary-data.py` converts its 821 rows into `src/glossary-data.js` for local browser use.
 - The Glossary tab shows the source and goal columns, supports searching and editing terms, and stores browser edits in `localStorage`. A change takes effect in the next check, without changing source or target text. Source entries that differ by capitalization remain distinct; when a capitalized glossary entry is used, a translation found with the wrong letter case produces a separate Minor finding. Ordinary lowercase entries allow sentence-initial capitalization.
@@ -31,7 +35,7 @@ Issue[]
 
 ## Run
 
-Open `index.html` in a modern browser. No build step, backend, external service, or API key is required. `.txt`, `.html`, and `.docx` are read locally.
+Open `index.html` in a modern browser. It loads `checkform.bundle.js` as a classic script, so the tabs also work from a direct `file://` URL. No backend, external service, or API key is required. `.txt`, `.html`, and `.docx` are read locally. After changing source files, rebuild the bundle with `npx --yes esbuild@0.28.2 src/main.js --bundle --format=iife --outfile=checkform.bundle.js`.
 
 For the tests, run:
 
@@ -48,6 +52,7 @@ node tests/dates-time.test.mjs
 - `20:59 GMT` and `17:59 GMT-3` represent the same instant and pass.
 - `20:59 GMT` and `20:59 GMT-3` yield `TIMEZONE_MISMATCH`.
 - A different normalized instant yields `DATETIME_MISMATCH`.
+- A wrong timezone offset or marker yields `TIMEZONE_OFFSET_MISMATCH` or `TIMEZONE_LABEL_MISMATCH`; `GMT -3` yields `TIMEZONE_FORMAT`. Numeric dates using the wrong target separator/order yield `DATE_FORMAT`.
 - Profiles are driven by the supplied language guidance first: decimal/thousand separators, currency placement, percentage spacing, quotation style and local month names are explicit profile data.
 - Light deterministic checks include `MULTIPLE_SPACES`, `TRAILING_SPACE`, `SPACE_BEFORE_PUNCTUATION`, `NON_BREAKING_SPACE`, `NUMBER_FORMAT`, `CURRENCY_FORMAT`, `CURRENCY_MISMATCH`, `PERCENTAGE_FORMAT` and `QUOTATION_STYLE`.
 - Number formatting is normalized before value comparison, so a valid localized rendering such as English `7,500` → Argentine Spanish `7.500` is not reported as a numeric mismatch.

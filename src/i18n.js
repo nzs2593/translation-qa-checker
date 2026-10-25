@@ -43,6 +43,30 @@ const UI = {
     errorTable: "Error table",
     checkTab: "Check",
     glossaryTab: "Glossary",
+    gmtTab: "GMT",
+    gmtTitle: "GMT & time zones",
+    gmtIntro: "Set the expected marker and offset by target language. Changes are saved in this browser and applied to the next check.",
+    gmtNote: "A language is not a time zone. Until a market-specific rule is confirmed, keep the source marker and offset. English is the usual source; Ukrainian normally uses Russian.",
+    gmtSource: "Usual source",
+    gmtRule: "Target rule",
+    gmtMarker: "Marker",
+    gmtOffset: "Offset from GMT (hours)",
+    gmtExample: "Example from 20:59 GMT",
+    gmtInherit: "Keep source zone",
+    gmtEquivalent: "Equivalent moment (any marker)",
+    gmtFixed: "Fixed marker and offset",
+    gmtExamplesTitle: "Checks",
+    gmtExamplesCopy: "20:59 GMT → 17:59 GMT-3 passes for Argentine Spanish. GMT -3 has an extra space. 12:00 МСК = 09:00 GMT.",
+    gmtSaved: "GMT rule saved in this browser",
+    gmtSaveError: "Enter a valid offset from -12 to +14 hours",
+    rulesTab: "Language rules",
+    rulesTitle: "Language conventions",
+    rulesIntro: "A quick reference based on the supplied style guides and CHECKform's language profiles.",
+    rulesNote: "Examples show default formats. Market and content-type exceptions need manual review.",
+    rulesLanguage: "Language", rulesDate: "Date", rulesNumber: "Numbers", rulesCurrency: "Currency",
+    rulesPercent: "Percent", rulesQuotes: "Quotes", rulesNotes: "Exceptions / guide",
+    rulesChecksTitle: "Automated checks",
+    rulesChecksCopy: "CHECKform checks comparable numeric values, dates, currency markers and placement, percent spacing, quotation style, and extra spaces. Ambiguous formats require review.",
     glossaryTitle: "Glossary",
     glossaryIntro: "Edit a term here and CHECKform will use the new translation in the next check. Changes are saved in this browser.",
     glossarySearch: "Search terms or translations…",
@@ -130,6 +154,30 @@ const UI = {
     errorTable: "Таблица ошибок",
     checkTab: "Проверка",
     glossaryTab: "Словарь",
+    gmtTab: "GMT",
+    gmtTitle: "GMT и часовые пояса",
+    gmtIntro: "Укажите маркер и смещение для целевого языка. Изменения сохраняются в браузере и применяются при следующей проверке.",
+    gmtNote: "Язык не равен часовому поясу. Пока правило рынка не подтверждено, сохраняем маркер и смещение оригинала. Обычно оригинал английский; для украинского — русский.",
+    gmtSource: "Обычный оригинал",
+    gmtRule: "Правило перевода",
+    gmtMarker: "Маркер",
+    gmtOffset: "Смещение от GMT (часы)",
+    gmtExample: "Пример от 20:59 GMT",
+    gmtInherit: "Как в оригинале",
+    gmtEquivalent: "Тот же момент (любой маркер)",
+    gmtFixed: "Заданы маркер и смещение",
+    gmtExamplesTitle: "Примеры проверок",
+    gmtExamplesCopy: "20:59 GMT → 17:59 GMT-3 — верно для аргентинского испанского. GMT -3 — лишний пробел. 12:00 МСК = 09:00 GMT.",
+    gmtSaved: "Правило GMT сохранено в этом браузере",
+    gmtSaveError: "Укажите корректное смещение от −12 до +14 часов",
+    rulesTab: "Правила языков",
+    rulesTitle: "Языковые правила",
+    rulesIntro: "Краткая памятка по присланным стайлгайдам и языковым профилям CHECKform.",
+    rulesNote: "В таблице базовые форматы. Исключения по рынку и типу текста требуют проверки человеком.",
+    rulesLanguage: "Язык", rulesDate: "Дата", rulesNumber: "Числа", rulesCurrency: "Валюта",
+    rulesPercent: "Проценты", rulesQuotes: "Кавычки", rulesNotes: "Исключения / документ",
+    rulesChecksTitle: "Автоматические проверки",
+    rulesChecksCopy: "CHECKform сравнивает числовые значения и даты, проверяет обозначения и положение валют, пробелы перед %, кавычки и лишние пробелы. Неоднозначные форматы требуют просмотра.",
     glossaryTitle: "Словарь",
     glossaryIntro: "Измените термин здесь — CHECKform учтёт новый перевод при следующей проверке. Изменения сохраняются в этом браузере.",
     glossarySearch: "Поиск по терминам и переводам…",
@@ -205,7 +253,11 @@ export const ISSUE_CATALOG = Object.freeze([
   { type: "TIMEZONE_MISSING", pool: "Dates & Time", severity: "Major", en: "Timezone is present in the source but missing in the target.", ru: "В оригинале есть часовой пояс, но в переводе он отсутствует." },
   { type: "TIMEZONE_EXTRA", pool: "Dates & Time", severity: "Minor", en: "Target adds a timezone that is not present in the source.", ru: "В переводе добавлен часовой пояс, которого нет в оригинале." },
   { type: "TIMEZONE_MISMATCH", pool: "Dates & Time", severity: "Major", en: "The target uses an incorrect GMT offset for the selected locale or the local time was not converted.", ru: "В переводе неверное смещение GMT для выбранного профиля или местное время не пересчитано." },
+  { type: "TIMEZONE_OFFSET_MISMATCH", pool: "Dates & Time", severity: "Major", en: "The target timezone offset differs from the GMT table.", ru: "Смещение часового пояса в переводе не соответствует таблице GMT." },
+  { type: "TIMEZONE_LABEL_MISMATCH", pool: "Dates & Time", severity: "Major", en: "The target timezone marker differs from the GMT table.", ru: "Маркер часового пояса в переводе не соответствует таблице GMT." },
+  { type: "TIMEZONE_FORMAT", pool: "Dates & Time", severity: "Minor", en: "The timezone marker contains a space or non-standard sign; use its exact spelling from the GMT table.", ru: "Маркер часового пояса написан с лишним пробелом или нестандартным знаком; используйте точную запись из таблицы GMT." },
   { type: "INVALID_DATE", pool: "Dates & Time", severity: "Major", en: "A calendar date, clock time, or GMT offset is invalid in the source or target.", ru: "В оригинале или переводе некорректны календарная дата, время или смещение GMT." },
+  { type: "DATE_FORMAT", pool: "Dates & Time", severity: "Minor", en: "Numeric date format does not follow the selected language profile.", ru: "Числовая дата не соответствует формату выбранного языка." },
   { type: "DATE_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target contain different calendar dates.", ru: "Календарные даты в оригинале и переводе различаются." },
   { type: "TIME_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target contain different clock times.", ru: "Время на часах в оригинале и переводе различается." },
   { type: "DATETIME_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target resolve to different moments after timezone normalization.", ru: "После нормализации часовых поясов оригинал и перевод указывают на разные моменты." }
@@ -220,12 +272,13 @@ const SEVERITY_LABELS = {
 };
 
 export function getLocale() {
-  return localStorage.getItem("translation-qa-locale") === "ru" ? "ru" : "en";
+  try { return localStorage.getItem("translation-qa-locale") === "ru" ? "ru" : "en"; }
+  catch { return "en"; }
 }
 
 export function setLocale(locale) {
   const next = INTERFACE_LOCALES.includes(locale) ? locale : "en";
-  localStorage.setItem("translation-qa-locale", next);
+  try { localStorage.setItem("translation-qa-locale", next); } catch { /* File URLs may disable persistent storage. */ }
   return next;
 }
 
@@ -252,6 +305,15 @@ export function catalogEntry(errorType) {
 }
 
 export function issueDescription(locale, issue) {
+  if (issue.format) {
+    const { expected, actual } = issue.format;
+    return locale === "ru" ? `Формат даты: ожидается ${expected}, найдено «${actual}».` : `Date format: expected ${expected}; found “${actual}”.`;
+  }
+  if (issue.timezone) {
+    const { expected, actual } = issue.timezone;
+    const detail = locale === "ru" ? `Ожидается «${expected}», найдено «${actual}».` : `Expected “${expected}”; found “${actual}”.`;
+    return `${catalogEntry(issue.error_type)?.[locale] ?? issue.explanation ?? ""} ${detail}`;
+  }
   if (issue.error_type === "GLOSSARY_CASE_MISMATCH" && issue.glossary) {
     const expected = issue.glossary.expectedTerms.join(" / ");
     return locale === "ru"
