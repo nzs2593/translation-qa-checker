@@ -159,15 +159,17 @@ function renderProfileRules(code) {
   const profile = LANGUAGE_PROFILES[code] ?? LANGUAGE_PROFILES.en;
   const timezoneRule = getTimezoneRule(code);
   const separatorLabel = (value) => value === "nbsp" ? (currentLocale === "ru" ? "неразрывный пробел (1 000)" : "non-breaking space (1 000)") : value;
-  const currencySpace = profile.currencySpace === "nbsp" ? " " : profile.currencySpace ?? "";
-  const currencyExample = profile.currencyPlacement === "prefix" ? `€${currencySpace}100` : `100${currencySpace}€`;
+  const currencyMarker = { "es-AR": "AR$", "pt-BR": "R$", ru: "₽", mn: "MNT", az: "₼" }[code] ?? "€";
+  const currencyRule = profile.currencyRules?.[currencyMarker] ?? { placement: profile.currencyPlacement, space: profile.currencySpace };
+  const currencySpace = currencyRule.space === "nbsp" ? " " : currencyRule.space ?? "";
+  const currencyExample = currencyRule.placement === "prefix" ? `${currencyMarker}${currencySpace}100` : `100${currencySpace}${currencyMarker}`;
   const quoteExample = profile.quoteStyle === "guillemets" ? "«…»" : profile.quoteStyle === "uk-single" ? "‘…’" : profile.quoteStyle === "double" ? "“…”" : t(currentLocale, "notSpecified");
   const rows = [
     [t(currentLocale, "dateFormat"), profile.dateFormat ?? t(currentLocale, "notSpecified")],
     [t(currentLocale, "targetTimezone"), timezoneRule.mode === "source" ? t(currentLocale, "gmtInherit") : timezoneRule.mode === "equivalent" ? t(currentLocale, "gmtEquivalent") : formatTimezone(timezoneRule.label, timezoneRule.offsetMinutes)],
     [t(currentLocale, "decimalSeparator"), profile.decimal],
     [t(currentLocale, "thousandSeparator"), separatorLabel(profile.grouping)],
-    [t(currentLocale, "currencyFormat"), `${currencyExample} (${profile.currencyPlacement === "prefix" ? t(currentLocale, "before") : t(currentLocale, "after")})`],
+    [t(currentLocale, "currencyFormat"), `${currencyExample} (${currencyRule.placement === "prefix" ? t(currentLocale, "before") : t(currentLocale, "after")})`],
     [t(currentLocale, "percentageFormat"), `100${profile.percentSpace ? " " : ""}%`],
     [t(currentLocale, "quotationMarks"), quoteExample]
   ];

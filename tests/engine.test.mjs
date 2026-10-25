@@ -27,6 +27,12 @@ const localizedCurrency = runRuleEngine({
 assert.equal(localizedCurrency.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
 assert.equal(localizedCurrency.some((issue) => issue.error_type === "CURRENCY_FORMAT"), false);
 
+const argentineEuro = runRuleEngine({
+  source: "The fee is €100.", target: "La comisión es 100€.",
+  sourceLanguage: "en", targetLanguage: "es-AR"
+});
+assert.equal(argentineEuro.some((issue) => issue.error_type === "CURRENCY_FORMAT"), false);
+
 const spacing = runRuleEngine({
   source: "The payment is 20%.",
   target: "El pago es 20 %.  ",

@@ -90,7 +90,7 @@
       currencySpace: "",
       defaultTimezone: null,
       preferredTimezoneOffsetMinutes: -180,
-      currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "USD": { placement: "prefix", space: " " }, "ARS": { placement: "prefix", space: " " } }
+      currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "\u20AC": { placement: "suffix", space: "" }, "EUR": { placement: "suffix", space: " " }, "USD": { placement: "prefix", space: " " }, "ARS": { placement: "prefix", space: " " } }
     },
     "uz-Cyrl": {
       label: "Uzbek Cyrillic",
@@ -2362,15 +2362,17 @@ ${GUIDE[code]}`
     const profile = LANGUAGE_PROFILES[code] ?? LANGUAGE_PROFILES.en;
     const timezoneRule = getTimezoneRule(code);
     const separatorLabel = (value) => value === "nbsp" ? currentLocale === "ru" ? "\u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B (1\xA0000)" : "non-breaking space (1\xA0000)" : value;
-    const currencySpace = profile.currencySpace === "nbsp" ? "\xA0" : profile.currencySpace ?? "";
-    const currencyExample = profile.currencyPlacement === "prefix" ? `\u20AC${currencySpace}100` : `100${currencySpace}\u20AC`;
+    const currencyMarker = { "es-AR": "AR$", "pt-BR": "R$", ru: "\u20BD", mn: "MNT", az: "\u20BC" }[code] ?? "\u20AC";
+    const currencyRule2 = profile.currencyRules?.[currencyMarker] ?? { placement: profile.currencyPlacement, space: profile.currencySpace };
+    const currencySpace = currencyRule2.space === "nbsp" ? "\xA0" : currencyRule2.space ?? "";
+    const currencyExample = currencyRule2.placement === "prefix" ? `${currencyMarker}${currencySpace}100` : `100${currencySpace}${currencyMarker}`;
     const quoteExample2 = profile.quoteStyle === "guillemets" ? "\xAB\u2026\xBB" : profile.quoteStyle === "uk-single" ? "\u2018\u2026\u2019" : profile.quoteStyle === "double" ? "\u201C\u2026\u201D" : t2(currentLocale, "notSpecified");
     const rows = [
       [t2(currentLocale, "dateFormat"), profile.dateFormat ?? t2(currentLocale, "notSpecified")],
       [t2(currentLocale, "targetTimezone"), timezoneRule.mode === "source" ? t2(currentLocale, "gmtInherit") : timezoneRule.mode === "equivalent" ? t2(currentLocale, "gmtEquivalent") : formatTimezone(timezoneRule.label, timezoneRule.offsetMinutes)],
       [t2(currentLocale, "decimalSeparator"), profile.decimal],
       [t2(currentLocale, "thousandSeparator"), separatorLabel(profile.grouping)],
-      [t2(currentLocale, "currencyFormat"), `${currencyExample} (${profile.currencyPlacement === "prefix" ? t2(currentLocale, "before") : t2(currentLocale, "after")})`],
+      [t2(currentLocale, "currencyFormat"), `${currencyExample} (${currencyRule2.placement === "prefix" ? t2(currentLocale, "before") : t2(currentLocale, "after")})`],
       [t2(currentLocale, "percentageFormat"), `100${profile.percentSpace ? " " : ""}%`],
       [t2(currentLocale, "quotationMarks"), quoteExample2]
     ];
