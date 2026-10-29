@@ -27,6 +27,7 @@ const issuePreferences = new Map();
 let filesCommitted = false;
 let currentIssues = [];
 let currentLocale = getLocale();
+let findingsDocked = false;
 let glossaryView;
 let gmtView;
 let languageRulesView;
@@ -107,6 +108,10 @@ function applyTranslations() {
   $("export-pdf").textContent = t(currentLocale, "exportPdf");
   $("footer-copy").textContent = t(currentLocale, "footer");
   $("error-table-open").textContent = t(currentLocale, "errorTable");
+  $("reset-workspace").textContent = t(currentLocale, "startAgain");
+  $("dock-findings").textContent = t(currentLocale, findingsDocked ? "bottomView" : "sideView");
+  $("drag-findings").title = t(currentLocale, "dragFindings");
+  $("drag-findings").setAttribute("aria-label", t(currentLocale, "dragFindings"));
   $("error-table-kicker").textContent = currentLocale === "ru" ? "СПРАВОЧНИК ОШИБОК" : "ERROR REFERENCE";
   $("error-table-title").textContent = t(currentLocale, "errorTableTitle");
   $("error-table-description").textContent = t(currentLocale, "errorTableDescription");
@@ -183,7 +188,7 @@ function renderProfileRules(code) {
 }
 
 function paragraphBreakPositions(text) {
-  const positions = [...text.matchAll(/\r?\n(?:[ \t]*\r?\n)+/g)].map((match) => match.index ?? 0);
+  const positions = [...text.matchAll(/\r?\n(?:[ \t]*\r?\n)+/g)].map((match) => (match.index ?? 0) + (match[0].startsWith("\r\n") ? 2 : 1));
   if (text.trim()) positions.push(text.length);
   return positions;
 }
@@ -194,7 +199,7 @@ function paragraphMarkerHtml(number) {
 
 function highlightedTextHtml(text, issues, locationKey = "location_in_target") {
   const ranges = issues
-    .map((issue, index) => ({ ...(issue[locationKey] ?? {}), severity: issue.severity, label: issue.error_type, number: index + 1 }))
+    .map((issue, index) => ({ ...(issue[locationKey] ?? {}), severity: issue.severity, label: issue.error_type, number: index + 1, hint: `${index + 1}. ${issue.error_type}: ${issueExplanation(issue)}` }))
     .filter((range) => Number.isInteger(range.start) && Number.isInteger(range.end) && range.end > range.start)
     .sort((a, b) => a.start - b.start);
   const mergedRanges = [];
@@ -204,6 +209,7 @@ function highlightedTextHtml(text, issues, locationKey = "location_in_target") {
       previous.end = Math.max(previous.end, range.end);
       previous.number = `${previous.number}, ${range.number}`;
       previous.label = `${previous.label} · ${range.label}`;
+      previous.hint = `${previous.hint}\n${range.hint}`;
     } else {
       mergedRanges.push({ ...range });
     }
@@ -226,7 +232,9 @@ function highlightedTextHtml(text, issues, locationKey = "location_in_target") {
   let html = "";
   for (const range of mergedRanges) {
     html += appendText(cursor, range.start);
-    html += `<mark class="${range.severity.toLowerCase()}" data-number="${range.number}" title="${escapeHtml(range.label)}">${escapeHtml(text.slice(range.start, range.end))}</mark>`;
+    const sourceReference = locationKey === "location_in_source";
+    const hint = sourceReference ? `${currentLocale === "ru" ? "Фрагмент оригинала для ошибки" : "Source reference for finding"} ${range.number}` : range.hint;
+    html += `<mark class="${sourceReference ? "source-reference" : range.severity.toLowerCase()}" data-start="${range.start}" data-number="${range.number}" title="${escapeHtml(hint)}">${escapeHtml(text.slice(range.start, range.end))}</mark>`;
     cursor = range.end;
   }
   return html + appendText(cursor, text.length);
@@ -234,6 +242,7 @@ function highlightedTextHtml(text, issues, locationKey = "location_in_target") {
 
 function renderTargetHighlights(text, issues) {
   const layer = $("target-highlight-layer");
+  layer.style.setProperty("--paragraph-rule-width", `${Math.max(80, layer.clientWidth - 48)}px`);
   layer.innerHTML = highlightedTextHtml(text, issues);
   layer.scrollTop = targetText.scrollTop;
   layer.scrollLeft = targetText.scrollLeft;
@@ -241,6 +250,7 @@ function renderTargetHighlights(text, issues) {
 
 function renderSourceHighlights(text, issues) {
   const layer = $("source-highlight-layer");
+  layer.style.setProperty("--paragraph-rule-width", `${Math.max(80, layer.clientWidth - 48)}px`);
   layer.innerHTML = highlightedTextHtml(text, issues, "location_in_source");
   layer.scrollTop = sourceText.scrollTop;
   layer.scrollLeft = sourceText.scrollLeft;
@@ -284,6 +294,7 @@ function render() {
   $("source-count").textContent = `${sourceText.value.length} characters`;
   $("target-count").textContent = `${targetText.value.length} characters`;
   const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows() });
+  $("workspace-grid").classList.toggle("both-loaded", Boolean(sourceText.value.trim() && targetText.value.trim()));
   currentIssues = issues;
   const includedIssues = issues.filter((issue) => getIssuePreference(issue).included);
   renderTargetHighlights(targetText.value, includedIssues);
@@ -401,10 +412,11 @@ for (const kind of ["source", "target"]) {
   const input = fileInputs[kind];
   const zone = $(`${kind}-drop-zone`);
   input.addEventListener("change", () => loadFile(kind, input.files[0]));
-  zone.addEventListener("dragenter", (event) => { event.preventDefault(); event.stopPropagation(); zone.classList.add("drag-over"); });
-  zone.addEventListener("dragover", (event) => { event.preventDefault(); event.stopPropagation(); if (event.dataTransfer) event.dataTransfer.dropEffect = "copy"; zone.classList.add("drag-over"); });
+  zone.addEventListener("dragenter", (event) => { if (!event.dataTransfer?.types?.includes("Files")) return; event.preventDefault(); event.stopPropagation(); zone.classList.add("drag-over"); });
+  zone.addEventListener("dragover", (event) => { if (!event.dataTransfer?.types?.includes("Files")) return; event.preventDefault(); event.stopPropagation(); if (event.dataTransfer) event.dataTransfer.dropEffect = "copy"; zone.classList.add("drag-over"); });
   zone.addEventListener("dragleave", (event) => { event.preventDefault(); event.stopPropagation(); if (!zone.contains(event.relatedTarget)) zone.classList.remove("drag-over"); });
   zone.addEventListener("drop", (event) => {
+    if (!event.dataTransfer?.files?.length) return;
     event.preventDefault(); event.stopPropagation(); zone.classList.remove("drag-over"); loadFile(kind, event.dataTransfer?.files?.[0]);
   });
 }
@@ -431,6 +443,86 @@ sourceText.addEventListener("scroll", () => {
   $("source-highlight-layer").scrollLeft = sourceText.scrollLeft;
 });
 exportPdfButton.addEventListener("click", () => exportPdf(currentIssues));
+
+$("reset-workspace").addEventListener("click", () => {
+  clearTimeout(timer);
+  for (const kind of ["source", "target"]) {
+    fileInputs[kind].value = "";
+    pendingFileTexts[kind] = null;
+    rawFileTexts[kind] = null;
+    const zone = $(`${kind}-drop-zone`);
+    delete zone.dataset.fileName;
+    delete zone.dataset.fileStatus;
+    delete zone.dataset.fileError;
+  }
+  filesCommitted = false;
+  issuePreferences.clear();
+  sourceLanguage.value = "auto";
+  targetLanguage.value = "auto";
+  sourceText.value = "";
+  targetText.value = "";
+  sourceText.scrollTop = targetText.scrollTop = 0;
+  $("check-tab").click();
+  render();
+});
+
+function setFindingsDocked(docked) {
+  findingsDocked = docked;
+  $("qa-view").classList.toggle("findings-docked", findingsDocked);
+  $("dock-resizer").hidden = !findingsDocked;
+  $("dock-findings").setAttribute("aria-pressed", String(findingsDocked));
+  $("dock-findings").textContent = t(currentLocale, findingsDocked ? "bottomView" : "sideView");
+}
+$("dock-findings").addEventListener("click", () => setFindingsDocked(!findingsDocked));
+$("drag-findings").addEventListener("dragstart", (event) => {
+  event.dataTransfer.setData("text/plain", "checkform-findings");
+  event.dataTransfer.effectAllowed = "move";
+  $("qa-view").classList.add("dragging-findings");
+});
+$("drag-findings").addEventListener("dragend", () => $("qa-view").classList.remove("dragging-findings"));
+$("qa-view").addEventListener("dragover", (event) => {
+  if (!$("qa-view").classList.contains("dragging-findings")) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+});
+$("qa-view").addEventListener("drop", (event) => {
+  if (!$("qa-view").classList.contains("dragging-findings")) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const bounds = $("qa-view").getBoundingClientRect();
+  setFindingsDocked(event.clientX > bounds.left + bounds.width * .58);
+  $("qa-view").classList.remove("dragging-findings");
+});
+
+const dockResizer = $("dock-resizer");
+dockResizer.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  dockResizer.setPointerCapture(event.pointerId);
+  const move = (pointer) => {
+    const bounds = $("qa-view").getBoundingClientRect();
+    const width = Math.max(260, Math.min(bounds.width * .42, bounds.right - pointer.clientX));
+    $("qa-view").style.setProperty("--findings-width", `${width}px`);
+  };
+  const stop = () => {
+    dockResizer.removeEventListener("pointermove", move);
+    dockResizer.removeEventListener("pointerup", stop);
+    dockResizer.removeEventListener("pointercancel", stop);
+  };
+  dockResizer.addEventListener("pointermove", move);
+  dockResizer.addEventListener("pointerup", stop);
+  dockResizer.addEventListener("pointercancel", stop);
+});
+
+for (const [layer, textarea] of [[$("target-highlight-layer"), targetText], [$("source-highlight-layer"), sourceText]]) {
+  layer.addEventListener("pointerdown", (event) => {
+    const mark = event.target.closest("mark[data-start]");
+    if (!mark) return;
+    event.preventDefault();
+    const position = Number(mark.dataset.start);
+    textarea.focus();
+    textarea.setSelectionRange(position, position);
+  });
+}
 
 for (const button of document.querySelectorAll(".locale-button")) {
   button.addEventListener("click", () => {

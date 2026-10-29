@@ -91,6 +91,22 @@ const localizedMoney = runRuleEngine({
 assert.equal(localizedMoney.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
 assert.equal(localizedMoney.some((issue) => issue.error_type === "CURRENCY_MISMATCH"), true);
 
+const percentageAfterSpanishDel = runRuleEngine({
+  source: "However, to get you back in the game, we’ll give you a 50% Casino Bonus based on your next deposit.",
+  target: "Sin embargo, para que vuelvas a jugar, vamos a darte un Bono de Casino del 50% en función de tu próximo depósito.",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+});
+assert.equal(percentageAfterSpanishDel.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
+
+const orderedFindings = runRuleEngine({
+  source: "The deposit is €5. More text.",
+  target: "El depósito es AR$7.500. Más texto. ",
+  sourceLanguage: "en",
+  targetLanguage: "es-AR"
+});
+assert.deepEqual(orderedFindings.map((issue) => issue.location_in_target.start), [...orderedFindings.map((issue) => issue.location_in_target.start)].sort((a, b) => a - b));
+
 const localizedDate = runRuleEngine({
   source: "Runs from 1st July 2026 until 30th June 2027.",
   target: "Disponible entre el 1 de julio de 2026 y el 30 de junio de 2027.",

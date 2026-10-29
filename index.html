@@ -27,6 +27,7 @@
               <button class="locale-button" type="button" data-locale="ru">RU</button>
             </div>
             <button id="error-table-open" type="button">Error table</button>
+            <button id="reset-workspace" type="button">Start again</button>
           </div>
         </div>
       </header>
@@ -110,6 +111,7 @@
         </article>
       </section>
 
+      <div id="dock-resizer" class="dock-resizer" role="separator" aria-orientation="vertical" aria-label="Resize findings panel" hidden></div>
       <section class="issues-card" aria-live="polite">
         <div class="issues-heading">
           <div>
@@ -118,6 +120,8 @@
           </div>
           <div class="issues-actions">
             <div class="issue-summary" id="issue-summary">Checking…</div>
+            <span id="drag-findings" class="drag-findings" draggable="true" role="img" aria-label="Drag findings panel" title="Drag findings to the right or below">⋮⋮</span>
+            <button id="dock-findings" type="button" aria-pressed="false">Side view</button>
             <button id="export-pdf" type="button" disabled>Export PDF</button>
           </div>
         </div>
@@ -198,7 +202,7 @@
 
       <footer class="app-footer">
         <span id="footer-copy">Deterministic checks · No LLM · No auto-correction</span>
-        <span class="app-version" id="app-version">CHECKform v2.5</span>
+        <span class="app-version" id="app-version">CHECKform v2.6</span>
         <span id="checked-at">Ready</span>
       </footer>
     </main>
@@ -220,6 +224,6 @@
         </table>
       </div>
     </dialog>
-    <script defer src="checkform.bundle.js?v=2.5"></script>
+    <script defer src="checkform.bundle.js?v=2.6"></script>
   </body>
 </html>

@@ -60,10 +60,7 @@ function numberTokens(text, profile) {
     .replace(SCORE_RE, (token) => " ".repeat(token.length));
   return [...masked.matchAll(NUMBER_RE)].map((match) => ({
     raw: match[0], normalized: normalizeNumber(match[0], profile), index: match.index ?? 0
-  })).filter((token) => {
-    const before = text.slice(Math.max(0, token.index - 12), token.index).toLowerCase();
-    return !/(?:\bdel|\bon the|\bthe)\s*$/.test(before);
-  });
+  }));
 }
 
 function shouldCompareTerminalPunctuation(source, target) {
@@ -452,5 +449,5 @@ export function runRuleEngine({ source, target, sourceLanguage = "en", targetLan
     issues.push(...checkGlossary(source, target, sourceLanguage, targetLanguage, glossaryRows));
   }
   addLightChecks(source, target, targetProfile, issues);
-  return issues;
+  return issues.sort((a, b) => a.location_in_target.start - b.location_in_target.start || a.location_in_target.end - b.location_in_target.end);
 }

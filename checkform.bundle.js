@@ -710,10 +710,7 @@
       raw: match[0],
       normalized: normalizeNumber(match[0], profile),
       index: match.index ?? 0
-    })).filter((token) => {
-      const before = text.slice(Math.max(0, token.index - 12), token.index).toLowerCase();
-      return !/(?:\bdel|\bon the|\bthe)\s*$/.test(before);
-    });
+    }));
   }
   function shouldCompareTerminalPunctuation(source, target) {
     const sourceText2 = source.trim();
@@ -1084,7 +1081,7 @@
       issues.push(...checkGlossary(source, target, sourceLanguage2, targetLanguage2, glossaryRows));
     }
     addLightChecks(source, target, targetProfile, issues);
-    return issues;
+    return issues.sort((a, b) => a.location_in_target.start - b.location_in_target.start || a.location_in_target.end - b.location_in_target.end);
   }
 
   // src/language-detection.js?v=1.3
@@ -1139,6 +1136,9 @@
       scores.da += 1;
       scores.az += 1;
       scores["uz-Latn"] += 1;
+    }
+    if (/\bAR\$\s*\d/iu.test(text) || /\b(?:depositá|hacé|volvé|completá|apurate|llevate|recibí|obtené|podés|tenés)\b/iu.test(normalized)) {
+      scores["es-AR"] = scores.es + 12;
     }
     const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
     const [code, score] = ranked[0];
@@ -1234,6 +1234,10 @@
       noFindings: "No findings",
       noViolations: "No rule violations found in this increment.",
       exportPdf: "Export PDF",
+      startAgain: "Start again",
+      sideView: "Findings on side",
+      bottomView: "Findings below",
+      dragFindings: "Drag findings to the right or below",
       count: "Count",
       edit: "Edit",
       done: "Done",
@@ -1350,6 +1354,10 @@
       noFindings: "\u041E\u0448\u0438\u0431\u043E\u043A \u043D\u0435\u0442",
       noViolations: "\u041D\u0430 \u044D\u0442\u043E\u043C \u044D\u0442\u0430\u043F\u0435 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0438\u0439 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E.",
       exportPdf: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 PDF",
+      startAgain: "\u041D\u0430\u0447\u0430\u0442\u044C \u0437\u0430\u043D\u043E\u0432\u043E",
+      sideView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u0431\u043E\u043A\u0443",
+      bottomView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u043D\u0438\u0437\u0443",
+      dragFindings: "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0448\u0438\u0431\u043E\u043A \u0432\u043F\u0440\u0430\u0432\u043E \u0438\u043B\u0438 \u0432\u043D\u0438\u0437",
       count: "\u0423\u0447\u0438\u0442\u044B\u0432\u0430\u0442\u044C",
       edit: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C",
       done: "\u0413\u043E\u0442\u043E\u0432\u043E",
@@ -1893,6 +1901,9 @@ ${GUIDE[code]}`
       scores.az += 1;
       scores["uz-Latn"] += 1;
     }
+    if (/\bAR\$\s*\d/iu.test(text) || /\b(?:depositá|hacé|volvé|completá|apurate|llevate|recibí|obtené|podés|tenés)\b/iu.test(normalized)) {
+      scores["es-AR"] = scores.es + 12;
+    }
     const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
     const [code, score] = ranked[0];
     const secondScore = ranked[1]?.[1] ?? 0;
@@ -1953,6 +1964,10 @@ ${GUIDE[code]}`
       noFindings: "No findings",
       noViolations: "No rule violations found in this increment.",
       exportPdf: "Export PDF",
+      startAgain: "Start again",
+      sideView: "Findings on side",
+      bottomView: "Findings below",
+      dragFindings: "Drag findings to the right or below",
       count: "Count",
       edit: "Edit",
       done: "Done",
@@ -2069,6 +2084,10 @@ ${GUIDE[code]}`
       noFindings: "\u041E\u0448\u0438\u0431\u043E\u043A \u043D\u0435\u0442",
       noViolations: "\u041D\u0430 \u044D\u0442\u043E\u043C \u044D\u0442\u0430\u043F\u0435 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0438\u0439 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E.",
       exportPdf: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 PDF",
+      startAgain: "\u041D\u0430\u0447\u0430\u0442\u044C \u0437\u0430\u043D\u043E\u0432\u043E",
+      sideView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u0431\u043E\u043A\u0443",
+      bottomView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u043D\u0438\u0437\u0443",
+      dragFindings: "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0448\u0438\u0431\u043E\u043A \u0432\u043F\u0440\u0430\u0432\u043E \u0438\u043B\u0438 \u0432\u043D\u0438\u0437",
       count: "\u0423\u0447\u0438\u0442\u044B\u0432\u0430\u0442\u044C",
       edit: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C",
       done: "\u0413\u043E\u0442\u043E\u0432\u043E",
@@ -2282,6 +2301,7 @@ ${GUIDE[code]}`
   var filesCommitted = false;
   var currentIssues = [];
   var currentLocale = getLocale();
+  var findingsDocked = false;
   var glossaryView;
   var gmtView;
   var languageRulesView;
@@ -2354,6 +2374,10 @@ ${GUIDE[code]}`
     $4("export-pdf").textContent = t2(currentLocale, "exportPdf");
     $4("footer-copy").textContent = t2(currentLocale, "footer");
     $4("error-table-open").textContent = t2(currentLocale, "errorTable");
+    $4("reset-workspace").textContent = t2(currentLocale, "startAgain");
+    $4("dock-findings").textContent = t2(currentLocale, findingsDocked ? "bottomView" : "sideView");
+    $4("drag-findings").title = t2(currentLocale, "dragFindings");
+    $4("drag-findings").setAttribute("aria-label", t2(currentLocale, "dragFindings"));
     $4("error-table-kicker").textContent = currentLocale === "ru" ? "\u0421\u041F\u0420\u0410\u0412\u041E\u0427\u041D\u0418\u041A \u041E\u0428\u0418\u0411\u041E\u041A" : "ERROR REFERENCE";
     $4("error-table-title").textContent = t2(currentLocale, "errorTableTitle");
     $4("error-table-description").textContent = t2(currentLocale, "errorTableDescription");
@@ -2436,7 +2460,7 @@ ${GUIDE[code]}`
     }
   }
   function paragraphBreakPositions(text) {
-    const positions = [...text.matchAll(/\r?\n(?:[ \t]*\r?\n)+/g)].map((match) => match.index ?? 0);
+    const positions = [...text.matchAll(/\r?\n(?:[ \t]*\r?\n)+/g)].map((match) => (match.index ?? 0) + (match[0].startsWith("\r\n") ? 2 : 1));
     if (text.trim()) positions.push(text.length);
     return positions;
   }
@@ -2444,7 +2468,7 @@ ${GUIDE[code]}`
     return `<span class="paragraph-number" data-number="${number}" aria-hidden="true"></span>`;
   }
   function highlightedTextHtml(text, issues, locationKey = "location_in_target") {
-    const ranges = issues.map((issue, index) => ({ ...issue[locationKey] ?? {}, severity: issue.severity, label: issue.error_type, number: index + 1 })).filter((range) => Number.isInteger(range.start) && Number.isInteger(range.end) && range.end > range.start).sort((a, b) => a.start - b.start);
+    const ranges = issues.map((issue, index) => ({ ...issue[locationKey] ?? {}, severity: issue.severity, label: issue.error_type, number: index + 1, hint: `${index + 1}. ${issue.error_type}: ${issueExplanation(issue)}` })).filter((range) => Number.isInteger(range.start) && Number.isInteger(range.end) && range.end > range.start).sort((a, b) => a.start - b.start);
     const mergedRanges = [];
     for (const range of ranges) {
       const previous = mergedRanges[mergedRanges.length - 1];
@@ -2452,6 +2476,8 @@ ${GUIDE[code]}`
         previous.end = Math.max(previous.end, range.end);
         previous.number = `${previous.number}, ${range.number}`;
         previous.label = `${previous.label} \xB7 ${range.label}`;
+        previous.hint = `${previous.hint}
+${range.hint}`;
       } else {
         mergedRanges.push({ ...range });
       }
@@ -2474,19 +2500,23 @@ ${GUIDE[code]}`
     let html = "";
     for (const range of mergedRanges) {
       html += appendText(cursor, range.start);
-      html += `<mark class="${range.severity.toLowerCase()}" data-number="${range.number}" title="${escapeHtml(range.label)}">${escapeHtml(text.slice(range.start, range.end))}</mark>`;
+      const sourceReference = locationKey === "location_in_source";
+      const hint = sourceReference ? `${currentLocale === "ru" ? "\u0424\u0440\u0430\u0433\u043C\u0435\u043D\u0442 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0430 \u0434\u043B\u044F \u043E\u0448\u0438\u0431\u043A\u0438" : "Source reference for finding"} ${range.number}` : range.hint;
+      html += `<mark class="${sourceReference ? "source-reference" : range.severity.toLowerCase()}" data-start="${range.start}" data-number="${range.number}" title="${escapeHtml(hint)}">${escapeHtml(text.slice(range.start, range.end))}</mark>`;
       cursor = range.end;
     }
     return html + appendText(cursor, text.length);
   }
   function renderTargetHighlights(text, issues) {
     const layer = $4("target-highlight-layer");
+    layer.style.setProperty("--paragraph-rule-width", `${Math.max(80, layer.clientWidth - 48)}px`);
     layer.innerHTML = highlightedTextHtml(text, issues);
     layer.scrollTop = targetText.scrollTop;
     layer.scrollLeft = targetText.scrollLeft;
   }
   function renderSourceHighlights(text, issues) {
     const layer = $4("source-highlight-layer");
+    layer.style.setProperty("--paragraph-rule-width", `${Math.max(80, layer.clientWidth - 48)}px`);
     layer.innerHTML = highlightedTextHtml(text, issues, "location_in_source");
     layer.scrollTop = sourceText.scrollTop;
     layer.scrollLeft = sourceText.scrollLeft;
@@ -2528,6 +2558,7 @@ ${GUIDE[code]}`
     $4("source-count").textContent = `${sourceText.value.length} characters`;
     $4("target-count").textContent = `${targetText.value.length} characters`;
     const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows() });
+    $4("workspace-grid").classList.toggle("both-loaded", Boolean(sourceText.value.trim() && targetText.value.trim()));
     currentIssues = issues;
     const includedIssues = issues.filter((issue) => getIssuePreference(issue).included);
     renderTargetHighlights(targetText.value, includedIssues);
@@ -2695,11 +2726,13 @@ ${GUIDE[code]}`
     const zone = $4(`${kind}-drop-zone`);
     input.addEventListener("change", () => loadFile(kind, input.files[0]));
     zone.addEventListener("dragenter", (event) => {
+      if (!event.dataTransfer?.types?.includes("Files")) return;
       event.preventDefault();
       event.stopPropagation();
       zone.classList.add("drag-over");
     });
     zone.addEventListener("dragover", (event) => {
+      if (!event.dataTransfer?.types?.includes("Files")) return;
       event.preventDefault();
       event.stopPropagation();
       if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
@@ -2711,6 +2744,7 @@ ${GUIDE[code]}`
       if (!zone.contains(event.relatedTarget)) zone.classList.remove("drag-over");
     });
     zone.addEventListener("drop", (event) => {
+      if (!event.dataTransfer?.files?.length) return;
       event.preventDefault();
       event.stopPropagation();
       zone.classList.remove("drag-over");
@@ -2742,6 +2776,82 @@ ${GUIDE[code]}`
     $4("source-highlight-layer").scrollLeft = sourceText.scrollLeft;
   });
   exportPdfButton.addEventListener("click", () => exportPdf(currentIssues));
+  $4("reset-workspace").addEventListener("click", () => {
+    clearTimeout(timer);
+    for (const kind of ["source", "target"]) {
+      fileInputs[kind].value = "";
+      pendingFileTexts[kind] = null;
+      rawFileTexts[kind] = null;
+      const zone = $4(`${kind}-drop-zone`);
+      delete zone.dataset.fileName;
+      delete zone.dataset.fileStatus;
+      delete zone.dataset.fileError;
+    }
+    filesCommitted = false;
+    issuePreferences.clear();
+    sourceLanguage.value = "auto";
+    targetLanguage.value = "auto";
+    sourceText.value = "";
+    targetText.value = "";
+    sourceText.scrollTop = targetText.scrollTop = 0;
+    $4("check-tab").click();
+    render();
+  });
+  function setFindingsDocked(docked) {
+    findingsDocked = docked;
+    $4("qa-view").classList.toggle("findings-docked", findingsDocked);
+    $4("dock-resizer").hidden = !findingsDocked;
+    $4("dock-findings").setAttribute("aria-pressed", String(findingsDocked));
+    $4("dock-findings").textContent = t2(currentLocale, findingsDocked ? "bottomView" : "sideView");
+  }
+  $4("dock-findings").addEventListener("click", () => setFindingsDocked(!findingsDocked));
+  $4("drag-findings").addEventListener("dragstart", (event) => {
+    event.dataTransfer.setData("text/plain", "checkform-findings");
+    event.dataTransfer.effectAllowed = "move";
+    $4("qa-view").classList.add("dragging-findings");
+  });
+  $4("drag-findings").addEventListener("dragend", () => $4("qa-view").classList.remove("dragging-findings"));
+  $4("qa-view").addEventListener("dragover", (event) => {
+    if (!$4("qa-view").classList.contains("dragging-findings")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  });
+  $4("qa-view").addEventListener("drop", (event) => {
+    if (!$4("qa-view").classList.contains("dragging-findings")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const bounds = $4("qa-view").getBoundingClientRect();
+    setFindingsDocked(event.clientX > bounds.left + bounds.width * 0.58);
+    $4("qa-view").classList.remove("dragging-findings");
+  });
+  var dockResizer = $4("dock-resizer");
+  dockResizer.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    dockResizer.setPointerCapture(event.pointerId);
+    const move = (pointer) => {
+      const bounds = $4("qa-view").getBoundingClientRect();
+      const width = Math.max(260, Math.min(bounds.width * 0.42, bounds.right - pointer.clientX));
+      $4("qa-view").style.setProperty("--findings-width", `${width}px`);
+    };
+    const stop = () => {
+      dockResizer.removeEventListener("pointermove", move);
+      dockResizer.removeEventListener("pointerup", stop);
+      dockResizer.removeEventListener("pointercancel", stop);
+    };
+    dockResizer.addEventListener("pointermove", move);
+    dockResizer.addEventListener("pointerup", stop);
+    dockResizer.addEventListener("pointercancel", stop);
+  });
+  for (const [layer, textarea] of [[$4("target-highlight-layer"), targetText], [$4("source-highlight-layer"), sourceText]]) {
+    layer.addEventListener("pointerdown", (event) => {
+      const mark = event.target.closest("mark[data-start]");
+      if (!mark) return;
+      event.preventDefault();
+      const position = Number(mark.dataset.start);
+      textarea.focus();
+      textarea.setSelectionRange(position, position);
+    });
+  }
   for (const button of document.querySelectorAll(".locale-button")) {
     button.addEventListener("click", () => {
       currentLocale = setLocale(button.dataset.locale);

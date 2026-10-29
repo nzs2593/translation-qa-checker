@@ -49,6 +49,9 @@ export function detectLanguage(text) {
   if (/[a-z]/iu.test(normalized)) {
     scores.en += 1; scores.es += 1; scores["pt-BR"] += 1; scores.da += 1; scores.az += 1; scores["uz-Latn"] += 1;
   }
+  if (/\bAR\$\s*\d/iu.test(text) || /\b(?:depositá|hacé|volvé|completá|apurate|llevate|recibí|obtené|podés|tenés)\b/iu.test(normalized)) {
+    scores["es-AR"] = scores.es + 12;
+  }
 
   const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   const [code, score] = ranked[0];

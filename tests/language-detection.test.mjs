@@ -8,6 +8,7 @@ assert.equal(detectLanguage("Ödəniş bu tarixdə edilməlidir.").code, "az");
 assert.equal(detectLanguage("O‘yin uchun to‘lov kerak.").code, "uz-Latn");
 assert.equal(detectLanguage("Төлбөр 20:59 цагт хийгдэнэ.").code, "mn");
 assert.equal(detectLanguage("Hola, gracias.").code, "es");
+assert.equal(detectLanguage("Depositá al menos AR$7.500 y obtené un bono.").code, "es-AR");
 assert.equal(detectLanguage("Olá, obrigado.").code, "pt-BR");
 
 console.log("Language detection tests passed");
