@@ -109,6 +109,7 @@ function applyTranslations() {
   $("footer-copy").textContent = t(currentLocale, "footer");
   $("error-table-open").textContent = t(currentLocale, "errorTable");
   $("reset-workspace").textContent = t(currentLocale, "startAgain");
+  $("check-currency-label").textContent = t(currentLocale, "checkCurrency");
   $("dock-findings").textContent = t(currentLocale, findingsDocked ? "bottomView" : "sideView");
   $("drag-findings").title = t(currentLocale, "dragFindings");
   $("drag-findings").setAttribute("aria-label", t(currentLocale, "dragFindings"));
@@ -155,6 +156,13 @@ function updateProfileRulesVisibility() {
   const hasBothTexts = Boolean(sourceText.value.trim() && targetText.value.trim());
   if (rules) rules.hidden = !hasBothTexts;
   $("header-main")?.classList.toggle("has-profile-rules", hasBothTexts);
+}
+
+function syncWorkspaceLayout() {
+  const hasBothTexts = Boolean(sourceText.value.trim() && targetText.value.trim());
+  const tools = hasBothTexts ? $("target-review-tools") : document.querySelector(".language-card .card-tools");
+  for (const id of ["target-language-label", "target-language", "target-open-file", "target-file-input"]) tools.append($(id));
+  $("workspace-grid").classList.toggle("both-loaded", hasBothTexts);
 }
 
 function renderProfileRules(code) {
@@ -279,6 +287,7 @@ function focusIssue(issue) {
 }
 
 function render() {
+  syncWorkspaceLayout();
   const sourceDetection = detectLanguage(sourceText.value);
   const targetDetection = detectLanguage(targetText.value);
   const sourceCode = sourceLanguage.value === "auto" ? sourceDetection.code : sourceLanguage.value;
@@ -293,8 +302,7 @@ function render() {
   $("language-state").textContent = targetLanguage.value === "auto" ? targetText.value.trim() ? `${t(currentLocale, "detected")} · ${detectionReason(targetDetection.reason)}` : t(currentLocale, "waitingForGoal") : t(currentLocale, "manualProfile");
   $("source-count").textContent = `${sourceText.value.length} characters`;
   $("target-count").textContent = `${targetText.value.length} characters`;
-  const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows() });
-  $("workspace-grid").classList.toggle("both-loaded", Boolean(sourceText.value.trim() && targetText.value.trim()));
+  const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows(), checkCurrency: $("check-currency").checked });
   currentIssues = issues;
   const includedIssues = issues.filter((issue) => getIssuePreference(issue).included);
   renderTargetHighlights(targetText.value, includedIssues);
@@ -443,6 +451,7 @@ sourceText.addEventListener("scroll", () => {
   $("source-highlight-layer").scrollLeft = sourceText.scrollLeft;
 });
 exportPdfButton.addEventListener("click", () => exportPdf(currentIssues));
+$("check-currency").addEventListener("change", render);
 
 $("reset-workspace").addEventListener("click", () => {
   clearTimeout(timer);
@@ -457,6 +466,9 @@ $("reset-workspace").addEventListener("click", () => {
   }
   filesCommitted = false;
   issuePreferences.clear();
+  $("check-currency").checked = true;
+  setFindingsDocked(false);
+  $("qa-view").style.removeProperty("--findings-width");
   sourceLanguage.value = "auto";
   targetLanguage.value = "auto";
   sourceText.value = "";
@@ -474,24 +486,33 @@ function setFindingsDocked(docked) {
   $("dock-findings").textContent = t(currentLocale, findingsDocked ? "bottomView" : "sideView");
 }
 $("dock-findings").addEventListener("click", () => setFindingsDocked(!findingsDocked));
-$("drag-findings").addEventListener("dragstart", (event) => {
-  event.dataTransfer.setData("text/plain", "checkform-findings");
-  event.dataTransfer.effectAllowed = "move";
-  $("qa-view").classList.add("dragging-findings");
+$("drag-findings").addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  const handle = $("drag-findings");
+  handle.setPointerCapture(event.pointerId);
+  const origin = { x: event.clientX, y: event.clientY };
+  let moved = false;
+  const move = (pointer) => {
+    moved ||= Math.hypot(pointer.clientX - origin.x, pointer.clientY - origin.y) > 8;
+    $("qa-view").classList.toggle("dragging-findings", moved);
+  };
+  const stop = (pointer) => {
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", stop);
+    handle.removeEventListener("pointercancel", stop);
+    $("qa-view").classList.remove("dragging-findings");
+    if (!moved || pointer.type === "pointercancel") return;
+    const bounds = $("qa-view").getBoundingClientRect();
+    const editors = $("workspace-grid").getBoundingClientRect();
+    const toSide = pointer.clientX > bounds.left + bounds.width * .58 && pointer.clientY < editors.bottom;
+    setFindingsDocked(toSide);
+  };
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", stop);
+  handle.addEventListener("pointercancel", stop);
 });
-$("drag-findings").addEventListener("dragend", () => $("qa-view").classList.remove("dragging-findings"));
-$("qa-view").addEventListener("dragover", (event) => {
-  if (!$("qa-view").classList.contains("dragging-findings")) return;
-  event.preventDefault();
-  event.dataTransfer.dropEffect = "move";
-});
-$("qa-view").addEventListener("drop", (event) => {
-  if (!$("qa-view").classList.contains("dragging-findings")) return;
-  event.preventDefault();
-  event.stopPropagation();
-  const bounds = $("qa-view").getBoundingClientRect();
-  setFindingsDocked(event.clientX > bounds.left + bounds.width * .58);
-  $("qa-view").classList.remove("dragging-findings");
+$("drag-findings").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setFindingsDocked(!findingsDocked); }
 });
 
 const dockResizer = $("dock-resizer");

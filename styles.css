@@ -423,15 +423,16 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
 @media (min-width: 921px) {
   .workspace-grid.both-loaded {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: auto minmax(390px, 52vh);
-    grid-template-areas: "language language" "source target";
+    grid-template-rows: minmax(390px, 52vh);
+    grid-template-areas: "source target";
   }
   .workspace-grid.both-loaded .left-stack { display: contents; }
-  .workspace-grid.both-loaded .language-card { grid-area: language; }
+  .workspace-grid.both-loaded .language-card { display: none; }
   .workspace-grid.both-loaded .source-card { grid-area: source; }
   .workspace-grid.both-loaded .target-review-card { grid-area: target; }
-  .workspace-grid.both-loaded .language-body { display: none; }
-  .workspace-grid.both-loaded .language-card .card-heading { align-items: center; padding-block: 10px; }
+  .workspace-grid.both-loaded .source-card, .workspace-grid.both-loaded .target-review-card { height: 100%; min-height: 0; }
+  .workspace-grid.both-loaded .source-card .card-heading,
+  .workspace-grid.both-loaded .target-review-card .card-heading { min-height: 105px; }
 }
 
 /* Paragraph labels and boundaries stay neutral; only target findings use warning colors. */
@@ -470,8 +471,10 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
 
 #reset-workspace { color: #b03035; border-color: #ebc4c6; background: #fffafa; }
 #reset-workspace:hover { color: #fff; border-color: #b03035; background: #b03035; }
+.currency-switch { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 9px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: #fff; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.currency-switch input { accent-color: var(--green); cursor: pointer; }
 #dock-findings { color: var(--green-dark); }
-.drag-findings { display: inline-flex; align-items: center; justify-content: center; width: 23px; height: 30px; color: #8290a5; cursor: grab; user-select: none; font-size: 19px; letter-spacing: -5px; }
+.drag-findings { display: inline-flex; align-items: center; justify-content: center; width: 23px; height: 30px; color: #8290a5; cursor: grab; user-select: none; touch-action: none; font-size: 19px; letter-spacing: -5px; }
 .drag-findings:active { cursor: grabbing; }
 .qa-view.dragging-findings .workspace-grid { outline: 2px dashed #9ab9e6; outline-offset: 2px; }
 .dock-resizer[hidden] { display: none; }

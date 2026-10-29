@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHECKform</title>
-    <link rel="stylesheet" href="styles.css?v=2.6" />
+    <link rel="stylesheet" href="styles.css?v=2.7" />
   </head>
   <body>
     <main class="app-shell">
@@ -27,6 +27,7 @@
               <button class="locale-button" type="button" data-locale="ru">RU</button>
             </div>
             <button id="error-table-open" type="button">Error table</button>
+            <label class="currency-switch" for="check-currency"><input id="check-currency" type="checkbox" checked /><span id="check-currency-label">Check currency</span></label>
             <button id="reset-workspace" type="button">Start again</button>
           </div>
         </div>
@@ -100,7 +101,7 @@
                 <span class="panel-kicker" id="target-review-label">TARGET REVIEW</span>
                 <h2 id="target-heading">Goal language</h2>
               </div>
-              <div class="card-tools">
+          <div class="card-tools" id="target-review-tools">
                 <span class="char-count" id="target-count">0 characters</span>
               </div>
             </div>
@@ -120,7 +121,7 @@
           </div>
           <div class="issues-actions">
             <div class="issue-summary" id="issue-summary">Checking…</div>
-            <span id="drag-findings" class="drag-findings" draggable="true" role="img" aria-label="Drag findings panel" title="Drag findings to the right or below">⋮⋮</span>
+            <span id="drag-findings" class="drag-findings" role="button" tabindex="0" aria-label="Drag findings panel" title="Drag findings to the right or below">⋮⋮</span>
             <button id="dock-findings" type="button" aria-pressed="false">Side view</button>
             <button id="export-pdf" type="button" disabled>Export PDF</button>
           </div>
@@ -202,7 +203,7 @@
 
       <footer class="app-footer">
         <span id="footer-copy">Deterministic checks · No LLM · No auto-correction</span>
-        <span class="app-version" id="app-version">CHECKform v2.6</span>
+        <span class="app-version" id="app-version">CHECKform v2.7</span>
         <span id="checked-at">Ready</span>
       </footer>
     </main>
@@ -224,6 +225,6 @@
         </table>
       </div>
     </dialog>
-    <script defer src="checkform.bundle.js?v=2.6"></script>
+    <script defer src="checkform.bundle.js?v=2.7"></script>
   </body>
 </html>

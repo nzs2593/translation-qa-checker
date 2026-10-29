@@ -90,6 +90,12 @@ const localizedMoney = runRuleEngine({
 });
 assert.equal(localizedMoney.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
 assert.equal(localizedMoney.some((issue) => issue.error_type === "CURRENCY_MISMATCH"), true);
+const currencyDisabled = runRuleEngine({
+  source: "The bonus is €5 and lasts 24 hours.",
+  target: "El bono es AR$7.500 y dura 24 horas.",
+  sourceLanguage: "en", targetLanguage: "es-AR", checkCurrency: false
+});
+assert.equal(currencyDisabled.some((issue) => issue.pool === "Currency" || issue.error_type === "NUMBER_MISMATCH"), false);
 
 const percentageAfterSpanishDel = runRuleEngine({
   source: "However, to get you back in the game, we’ll give you a 50% Casino Bonus based on your next deposit.",

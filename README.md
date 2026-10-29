@@ -1,4 +1,6 @@
-# CHECKform — v2.6
+# CHECKform — v2.7
+
+Once both texts are present, the separate Goal language upload card disappears. Its language selector and file picker move into Target Review, leaving the source and target editors at equal size. Currency checks can be turned on or off without disabling other findings. Review findings can be moved with a pointer drag handle or the side/bottom button.
 
 In v2.6, findings follow their position in the target document. Source passages have neutral reference styling; the target carries the warning color and a hover explanation. Paragraph numbers and dotted boundaries use a separate visual style. Once both documents are loaded, the editors occupy equal columns. Findings can be docked on the right and resized by dragging the divider, or returned below the editors. **Start again** clears the current pair and its finding decisions while retaining saved glossary and GMT rules. A Spanish `del 50%` no longer causes a spurious numeric mismatch.
 

@@ -785,7 +785,7 @@
     }
     return null;
   }
-  function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true) {
+  function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true, checkCurrency = true) {
     MALFORMED_DATE_RE.lastIndex = 0;
     const malformedDate = MALFORMED_DATE_RE.exec(target);
     if (malformedDate) {
@@ -800,8 +800,13 @@
         explanation: "A numeric date token contains an extra or malformed digit."
       })];
     }
-    const sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
-    const targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
+    let sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
+    let targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
+    if (!checkCurrency) {
+      const moneyPositions = new Set(Array.from({ length: Math.max(sourceTokens.length, targetTokens.length) }, (_, index) => index).filter((index) => sourceTokens[index]?.currency || targetTokens[index]?.currency));
+      sourceTokens = sourceTokens.filter((_, index) => !moneyPositions.has(index));
+      targetTokens = targetTokens.filter((_, index) => !moneyPositions.has(index));
+    }
     if (!compareCount && sourceTokens.length !== targetTokens.length) return [];
     const comparable = sourceTokens.map((sourceToken2, index) => [sourceToken2, targetTokens[index]]).filter(([sourceToken2, targetToken2]) => !(sourceToken2?.currency && targetToken2?.currency && sourceToken2.currency !== targetToken2.currency));
     const same = sourceTokens.length === targetTokens.length && comparable.every(([sourceToken2, targetToken2]) => sourceToken2.normalized === targetToken2?.normalized);
@@ -905,11 +910,11 @@
     });
     return pairs.some((pair) => pair.source.text.trim() && pair.target.text.trim()) ? pairs : [];
   }
-  function coreChecks(source, target, sourceProfile, targetProfile, includePunctuation = true, compareCount = true, targetTimezoneRule = null) {
+  function coreChecks(source, target, sourceProfile, targetProfile, includePunctuation = true, compareCount = true, targetTimezoneRule = null, checkCurrency = true) {
     const issues = [];
     issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile, targetTimezoneRule }));
     issues.push(...checkNumericDateFormat(source, target, targetProfile));
-    issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
+    issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount, checkCurrency));
     issues.push(...compareAttachedNumberWords(source, target));
     const spanishQuestionIssues = targetProfile.language === "es" ? spanishQuestionMarkChecks(target) : [];
     issues.push(...spanishQuestionIssues);
@@ -1038,16 +1043,18 @@
     const invalid = targetProfile.quoteStyle === "guillemets" ? target.match(/["“”]/) : targetProfile.quoteStyle === "double" ? target.match(/[«»“”]/) : target.match(/"/);
     if (invalid) issues.push(createIssue({ error_type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", location_in_target: location(invalid.index, invalid.index + invalid[0].length), explanation: "Quotation marks do not follow the selected language profile." }));
   }
-  function addLightChecks(source, target, targetProfile, issues) {
+  function addLightChecks(source, target, targetProfile, issues, checkCurrency = true) {
     addSpacingChecks(target, targetProfile, issues);
     addTimeFormatChecks(target, targetProfile, issues);
     addNumberFormatChecks(target, targetProfile, issues);
     addPercentageChecks(target, targetProfile, issues);
-    addCurrencyChecks(target, targetProfile, issues);
-    addCurrencyMismatch(source, target, issues);
+    if (checkCurrency) {
+      addCurrencyChecks(target, targetProfile, issues);
+      addCurrencyMismatch(source, target, issues);
+    }
     addQuotationChecks(target, targetProfile, issues);
   }
-  function runRuleEngine({ source, target, sourceLanguage: sourceLanguage2 = "en", targetLanguage: targetLanguage2 = "ru", glossaryRows }) {
+  function runRuleEngine({ source, target, sourceLanguage: sourceLanguage2 = "en", targetLanguage: targetLanguage2 = "ru", glossaryRows, checkCurrency = true }) {
     if (!source.trim() || !target.trim()) return [];
     const sourceProfile = { ...getProfile(sourceLanguage2), language: sourceLanguage2.split("-")[0] };
     const targetProfile = { ...getProfile(targetLanguage2), language: targetLanguage2.split("-")[0] };
@@ -1058,15 +1065,15 @@
     const plainParagraphPairs = pairPlainParagraphs(source, target);
     const plainLinePairs = pairPlainLines(source, target);
     if (headerBlocks.length >= 2) {
-      for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false, timezoneRule), pair.target.start, pair.source.start));
+      for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false, timezoneRule, checkCurrency), pair.target.start, pair.source.start));
     } else if (pairs.length >= 2) {
-      for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
+      for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule, checkCurrency), pair.target.start, pair.source.start));
     } else if (plainParagraphPairs.length >= 8) {
-      for (const pair of plainParagraphPairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
+      for (const pair of plainParagraphPairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule, checkCurrency), pair.target.start, pair.source.start));
     } else if (plainLinePairs.length >= 8) {
-      for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
+      for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule, checkCurrency), pair.target.start, pair.source.start));
     } else {
-      issues.push(...coreChecks(source, target, sourceProfile, targetProfile, true, true, timezoneRule));
+      issues.push(...coreChecks(source, target, sourceProfile, targetProfile, true, true, timezoneRule, checkCurrency));
     }
     const glossaryPairs = headerBlocks.length >= 2 ? headerBlocks : pairs.length >= 2 ? pairs : plainParagraphPairs.length >= 2 ? plainParagraphPairs : plainLinePairs.length >= 8 ? plainLinePairs : [];
     if (glossaryPairs.length) {
@@ -1080,7 +1087,7 @@
     } else {
       issues.push(...checkGlossary(source, target, sourceLanguage2, targetLanguage2, glossaryRows));
     }
-    addLightChecks(source, target, targetProfile, issues);
+    addLightChecks(source, target, targetProfile, issues, checkCurrency);
     return issues.sort((a, b) => a.location_in_target.start - b.location_in_target.start || a.location_in_target.end - b.location_in_target.end);
   }
 
@@ -1238,6 +1245,7 @@
       sideView: "Findings on side",
       bottomView: "Findings below",
       dragFindings: "Drag findings to the right or below",
+      checkCurrency: "Check currency",
       count: "Count",
       edit: "Edit",
       done: "Done",
@@ -1358,6 +1366,7 @@
       sideView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u0431\u043E\u043A\u0443",
       bottomView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u043D\u0438\u0437\u0443",
       dragFindings: "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0448\u0438\u0431\u043E\u043A \u0432\u043F\u0440\u0430\u0432\u043E \u0438\u043B\u0438 \u0432\u043D\u0438\u0437",
+      checkCurrency: "\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443",
       count: "\u0423\u0447\u0438\u0442\u044B\u0432\u0430\u0442\u044C",
       edit: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C",
       done: "\u0413\u043E\u0442\u043E\u0432\u043E",
@@ -1968,6 +1977,7 @@ ${GUIDE[code]}`
       sideView: "Findings on side",
       bottomView: "Findings below",
       dragFindings: "Drag findings to the right or below",
+      checkCurrency: "Check currency",
       count: "Count",
       edit: "Edit",
       done: "Done",
@@ -2088,6 +2098,7 @@ ${GUIDE[code]}`
       sideView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u0431\u043E\u043A\u0443",
       bottomView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u043D\u0438\u0437\u0443",
       dragFindings: "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0448\u0438\u0431\u043E\u043A \u0432\u043F\u0440\u0430\u0432\u043E \u0438\u043B\u0438 \u0432\u043D\u0438\u0437",
+      checkCurrency: "\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443",
       count: "\u0423\u0447\u0438\u0442\u044B\u0432\u0430\u0442\u044C",
       edit: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C",
       done: "\u0413\u043E\u0442\u043E\u0432\u043E",
@@ -2375,6 +2386,7 @@ ${GUIDE[code]}`
     $4("footer-copy").textContent = t2(currentLocale, "footer");
     $4("error-table-open").textContent = t2(currentLocale, "errorTable");
     $4("reset-workspace").textContent = t2(currentLocale, "startAgain");
+    $4("check-currency-label").textContent = t2(currentLocale, "checkCurrency");
     $4("dock-findings").textContent = t2(currentLocale, findingsDocked ? "bottomView" : "sideView");
     $4("drag-findings").title = t2(currentLocale, "dragFindings");
     $4("drag-findings").setAttribute("aria-label", t2(currentLocale, "dragFindings"));
@@ -2426,6 +2438,12 @@ ${GUIDE[code]}`
     const hasBothTexts = Boolean(sourceText.value.trim() && targetText.value.trim());
     if (rules) rules.hidden = !hasBothTexts;
     $4("header-main")?.classList.toggle("has-profile-rules", hasBothTexts);
+  }
+  function syncWorkspaceLayout() {
+    const hasBothTexts = Boolean(sourceText.value.trim() && targetText.value.trim());
+    const tools = hasBothTexts ? $4("target-review-tools") : document.querySelector(".language-card .card-tools");
+    for (const id of ["target-language-label", "target-language", "target-open-file", "target-file-input"]) tools.append($4(id));
+    $4("workspace-grid").classList.toggle("both-loaded", hasBothTexts);
   }
   function renderProfileRules(code) {
     const body = $4("profile-rules-body");
@@ -2543,6 +2561,7 @@ ${range.hint}`;
     });
   }
   function render() {
+    syncWorkspaceLayout();
     const sourceDetection = detectLanguage(sourceText.value);
     const targetDetection = detectLanguage(targetText.value);
     const sourceCode = sourceLanguage.value === "auto" ? sourceDetection.code : sourceLanguage.value;
@@ -2557,8 +2576,7 @@ ${range.hint}`;
     $4("language-state").textContent = targetLanguage.value === "auto" ? targetText.value.trim() ? `${t2(currentLocale, "detected")} \xB7 ${detectionReason(targetDetection.reason)}` : t2(currentLocale, "waitingForGoal") : t2(currentLocale, "manualProfile");
     $4("source-count").textContent = `${sourceText.value.length} characters`;
     $4("target-count").textContent = `${targetText.value.length} characters`;
-    const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows() });
-    $4("workspace-grid").classList.toggle("both-loaded", Boolean(sourceText.value.trim() && targetText.value.trim()));
+    const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows(), checkCurrency: $4("check-currency").checked });
     currentIssues = issues;
     const includedIssues = issues.filter((issue) => getIssuePreference(issue).included);
     renderTargetHighlights(targetText.value, includedIssues);
@@ -2776,6 +2794,7 @@ ${range.hint}`;
     $4("source-highlight-layer").scrollLeft = sourceText.scrollLeft;
   });
   exportPdfButton.addEventListener("click", () => exportPdf(currentIssues));
+  $4("check-currency").addEventListener("change", render);
   $4("reset-workspace").addEventListener("click", () => {
     clearTimeout(timer);
     for (const kind of ["source", "target"]) {
@@ -2789,6 +2808,9 @@ ${range.hint}`;
     }
     filesCommitted = false;
     issuePreferences.clear();
+    $4("check-currency").checked = true;
+    setFindingsDocked(false);
+    $4("qa-view").style.removeProperty("--findings-width");
     sourceLanguage.value = "auto";
     targetLanguage.value = "auto";
     sourceText.value = "";
@@ -2805,24 +2827,36 @@ ${range.hint}`;
     $4("dock-findings").textContent = t2(currentLocale, findingsDocked ? "bottomView" : "sideView");
   }
   $4("dock-findings").addEventListener("click", () => setFindingsDocked(!findingsDocked));
-  $4("drag-findings").addEventListener("dragstart", (event) => {
-    event.dataTransfer.setData("text/plain", "checkform-findings");
-    event.dataTransfer.effectAllowed = "move";
-    $4("qa-view").classList.add("dragging-findings");
+  $4("drag-findings").addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const handle = $4("drag-findings");
+    handle.setPointerCapture(event.pointerId);
+    const origin = { x: event.clientX, y: event.clientY };
+    let moved = false;
+    const move = (pointer) => {
+      moved ||= Math.hypot(pointer.clientX - origin.x, pointer.clientY - origin.y) > 8;
+      $4("qa-view").classList.toggle("dragging-findings", moved);
+    };
+    const stop = (pointer) => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", stop);
+      handle.removeEventListener("pointercancel", stop);
+      $4("qa-view").classList.remove("dragging-findings");
+      if (!moved || pointer.type === "pointercancel") return;
+      const bounds = $4("qa-view").getBoundingClientRect();
+      const editors = $4("workspace-grid").getBoundingClientRect();
+      const toSide = pointer.clientX > bounds.left + bounds.width * 0.58 && pointer.clientY < editors.bottom;
+      setFindingsDocked(toSide);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop);
+    handle.addEventListener("pointercancel", stop);
   });
-  $4("drag-findings").addEventListener("dragend", () => $4("qa-view").classList.remove("dragging-findings"));
-  $4("qa-view").addEventListener("dragover", (event) => {
-    if (!$4("qa-view").classList.contains("dragging-findings")) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  });
-  $4("qa-view").addEventListener("drop", (event) => {
-    if (!$4("qa-view").classList.contains("dragging-findings")) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const bounds = $4("qa-view").getBoundingClientRect();
-    setFindingsDocked(event.clientX > bounds.left + bounds.width * 0.58);
-    $4("qa-view").classList.remove("dragging-findings");
+  $4("drag-findings").addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setFindingsDocked(!findingsDocked);
+    }
   });
   var dockResizer = $4("dock-resizer");
   dockResizer.addEventListener("pointerdown", (event) => {

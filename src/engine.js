@@ -139,7 +139,7 @@ function currencyForNumber(text, token) {
   return null;
 }
 
-function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true) {
+function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true, checkCurrency = true) {
   MALFORMED_DATE_RE.lastIndex = 0;
   const malformedDate = MALFORMED_DATE_RE.exec(target);
   if (malformedDate) {
@@ -152,8 +152,14 @@ function compareNumbersOutsideTemporalText(source, target, sourceProfile, target
       explanation: "A numeric date token contains an extra or malformed digit."
     })];
   }
-  const sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
-  const targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
+  let sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
+  let targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
+  if (!checkCurrency) {
+    const moneyPositions = new Set(Array.from({ length: Math.max(sourceTokens.length, targetTokens.length) }, (_, index) => index)
+      .filter((index) => sourceTokens[index]?.currency || targetTokens[index]?.currency));
+    sourceTokens = sourceTokens.filter((_, index) => !moneyPositions.has(index));
+    targetTokens = targetTokens.filter((_, index) => !moneyPositions.has(index));
+  }
   if (!compareCount && sourceTokens.length !== targetTokens.length) return [];
   const comparable = sourceTokens.map((sourceToken, index) => [sourceToken, targetTokens[index]])
     .filter(([sourceToken, targetToken]) => !(sourceToken?.currency && targetToken?.currency && sourceToken.currency !== targetToken.currency));
@@ -262,11 +268,11 @@ function pairPlainLines(source, target) {
   return pairs.some((pair) => pair.source.text.trim() && pair.target.text.trim()) ? pairs : [];
 }
 
-function coreChecks(source, target, sourceProfile, targetProfile, includePunctuation = true, compareCount = true, targetTimezoneRule = null) {
+function coreChecks(source, target, sourceProfile, targetProfile, includePunctuation = true, compareCount = true, targetTimezoneRule = null, checkCurrency = true) {
   const issues = [];
   issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile, targetTimezoneRule }));
   issues.push(...checkNumericDateFormat(source, target, targetProfile));
-  issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
+  issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount, checkCurrency));
   issues.push(...compareAttachedNumberWords(source, target));
   const spanishQuestionIssues = targetProfile.language === "es" ? spanishQuestionMarkChecks(target) : [];
   issues.push(...spanishQuestionIssues);
@@ -403,17 +409,19 @@ function addQuotationChecks(target, targetProfile, issues) {
   if (invalid) issues.push(createIssue({ error_type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", location_in_target: location(invalid.index, invalid.index + invalid[0].length), explanation: "Quotation marks do not follow the selected language profile." }));
 }
 
-function addLightChecks(source, target, targetProfile, issues) {
+function addLightChecks(source, target, targetProfile, issues, checkCurrency = true) {
   addSpacingChecks(target, targetProfile, issues);
   addTimeFormatChecks(target, targetProfile, issues);
   addNumberFormatChecks(target, targetProfile, issues);
   addPercentageChecks(target, targetProfile, issues);
-  addCurrencyChecks(target, targetProfile, issues);
-  addCurrencyMismatch(source, target, issues);
+  if (checkCurrency) {
+    addCurrencyChecks(target, targetProfile, issues);
+    addCurrencyMismatch(source, target, issues);
+  }
   addQuotationChecks(target, targetProfile, issues);
 }
 
-export function runRuleEngine({ source, target, sourceLanguage = "en", targetLanguage = "ru", glossaryRows }) {
+export function runRuleEngine({ source, target, sourceLanguage = "en", targetLanguage = "ru", glossaryRows, checkCurrency = true }) {
   if (!source.trim() || !target.trim()) return [];
   const sourceProfile = { ...getProfile(sourceLanguage), language: sourceLanguage.split("-")[0] };
   const targetProfile = { ...getProfile(targetLanguage), language: targetLanguage.split("-")[0] };
@@ -424,15 +432,15 @@ export function runRuleEngine({ source, target, sourceLanguage = "en", targetLan
   const plainParagraphPairs = pairPlainParagraphs(source, target);
   const plainLinePairs = pairPlainLines(source, target);
   if (headerBlocks.length >= 2) {
-    for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false, timezoneRule), pair.target.start, pair.source.start));
+    for (const pair of headerBlocks) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, false, false, timezoneRule, checkCurrency), pair.target.start, pair.source.start));
   } else if (pairs.length >= 2) {
-    for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
+    for (const pair of pairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule, checkCurrency), pair.target.start, pair.source.start));
   } else if (plainParagraphPairs.length >= 8) {
-    for (const pair of plainParagraphPairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
+    for (const pair of plainParagraphPairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule, checkCurrency), pair.target.start, pair.source.start));
   } else if (plainLinePairs.length >= 8) {
-    for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule), pair.target.start, pair.source.start));
+    for (const pair of plainLinePairs) issues.push(...offsetIssues(coreChecks(pair.source.text, pair.target.text, sourceProfile, targetProfile, true, true, timezoneRule, checkCurrency), pair.target.start, pair.source.start));
   } else {
-    issues.push(...coreChecks(source, target, sourceProfile, targetProfile, true, true, timezoneRule));
+    issues.push(...coreChecks(source, target, sourceProfile, targetProfile, true, true, timezoneRule, checkCurrency));
   }
   const glossaryPairs = headerBlocks.length >= 2 ? headerBlocks
     : pairs.length >= 2 ? pairs
@@ -448,6 +456,6 @@ export function runRuleEngine({ source, target, sourceLanguage = "en", targetLan
   } else {
     issues.push(...checkGlossary(source, target, sourceLanguage, targetLanguage, glossaryRows));
   }
-  addLightChecks(source, target, targetProfile, issues);
+  addLightChecks(source, target, targetProfile, issues, checkCurrency);
   return issues.sort((a, b) => a.location_in_target.start - b.location_in_target.start || a.location_in_target.end - b.location_in_target.end);
 }
