@@ -139,7 +139,7 @@ function currencyForNumber(text, token) {
   return null;
 }
 
-function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true, checkCurrency = true) {
+function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true) {
   MALFORMED_DATE_RE.lastIndex = 0;
   const malformedDate = MALFORMED_DATE_RE.exec(target);
   if (malformedDate) {
@@ -154,12 +154,10 @@ function compareNumbersOutsideTemporalText(source, target, sourceProfile, target
   }
   let sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
   let targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
-  if (!checkCurrency) {
-    const moneyPositions = new Set(Array.from({ length: Math.max(sourceTokens.length, targetTokens.length) }, (_, index) => index)
-      .filter((index) => sourceTokens[index]?.currency || targetTokens[index]?.currency));
-    sourceTokens = sourceTokens.filter((_, index) => !moneyPositions.has(index));
-    targetTokens = targetTokens.filter((_, index) => !moneyPositions.has(index));
-  }
+  const moneyPositions = new Set(Array.from({ length: Math.max(sourceTokens.length, targetTokens.length) }, (_, index) => index)
+    .filter((index) => sourceTokens[index]?.currency || targetTokens[index]?.currency));
+  sourceTokens = sourceTokens.filter((_, index) => !moneyPositions.has(index));
+  targetTokens = targetTokens.filter((_, index) => !moneyPositions.has(index));
   if (!compareCount && sourceTokens.length !== targetTokens.length) return [];
   const comparable = sourceTokens.map((sourceToken, index) => [sourceToken, targetTokens[index]])
     .filter(([sourceToken, targetToken]) => !(sourceToken?.currency && targetToken?.currency && sourceToken.currency !== targetToken.currency));
@@ -272,7 +270,7 @@ function coreChecks(source, target, sourceProfile, targetProfile, includePunctua
   const issues = [];
   issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile, targetTimezoneRule }));
   issues.push(...checkNumericDateFormat(source, target, targetProfile));
-  issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount, checkCurrency));
+  issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
   issues.push(...compareAttachedNumberWords(source, target));
   const spanishQuestionIssues = targetProfile.language === "es" ? spanishQuestionMarkChecks(target) : [];
   issues.push(...spanishQuestionIssues);
@@ -374,7 +372,7 @@ function addCurrencyChecks(target, targetProfile, issues) {
     if (!adjacent) continue;
     if (currency[0].toUpperCase() === "ARS$" && targetProfile.currencyRules?.["AR$"]) {
       issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(currencyStart, currencyEnd), explanation: "Use the Argentine peso marker AR$ in this language profile." }));
-      break;
+      continue;
     }
     const rule = currencyRule(targetProfile, currency[0]);
     const numberBefore = adjacent.index + adjacent.raw.length <= currencyStart;
@@ -385,22 +383,39 @@ function addCurrencyChecks(target, targetProfile, issues) {
     const expectedSpace = rule.space === "nbsp" ? "\u00a0" : rule.space ?? "";
     if (actualPlacement !== rule.placement || actualSpace !== expectedSpace) {
       issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), explanation: `Currency should be ${rule.placement === "prefix" ? "before" : "after"} the amount${expectedSpace ? " with the profile’s required space" : " without a space"}.` }));
-      break;
     }
   }
 }
 
-function addCurrencyMismatch(source, target, issues) {
+function addCurrencyComparisons(source, target, sourceProfile, targetProfile, issues) {
   const sourceMatches = [...source.matchAll(CURRENCY_RE)];
   const targetMatches = [...target.matchAll(CURRENCY_RE)];
   const sourceCurrencies = sourceMatches.map((match) => canonicalCurrency(match[0]));
   const targetCurrencies = targetMatches.map((match) => canonicalCurrency(match[0]));
   if (sourceCurrencies.length !== targetCurrencies.length) return;
-  if (sourceCurrencies.join("|") === targetCurrencies.join("|")) return;
-  const mismatchIndex = sourceCurrencies.findIndex((currency, index) => currency !== targetCurrencies[index]);
-  const sourceMatch = sourceMatches[mismatchIndex] ?? sourceMatches[0];
-  const targetMatch = targetMatches[mismatchIndex] ?? targetMatches[0];
-  issues.push(createIssue({ error_type: "CURRENCY_MISMATCH", pool: "Currency", severity: "Major", location_in_source: sourceMatch ? location(sourceMatch.index, sourceMatch.index + sourceMatch[0].length) : location(0, 0), location_in_target: targetMatch ? location(targetMatch.index, targetMatch.index + targetMatch[0].length) : location(0, 0), explanation: "Currency markers differ between source and target." }));
+  const sourceNumbers = numberTokens(source, sourceProfile);
+  const targetNumbers = numberTokens(target, targetProfile);
+  const adjacentNumber = (text, numbers, currency) => {
+    const start = currency.index ?? 0;
+    const end = start + currency[0].length;
+    return numbers.find((number) =>
+      (number.index >= end && /^[ \t\u00a0]*$/.test(text.slice(end, number.index))) ||
+      (number.index + number.raw.length <= start && /^[ \t\u00a0]*$/.test(text.slice(number.index + number.raw.length, start)))
+    );
+  };
+  for (let index = 0; index < sourceCurrencies.length; index += 1) {
+    const sourceMatch = sourceMatches[index];
+    const targetMatch = targetMatches[index];
+    const sourceNumber = adjacentNumber(source, sourceNumbers, sourceMatch);
+    const targetNumber = adjacentNumber(target, targetNumbers, targetMatch);
+    const sourceRange = location(Math.min(sourceMatch.index, sourceNumber?.index ?? sourceMatch.index), Math.max(sourceMatch.index + sourceMatch[0].length, sourceNumber ? sourceNumber.index + sourceNumber.raw.length : 0));
+    const targetRange = location(Math.min(targetMatch.index, targetNumber?.index ?? targetMatch.index), Math.max(targetMatch.index + targetMatch[0].length, targetNumber ? targetNumber.index + targetNumber.raw.length : 0));
+    if (sourceCurrencies[index] !== targetCurrencies[index]) {
+      issues.push(createIssue({ error_type: "CURRENCY_CONVERSION_REVIEW", pool: "Currency", severity: "Info", location_in_source: sourceRange, location_in_target: targetRange, explanation: "The currency changes between source and target. Verify the converted amount against the market rules." }));
+    } else if (sourceNumber && targetNumber && sourceNumber.normalized !== targetNumber.normalized) {
+      issues.push(createIssue({ error_type: "CURRENCY_AMOUNT_MISMATCH", pool: "Currency", severity: "Major", location_in_source: sourceRange, location_in_target: targetRange, explanation: "The currency is unchanged but the numeric amount differs after locale formatting is normalized." }));
+    }
+  }
 }
 
 function addQuotationChecks(target, targetProfile, issues) {
@@ -409,14 +424,14 @@ function addQuotationChecks(target, targetProfile, issues) {
   if (invalid) issues.push(createIssue({ error_type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", location_in_target: location(invalid.index, invalid.index + invalid[0].length), explanation: "Quotation marks do not follow the selected language profile." }));
 }
 
-function addLightChecks(source, target, targetProfile, issues, checkCurrency = true) {
+function addLightChecks(source, target, sourceProfile, targetProfile, issues, checkCurrency = true) {
   addSpacingChecks(target, targetProfile, issues);
   addTimeFormatChecks(target, targetProfile, issues);
   addNumberFormatChecks(target, targetProfile, issues);
   addPercentageChecks(target, targetProfile, issues);
   if (checkCurrency) {
     addCurrencyChecks(target, targetProfile, issues);
-    addCurrencyMismatch(source, target, issues);
+    addCurrencyComparisons(source, target, sourceProfile, targetProfile, issues);
   }
   addQuotationChecks(target, targetProfile, issues);
 }
@@ -456,6 +471,6 @@ export function runRuleEngine({ source, target, sourceLanguage = "en", targetLan
   } else {
     issues.push(...checkGlossary(source, target, sourceLanguage, targetLanguage, glossaryRows));
   }
-  addLightChecks(source, target, targetProfile, issues, checkCurrency);
+  addLightChecks(source, target, sourceProfile, targetProfile, issues, checkCurrency);
   return issues.sort((a, b) => a.location_in_target.start - b.location_in_target.start || a.location_in_target.end - b.location_in_target.end);
 }

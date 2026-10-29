@@ -785,7 +785,7 @@
     }
     return null;
   }
-  function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true, checkCurrency = true) {
+  function compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount = true) {
     MALFORMED_DATE_RE.lastIndex = 0;
     const malformedDate = MALFORMED_DATE_RE.exec(target);
     if (malformedDate) {
@@ -802,11 +802,9 @@
     }
     let sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
     let targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
-    if (!checkCurrency) {
-      const moneyPositions = new Set(Array.from({ length: Math.max(sourceTokens.length, targetTokens.length) }, (_, index) => index).filter((index) => sourceTokens[index]?.currency || targetTokens[index]?.currency));
-      sourceTokens = sourceTokens.filter((_, index) => !moneyPositions.has(index));
-      targetTokens = targetTokens.filter((_, index) => !moneyPositions.has(index));
-    }
+    const moneyPositions = new Set(Array.from({ length: Math.max(sourceTokens.length, targetTokens.length) }, (_, index) => index).filter((index) => sourceTokens[index]?.currency || targetTokens[index]?.currency));
+    sourceTokens = sourceTokens.filter((_, index) => !moneyPositions.has(index));
+    targetTokens = targetTokens.filter((_, index) => !moneyPositions.has(index));
     if (!compareCount && sourceTokens.length !== targetTokens.length) return [];
     const comparable = sourceTokens.map((sourceToken2, index) => [sourceToken2, targetTokens[index]]).filter(([sourceToken2, targetToken2]) => !(sourceToken2?.currency && targetToken2?.currency && sourceToken2.currency !== targetToken2.currency));
     const same = sourceTokens.length === targetTokens.length && comparable.every(([sourceToken2, targetToken2]) => sourceToken2.normalized === targetToken2?.normalized);
@@ -914,7 +912,7 @@
     const issues = [];
     issues.push(...checkDatesAndTime(source, target, { sourceProfile, targetProfile, targetTimezoneRule }));
     issues.push(...checkNumericDateFormat(source, target, targetProfile));
-    issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount, checkCurrency));
+    issues.push(...compareNumbersOutsideTemporalText(source, target, sourceProfile, targetProfile, compareCount));
     issues.push(...compareAttachedNumberWords(source, target));
     const spanishQuestionIssues = targetProfile.language === "es" ? spanishQuestionMarkChecks(target) : [];
     issues.push(...spanishQuestionIssues);
@@ -1011,7 +1009,7 @@
       if (!adjacent) continue;
       if (currency[0].toUpperCase() === "ARS$" && targetProfile.currencyRules?.["AR$"]) {
         issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(currencyStart, currencyEnd), explanation: "Use the Argentine peso marker AR$ in this language profile." }));
-        break;
+        continue;
       }
       const rule = currencyRule(targetProfile, currency[0]);
       const numberBefore = adjacent.index + adjacent.raw.length <= currencyStart;
@@ -1022,35 +1020,51 @@
       const expectedSpace = rule.space === "nbsp" ? "\xA0" : rule.space ?? "";
       if (actualPlacement !== rule.placement || actualSpace !== expectedSpace) {
         issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), explanation: `Currency should be ${rule.placement === "prefix" ? "before" : "after"} the amount${expectedSpace ? " with the profile\u2019s required space" : " without a space"}.` }));
-        break;
       }
     }
   }
-  function addCurrencyMismatch(source, target, issues) {
+  function addCurrencyComparisons(source, target, sourceProfile, targetProfile, issues) {
     const sourceMatches = [...source.matchAll(CURRENCY_RE)];
     const targetMatches = [...target.matchAll(CURRENCY_RE)];
     const sourceCurrencies = sourceMatches.map((match) => canonicalCurrency(match[0]));
     const targetCurrencies = targetMatches.map((match) => canonicalCurrency(match[0]));
     if (sourceCurrencies.length !== targetCurrencies.length) return;
-    if (sourceCurrencies.join("|") === targetCurrencies.join("|")) return;
-    const mismatchIndex = sourceCurrencies.findIndex((currency, index) => currency !== targetCurrencies[index]);
-    const sourceMatch = sourceMatches[mismatchIndex] ?? sourceMatches[0];
-    const targetMatch = targetMatches[mismatchIndex] ?? targetMatches[0];
-    issues.push(createIssue({ error_type: "CURRENCY_MISMATCH", pool: "Currency", severity: "Major", location_in_source: sourceMatch ? location(sourceMatch.index, sourceMatch.index + sourceMatch[0].length) : location(0, 0), location_in_target: targetMatch ? location(targetMatch.index, targetMatch.index + targetMatch[0].length) : location(0, 0), explanation: "Currency markers differ between source and target." }));
+    const sourceNumbers = numberTokens(source, sourceProfile);
+    const targetNumbers = numberTokens(target, targetProfile);
+    const adjacentNumber = (text, numbers, currency) => {
+      const start = currency.index ?? 0;
+      const end = start + currency[0].length;
+      return numbers.find(
+        (number) => number.index >= end && /^[ \t\u00a0]*$/.test(text.slice(end, number.index)) || number.index + number.raw.length <= start && /^[ \t\u00a0]*$/.test(text.slice(number.index + number.raw.length, start))
+      );
+    };
+    for (let index = 0; index < sourceCurrencies.length; index += 1) {
+      const sourceMatch = sourceMatches[index];
+      const targetMatch = targetMatches[index];
+      const sourceNumber = adjacentNumber(source, sourceNumbers, sourceMatch);
+      const targetNumber = adjacentNumber(target, targetNumbers, targetMatch);
+      const sourceRange = location(Math.min(sourceMatch.index, sourceNumber?.index ?? sourceMatch.index), Math.max(sourceMatch.index + sourceMatch[0].length, sourceNumber ? sourceNumber.index + sourceNumber.raw.length : 0));
+      const targetRange = location(Math.min(targetMatch.index, targetNumber?.index ?? targetMatch.index), Math.max(targetMatch.index + targetMatch[0].length, targetNumber ? targetNumber.index + targetNumber.raw.length : 0));
+      if (sourceCurrencies[index] !== targetCurrencies[index]) {
+        issues.push(createIssue({ error_type: "CURRENCY_CONVERSION_REVIEW", pool: "Currency", severity: "Info", location_in_source: sourceRange, location_in_target: targetRange, explanation: "The currency changes between source and target. Verify the converted amount against the market rules." }));
+      } else if (sourceNumber && targetNumber && sourceNumber.normalized !== targetNumber.normalized) {
+        issues.push(createIssue({ error_type: "CURRENCY_AMOUNT_MISMATCH", pool: "Currency", severity: "Major", location_in_source: sourceRange, location_in_target: targetRange, explanation: "The currency is unchanged but the numeric amount differs after locale formatting is normalized." }));
+      }
+    }
   }
   function addQuotationChecks(target, targetProfile, issues) {
     if (!targetProfile.quoteStyle) return;
     const invalid = targetProfile.quoteStyle === "guillemets" ? target.match(/["“”]/) : targetProfile.quoteStyle === "double" ? target.match(/[«»“”]/) : target.match(/"/);
     if (invalid) issues.push(createIssue({ error_type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", location_in_target: location(invalid.index, invalid.index + invalid[0].length), explanation: "Quotation marks do not follow the selected language profile." }));
   }
-  function addLightChecks(source, target, targetProfile, issues, checkCurrency = true) {
+  function addLightChecks(source, target, sourceProfile, targetProfile, issues, checkCurrency = true) {
     addSpacingChecks(target, targetProfile, issues);
     addTimeFormatChecks(target, targetProfile, issues);
     addNumberFormatChecks(target, targetProfile, issues);
     addPercentageChecks(target, targetProfile, issues);
     if (checkCurrency) {
       addCurrencyChecks(target, targetProfile, issues);
-      addCurrencyMismatch(source, target, issues);
+      addCurrencyComparisons(source, target, sourceProfile, targetProfile, issues);
     }
     addQuotationChecks(target, targetProfile, issues);
   }
@@ -1087,7 +1101,7 @@
     } else {
       issues.push(...checkGlossary(source, target, sourceLanguage2, targetLanguage2, glossaryRows));
     }
-    addLightChecks(source, target, targetProfile, issues, checkCurrency);
+    addLightChecks(source, target, sourceProfile, targetProfile, issues, checkCurrency);
     return issues.sort((a, b) => a.location_in_target.start - b.location_in_target.start || a.location_in_target.end - b.location_in_target.end);
   }
 
@@ -1477,7 +1491,8 @@
     { type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish questions should use an opening \xBF and a closing ?.", ru: "\u0412 \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u043C \u0432\u043E\u043F\u0440\u043E\u0441\u0435 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 \u0437\u043D\u0430\u043A \xBF \u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 ?." },
     { type: "SPANISH_EXCLAMATION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish exclamations should use an opening \xA1 and a closing !.", ru: "\u0412 \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u043C \u0432\u043E\u0441\u043A\u043B\u0438\u0446\u0430\u043D\u0438\u0438 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 \u0437\u043D\u0430\u043A \xA1 \u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 !." },
     { type: "NUMBER_FORMAT", pool: "Numbers", severity: "Minor", en: "Digit grouping does not follow the selected language profile.", ru: "\u0420\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u0438 \u0440\u0430\u0437\u0440\u044F\u0434\u043E\u0432 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
-    { type: "CURRENCY_MISMATCH", pool: "Currency", severity: "Major", en: "Currency markers differ between source and target.", ru: "\u041E\u0431\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0432\u0430\u043B\u044E\u0442\u044B \u043E\u0442\u043B\u0438\u0447\u0430\u044E\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
+    { type: "CURRENCY_CONVERSION_REVIEW", pool: "Currency", severity: "Info", en: "The currency changes in translation. Verify the converted amount against the market rules.", ru: "\u0412\u0430\u043B\u044E\u0442\u0430 \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0430. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u0441\u0447\u0438\u0442\u0430\u043D\u043D\u0443\u044E \u0441\u0443\u043C\u043C\u0443 \u043F\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u0430\u043C \u0440\u044B\u043D\u043A\u0430." },
+    { type: "CURRENCY_AMOUNT_MISMATCH", pool: "Currency", severity: "Major", en: "The currency is unchanged, but the numeric amount differs after locale normalization.", ru: "\u0412\u0430\u043B\u044E\u0442\u0430 \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0430\u0441\u044C, \u043D\u043E \u0447\u0438\u0441\u043B\u043E\u0432\u0430\u044F \u0441\u0443\u043C\u043C\u0430 \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0443\u0447\u0451\u0442\u0430 \u0444\u043E\u0440\u043C\u0430\u0442\u0430 \u044F\u0437\u044B\u043A\u0430." },
     { type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", en: "Currency placement or spacing does not follow the selected profile.", ru: "\u041F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442\u044B \u0438\u043B\u0438 \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
     { type: "PERCENTAGE_FORMAT", pool: "Percentage", severity: "Minor", en: "The percentage sign uses an incorrect position or spacing.", ru: "\u0417\u043D\u0430\u043A \u043F\u0440\u043E\u0446\u0435\u043D\u0442\u0430 \u0441\u0442\u043E\u0438\u0442 \u043D\u0435\u0432\u0435\u0440\u043D\u043E \u0438\u043B\u0438 \u043E\u0442\u0434\u0435\u043B\u0451\u043D \u043D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u044B\u043C \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C." },
     { type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", en: "Terminal punctuation differs between source and target.", ru: "\u041A\u043E\u043D\u0435\u0447\u043D\u044B\u0439 \u0437\u043D\u0430\u043A \u043F\u0440\u0435\u043F\u0438\u043D\u0430\u043D\u0438\u044F \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
@@ -2209,7 +2224,8 @@ ${GUIDE[code]}`
     { type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish questions should use an opening \xBF and a closing ?.", ru: "\u0412 \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u043C \u0432\u043E\u043F\u0440\u043E\u0441\u0435 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 \u0437\u043D\u0430\u043A \xBF \u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 ?." },
     { type: "SPANISH_EXCLAMATION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish exclamations should use an opening \xA1 and a closing !.", ru: "\u0412 \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u043C \u0432\u043E\u0441\u043A\u043B\u0438\u0446\u0430\u043D\u0438\u0438 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 \u0437\u043D\u0430\u043A \xA1 \u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 !." },
     { type: "NUMBER_FORMAT", pool: "Numbers", severity: "Minor", en: "Digit grouping does not follow the selected language profile.", ru: "\u0420\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u0438 \u0440\u0430\u0437\u0440\u044F\u0434\u043E\u0432 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
-    { type: "CURRENCY_MISMATCH", pool: "Currency", severity: "Major", en: "Currency markers differ between source and target.", ru: "\u041E\u0431\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0432\u0430\u043B\u044E\u0442\u044B \u043E\u0442\u043B\u0438\u0447\u0430\u044E\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
+    { type: "CURRENCY_CONVERSION_REVIEW", pool: "Currency", severity: "Info", en: "The currency changes in translation. Verify the converted amount against the market rules.", ru: "\u0412\u0430\u043B\u044E\u0442\u0430 \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0430. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u0441\u0447\u0438\u0442\u0430\u043D\u043D\u0443\u044E \u0441\u0443\u043C\u043C\u0443 \u043F\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u0430\u043C \u0440\u044B\u043D\u043A\u0430." },
+    { type: "CURRENCY_AMOUNT_MISMATCH", pool: "Currency", severity: "Major", en: "The currency is unchanged, but the numeric amount differs after locale normalization.", ru: "\u0412\u0430\u043B\u044E\u0442\u0430 \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0430\u0441\u044C, \u043D\u043E \u0447\u0438\u0441\u043B\u043E\u0432\u0430\u044F \u0441\u0443\u043C\u043C\u0430 \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0443\u0447\u0451\u0442\u0430 \u0444\u043E\u0440\u043C\u0430\u0442\u0430 \u044F\u0437\u044B\u043A\u0430." },
     { type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", en: "Currency placement or spacing does not follow the selected profile.", ru: "\u041F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442\u044B \u0438\u043B\u0438 \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
     { type: "PERCENTAGE_FORMAT", pool: "Percentage", severity: "Minor", en: "The percentage sign uses an incorrect position or spacing.", ru: "\u0417\u043D\u0430\u043A \u043F\u0440\u043E\u0446\u0435\u043D\u0442\u0430 \u0441\u0442\u043E\u0438\u0442 \u043D\u0435\u0432\u0435\u0440\u043D\u043E \u0438\u043B\u0438 \u043E\u0442\u0434\u0435\u043B\u0451\u043D \u043D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u044B\u043C \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C." },
     { type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", en: "Terminal punctuation differs between source and target.", ru: "\u041A\u043E\u043D\u0435\u0447\u043D\u044B\u0439 \u0437\u043D\u0430\u043A \u043F\u0440\u0435\u043F\u0438\u043D\u0430\u043D\u0438\u044F \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
@@ -2680,7 +2696,7 @@ ${range.hint}`;
       return `<li><div class="report-issue-title"><strong>${index + 1}. ${escapeHtml(issue.error_type)}</strong><span>${escapeHtml(poolLabel(currentLocale, issue.pool))} \xB7 ${escapeHtml(severityLabel(currentLocale, issue.severity))}</span></div><p>${escapeHtml(issueExplanation(issue, preference))}</p>${fragment ? `<code>${escapeHtml(currentLocale === "ru" ? "\u041F\u0435\u0440\u0435\u0432\u043E\u0434" : "Target")}: \u201C${escapeHtml(fragment)}\u201D</code>` : ""}</li>`;
     }).join("");
     const report = `<!doctype html><html lang="${currentLocale}"><head><meta charset="utf-8"><title>${escapeHtml(currentLocale === "ru" ? "\u041E\u0442\u0447\u0451\u0442 CHECKform" : "CHECKform Report")}</title><style>
-    @page{size:A4;margin:16mm}*{box-sizing:border-box}body{margin:0;color:#20231f;font:13px Arial,sans-serif;line-height:1.45}h1{margin:0 0 4px;font-size:22px}h2{margin:22px 0 8px;font-size:15px}.muted{color:#666f64}.meta{margin:0 0 18px;color:#666f64}.text{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border:1px solid #d7dcd2;border-radius:6px;background:#fff;font:12px Consolas,"Courier New",monospace}.text mark{position:relative;padding:1px 2px;border-radius:3px;background:#ffe0ad}.text mark::before{content:attr(data-number);position:absolute;left:0;top:-1.25em;min-width:14px;padding:1px 3px;border-radius:8px;background:#006739;color:#fff;font:10px Arial,sans-serif;text-align:center}.text mark.critical{background:#ffd0cc}.text mark.minor{background:#ccefd9}ol{margin:0;padding-left:22px}li{margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid #d7dcd2}.report-issue-title{display:flex;justify-content:space-between;gap:16px}.report-issue-title span{color:#666f64}li p{margin:4px 0;color:#424740}code{font:12px Consolas,"Courier New",monospace;color:#006739}footer{margin-top:24px;color:#666f64;font-size:11px}@media print{.text{break-inside:auto}li{break-inside:avoid}}
+    @page{size:A4;margin:16mm}*{box-sizing:border-box}body{margin:0;color:#20231f;font:13px Arial,sans-serif;line-height:1.45}h1{margin:0 0 4px;font-size:22px}h2{margin:22px 0 8px;font-size:15px}.muted{color:#666f64}.meta{margin:0 0 18px;color:#666f64}.text{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border:1px solid #d7dcd2;border-radius:6px;background:#fff;font:12px Consolas,"Courier New",monospace}.text mark{position:relative;padding:1px 2px;border-radius:3px;background:#ffe0ad}.text mark::before{content:attr(data-number);position:absolute;left:0;top:-1.25em;min-width:14px;padding:1px 3px;border-radius:8px;background:#006739;color:#fff;font:10px Arial,sans-serif;text-align:center}.text mark.critical{background:#ffd0cc}.text mark.minor{background:#ccefd9}.text mark.info{background:#e7f0ff}ol{margin:0;padding-left:22px}li{margin:0 0 10px;padding:0 0 10px;border-bottom:1px solid #d7dcd2}.report-issue-title{display:flex;justify-content:space-between;gap:16px}.report-issue-title span{color:#666f64}li p{margin:4px 0;color:#424740}code{font:12px Consolas,"Courier New",monospace;color:#006739}footer{margin-top:24px;color:#666f64;font-size:11px}@media print{.text{break-inside:auto}li{break-inside:avoid}}
   </style></head><body><h1>${escapeHtml(currentLocale === "ru" ? "\u041E\u0442\u0447\u0451\u0442 CHECKform" : "CHECKform Report")}</h1><p class="meta">${escapeHtml(sourceLabel)} \u2192 ${escapeHtml(targetLabel)} \xB7 ${escapeHtml(findingCount(includedIssues.length))}</p><h2>${escapeHtml(currentLocale === "ru" ? "\u0422\u0435\u043A\u0441\u0442 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0441 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u043C\u0438 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438" : "Target text with marked findings")}</h2><div class="text">${highlightedTextHtml(targetText.value, includedIssues)}</div><h2>${escapeHtml(currentLocale === "ru" ? "\u041E\u0448\u0438\u0431\u043A\u0438" : "Findings")}</h2><ol>${issueItems}</ol><footer>${escapeHtml(currentLocale === "ru" ? "\u0421\u043E\u0437\u0434\u0430\u043D\u043E CHECKform \xB7 \u041E\u0448\u0438\u0431\u043A\u0438 \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B, \u0442\u0435\u043A\u0441\u0442 \u043D\u0435 \u0438\u0441\u043F\u0440\u0430\u0432\u043B\u044F\u043B\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438." : "Generated by CHECKform \xB7 Findings are reported only; target text was not auto-corrected.")}</footer></body></html>`;
     const reportWindow = window.open("", "_blank");
     if (!reportWindow) {

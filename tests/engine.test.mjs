@@ -71,7 +71,7 @@ const currencyTypo = runRuleEngine({
   sourceLanguage: "en",
   targetLanguage: "es-AR"
 });
-assert.equal(currencyTypo.some((issue) => issue.error_type === "CURRENCY_MISMATCH"), false);
+assert.equal(currencyTypo.some((issue) => issue.error_type === "CURRENCY_CONVERSION_REVIEW"), false);
 assert.equal(currencyTypo.find((issue) => issue.error_type === "CURRENCY_FORMAT").location_in_target.end > 0, true);
 
 const sourceCurrencyTypo = runRuleEngine({
@@ -80,7 +80,7 @@ const sourceCurrencyTypo = runRuleEngine({
   sourceLanguage: "en",
   targetLanguage: "es-AR"
 });
-assert.equal(sourceCurrencyTypo.some((issue) => issue.error_type === "CURRENCY_MISMATCH"), false);
+assert.equal(sourceCurrencyTypo.some((issue) => issue.error_type === "CURRENCY_CONVERSION_REVIEW"), false);
 
 const localizedMoney = runRuleEngine({
   source: "The total prize pool is €25,000,000.",
@@ -89,7 +89,31 @@ const localizedMoney = runRuleEngine({
   targetLanguage: "es-AR"
 });
 assert.equal(localizedMoney.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
-assert.equal(localizedMoney.some((issue) => issue.error_type === "CURRENCY_MISMATCH"), true);
+assert.equal(localizedMoney.some((issue) => issue.error_type === "CURRENCY_CONVERSION_REVIEW"), true);
+const repeatedConversion = runRuleEngine({
+  source: "You’ll get up to €100.\n\nYou’ll get up to €100.",
+  target: "Recibirás hasta AR$150.000.\n\nRecibirás hasta AR$150.000.",
+  sourceLanguage: "en", targetLanguage: "es-AR", glossaryRows: []
+}).filter((issue) => issue.error_type === "CURRENCY_CONVERSION_REVIEW");
+assert.equal(repeatedConversion.length, 2);
+assert.equal(repeatedConversion[0].location_in_target.start < repeatedConversion[1].location_in_target.start, true);
+
+const sameCurrencyFormat = runRuleEngine({
+  source: "The amount is €1,500.", target: "La cantidad es 1.500€.",
+  sourceLanguage: "en", targetLanguage: "es", glossaryRows: []
+});
+assert.equal(sameCurrencyFormat.some((issue) => issue.pool === "Currency"), false);
+const sameCurrencyWrongAmount = runRuleEngine({
+  source: "The amount is €1,500.", target: "La cantidad es 1.600€.",
+  sourceLanguage: "en", targetLanguage: "es", glossaryRows: []
+});
+assert.equal(sameCurrencyWrongAmount.filter((issue) => issue.error_type === "CURRENCY_AMOUNT_MISMATCH").length, 1);
+assert.equal(sameCurrencyWrongAmount.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
+const sameCurrencyWrongPosition = runRuleEngine({
+  source: "The amount is €1,500.", target: "La cantidad es €1.500.",
+  sourceLanguage: "en", targetLanguage: "es", glossaryRows: []
+});
+assert.equal(sameCurrencyWrongPosition.some((issue) => issue.error_type === "CURRENCY_FORMAT"), true);
 const currencyDisabled = runRuleEngine({
   source: "The bonus is €5 and lasts 24 hours.",
   target: "El bono es AR$7.500 y dura 24 horas.",

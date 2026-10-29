@@ -1,4 +1,6 @@
-# CHECKform — v2.7
+# CHECKform — v2.8
+
+Currency checks now cover every occurrence. If source and target use the same currency, CHECKform normalizes locale separators and compares the amounts, then checks target placement and spacing. If the currency changes, each occurrence becomes an informational conversion review; no exchange rate is assumed. The currency checkbox disables these currency findings and monetary numeric comparisons.
 
 Once both texts are present, the separate Goal language upload card disappears. Its language selector and file picker move into Target Review, leaving the source and target editors at equal size. Currency checks can be turned on or off without disabling other findings. Review findings can be moved with a pointer drag handle or the side/bottom button.
 
