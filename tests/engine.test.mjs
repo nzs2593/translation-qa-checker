@@ -28,10 +28,16 @@ assert.equal(localizedCurrency.some((issue) => issue.error_type === "NUMBER_MISM
 assert.equal(localizedCurrency.some((issue) => issue.error_type === "CURRENCY_FORMAT"), false);
 
 const argentineEuro = runRuleEngine({
-  source: "The fee is €100.", target: "La comisión es 100€.",
+  source: "The fee is €100.", target: "La comisión es €100.",
   sourceLanguage: "en", targetLanguage: "es-AR"
 });
 assert.equal(argentineEuro.some((issue) => issue.error_type === "CURRENCY_FORMAT"), false);
+assert.equal(runRuleEngine({ source: "Win!", target: "¡Ganaste!", sourceLanguage: "en", targetLanguage: "es-AR" }).some((issue) => issue.error_type === "SPANISH_EXCLAMATION_MARKS"), false);
+assert.equal(runRuleEngine({ source: "Win!", target: "Ganaste!", sourceLanguage: "en", targetLanguage: "es-AR" }).some((issue) => issue.error_type === "SPANISH_EXCLAMATION_MARKS"), true);
+assert.equal(runRuleEngine({ source: "Offer", target: " Oferta", sourceLanguage: "en", targetLanguage: "es" }).some((issue) => issue.error_type === "LEADING_SPACE"), true);
+assert.equal(runRuleEngine({ source: "12:00 GMT on 01/07/2026", target: "09:00 GMT-3 em 01/07/2026", sourceLanguage: "en", targetLanguage: "pt-BR" }).some((issue) => issue.error_type.startsWith("TIMEZONE_") || issue.error_type === "DATETIME_MISMATCH"), false);
+assert.equal(runRuleEngine({ source: "03:24 GMT", target: "3:24 GMT-3", sourceLanguage: "en", targetLanguage: "es-AR" }).some((issue) => issue.error_type === "TIME_FORMAT"), true);
+assert.equal(runRuleEngine({ source: "03:24 GMT", target: "0:24 GMT-3", sourceLanguage: "en", targetLanguage: "pt-BR" }).some((issue) => issue.error_type === "TIME_FORMAT"), false);
 
 const spacing = runRuleEngine({
   source: "The payment is 20%.",

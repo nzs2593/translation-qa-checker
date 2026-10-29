@@ -3,7 +3,7 @@ import { LANGUAGE_PROFILES } from "./profiles.js";
 const STORAGE_KEY = "checkform-timezone-rules-v1";
 const SOURCE_LANGUAGE = Object.freeze({ uk: "ru" });
 const DEFAULTS = Object.freeze(Object.fromEntries(Object.keys(LANGUAGE_PROFILES).map((code) => [code,
-  code === "es-AR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 }
+  code === "es-AR" || code === "pt-BR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 }
     : code === "ru" ? { mode: "fixed", label: "МСК", offsetMinutes: 180 }
       : code === "uk" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 }
         : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 }

@@ -90,7 +90,7 @@
       currencySpace: "",
       defaultTimezone: null,
       preferredTimezoneOffsetMinutes: -180,
-      currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "\u20AC": { placement: "suffix", space: "" }, "EUR": { placement: "suffix", space: " " }, "USD": { placement: "prefix", space: " " }, "ARS": { placement: "prefix", space: " " } }
+      currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "\u20AC": { placement: "prefix", space: "" }, "EUR": { placement: "suffix", space: " " }, "USD": { placement: "prefix", space: " " }, "ARS": { placement: "prefix", space: " " } }
     },
     "uz-Cyrl": {
       label: "Uzbek Cyrillic",
@@ -196,7 +196,7 @@
   var SOURCE_LANGUAGE = Object.freeze({ uk: "ru" });
   var DEFAULTS = Object.freeze(Object.fromEntries(Object.keys(LANGUAGE_PROFILES).map((code) => [
     code,
-    code === "es-AR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 } : code === "ru" ? { mode: "fixed", label: "\u041C\u0421\u041A", offsetMinutes: 180 } : code === "uk" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 } : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 } : { mode: "source", label: "GMT", offsetMinutes: 0 }
+    code === "es-AR" || code === "pt-BR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 } : code === "ru" ? { mode: "fixed", label: "\u041C\u0421\u041A", offsetMinutes: 180 } : code === "uk" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 } : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 } : { mode: "source", label: "GMT", offsetMinutes: 0 }
   ])));
   var edits = {};
   function browserStorage() {
@@ -755,6 +755,30 @@
     }
     return issues;
   }
+  function spanishExclamationMarkChecks(target) {
+    const issues = [];
+    for (const match of target.matchAll(/!/g)) {
+      const start = Math.max(target.lastIndexOf(".", match.index - 1), target.lastIndexOf("?", match.index - 1), target.lastIndexOf("!", match.index - 1), target.lastIndexOf("\n", match.index - 1)) + 1;
+      if (!target.slice(start, match.index).includes("\xA1")) issues.push(createIssue({
+        error_type: "SPANISH_EXCLAMATION_MARKS",
+        pool: "Punctuation",
+        severity: "Minor",
+        location_in_target: location(match.index, match.index + 1),
+        explanation: "In Spanish, an exclamation should open with \xA1 and close with !."
+      }));
+    }
+    for (const match of target.matchAll(/¡/g)) {
+      const next = target.slice(match.index + 1).search(/[.!?\n]/);
+      if (next < 0 || target[match.index + 1 + next] !== "!") issues.push(createIssue({
+        error_type: "SPANISH_EXCLAMATION_MARKS",
+        pool: "Punctuation",
+        severity: "Minor",
+        location_in_target: location(match.index, match.index + 1),
+        explanation: "In Spanish, an exclamation should open with \xA1 and close with !."
+      }));
+    }
+    return issues;
+  }
   function currencyForNumber(text, token) {
     for (const currency of text.matchAll(CURRENCY_RE)) {
       const start = currency.index ?? 0;
@@ -892,6 +916,7 @@
     issues.push(...compareAttachedNumberWords(source, target));
     const spanishQuestionIssues = targetProfile.language === "es" ? spanishQuestionMarkChecks(target) : [];
     issues.push(...spanishQuestionIssues);
+    if (targetProfile.language === "es") issues.push(...spanishExclamationMarkChecks(target));
     issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", explanation: "A placeholder is missing or changed in the target." }));
     issues.push(...compareMaskedPlaceholders(source, target));
     if (includePunctuation && shouldCompareTerminalPunctuation(source, target) && !spanishQuestionIssues.length) {
@@ -920,6 +945,11 @@
     });
   }
   function addSpacingChecks(target, targetProfile, issues) {
+    const leading = target.match(/(^|\n)[ \t]+/);
+    if (leading) {
+      const start = leading.index + (leading[1] ? 1 : 0);
+      issues.push(createIssue({ error_type: "LEADING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location(start, leading.index + leading[0].length), explanation: "Target contains a space at the beginning of a line." }));
+    }
     const multiple = target.match(/ {2,}/);
     if (multiple) issues.push(createIssue({ error_type: "MULTIPLE_SPACES", pool: "Spacing", severity: "Minor", location_in_target: location(multiple.index, multiple.index + multiple[0].length), explanation: "Target contains consecutive spaces." }));
     const trailing = target.match(/[ \t]+(?=\r?\n|$)/);
@@ -930,6 +960,17 @@
       const regularGrouped = target.match(/\d \d{3}(?: \d{3})*/);
       if (regularGrouped) issues.push(createIssue({ error_type: "NON_BREAKING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location(regularGrouped.index, regularGrouped.index + regularGrouped[0].length), explanation: "Digit groups should use a non-breaking space in this language profile." }));
     }
+  }
+  function addTimeFormatChecks(target, targetProfile, issues) {
+    if (!["en", "es", "uz"].includes(targetProfile.language)) return;
+    const match = target.match(/(?<!\d)\d:\d{2}[ \t]+(?:GMT|UTC|MSK|МСК)(?![\p{L}])/iu);
+    if (match) issues.push(createIssue({
+      error_type: "TIME_FORMAT",
+      pool: "Dates & Time",
+      severity: "Minor",
+      location_in_target: location(match.index, match.index + match[0].length),
+      explanation: "This language profile requires a two-digit hour when a timezone is shown."
+    }));
   }
   function addNumberFormatChecks(target, targetProfile, issues) {
     for (const token of numberTokens(target, targetProfile)) {
@@ -1002,6 +1043,7 @@
   }
   function addLightChecks(source, target, targetProfile, issues) {
     addSpacingChecks(target, targetProfile, issues);
+    addTimeFormatChecks(target, targetProfile, issues);
     addNumberFormatChecks(target, targetProfile, issues);
     addPercentageChecks(target, targetProfile, issues);
     addCurrencyChecks(target, targetProfile, issues);
@@ -1217,7 +1259,7 @@
       gmtEquivalent: "Equivalent moment (any marker)",
       gmtFixed: "Fixed marker and offset",
       gmtExamplesTitle: "Checks",
-      gmtExamplesCopy: "20:59 GMT \u2192 17:59 GMT-3 passes for Argentine Spanish. GMT -3 has an extra space. 12:00 \u041C\u0421\u041A = 09:00 GMT.",
+      gmtExamplesCopy: "20:59 GMT \u2192 17:59 GMT-3 passes for Argentine Spanish and Brazilian Portuguese. GMT -3 has an extra space. 12:00 \u041C\u0421\u041A = 09:00 GMT.",
       gmtSaved: "GMT rule saved in this browser",
       gmtSaveError: "Enter a valid offset from -12 to +14 hours",
       rulesTab: "Language rules",
@@ -1333,7 +1375,7 @@
       gmtEquivalent: "\u0422\u043E\u0442 \u0436\u0435 \u043C\u043E\u043C\u0435\u043D\u0442 (\u043B\u044E\u0431\u043E\u0439 \u043C\u0430\u0440\u043A\u0435\u0440)",
       gmtFixed: "\u0417\u0430\u0434\u0430\u043D\u044B \u043C\u0430\u0440\u043A\u0435\u0440 \u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435",
       gmtExamplesTitle: "\u041F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u043E\u0432\u0435\u0440\u043E\u043A",
-      gmtExamplesCopy: "20:59 GMT \u2192 17:59 GMT-3 \u2014 \u0432\u0435\u0440\u043D\u043E \u0434\u043B\u044F \u0430\u0440\u0433\u0435\u043D\u0442\u0438\u043D\u0441\u043A\u043E\u0433\u043E \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u0433\u043E. GMT -3 \u2014 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B. 12:00 \u041C\u0421\u041A = 09:00 GMT.",
+      gmtExamplesCopy: "20:59 GMT \u2192 17:59 GMT-3 \u2014 \u0432\u0435\u0440\u043D\u043E \u0434\u043B\u044F \u0430\u0440\u0433\u0435\u043D\u0442\u0438\u043D\u0441\u043A\u043E\u0433\u043E \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u0433\u043E \u0438 \u0431\u0440\u0430\u0437\u0438\u043B\u044C\u0441\u043A\u043E\u0433\u043E \u043F\u043E\u0440\u0442\u0443\u0433\u0430\u043B\u044C\u0441\u043A\u043E\u0433\u043E. GMT -3 \u2014 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B. 12:00 \u041C\u0421\u041A = 09:00 GMT.",
       gmtSaved: "\u041F\u0440\u0430\u0432\u0438\u043B\u043E GMT \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E \u0432 \u044D\u0442\u043E\u043C \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435",
       gmtSaveError: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u043E\u0435 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u043E\u0442 \u221212 \u0434\u043E +14 \u0447\u0430\u0441\u043E\u0432",
       rulesTab: "\u041F\u0440\u0430\u0432\u0438\u043B\u0430 \u044F\u0437\u044B\u043A\u043E\u0432",
@@ -1416,6 +1458,7 @@
     { type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major", en: "Numeric values outside dates and times differ between source and target.", ru: "\u0427\u0438\u0441\u043B\u043E\u0432\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432\u043D\u0435 \u0434\u0430\u0442\u044B \u0438\u043B\u0438 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
     { type: "NUMBER_WORD_JOINED", pool: "Numbers", severity: "Minor", en: "A number is attached to a word and may indicate a typo or a missing space.", ru: "\u0426\u0438\u0444\u0440\u0430 \u043F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0430 \u043A \u0441\u043B\u043E\u0432\u0443 \u2014 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u044D\u0442\u043E \u043E\u043F\u0435\u0447\u0430\u0442\u043A\u0430 \u0438\u043B\u0438 \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D \u043F\u0440\u043E\u0431\u0435\u043B." },
     { type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish questions should use an opening \xBF and a closing ?.", ru: "\u0412 \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u043C \u0432\u043E\u043F\u0440\u043E\u0441\u0435 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 \u0437\u043D\u0430\u043A \xBF \u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 ?." },
+    { type: "SPANISH_EXCLAMATION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish exclamations should use an opening \xA1 and a closing !.", ru: "\u0412 \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u043C \u0432\u043E\u0441\u043A\u043B\u0438\u0446\u0430\u043D\u0438\u0438 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 \u0437\u043D\u0430\u043A \xA1 \u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 !." },
     { type: "NUMBER_FORMAT", pool: "Numbers", severity: "Minor", en: "Digit grouping does not follow the selected language profile.", ru: "\u0420\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u0438 \u0440\u0430\u0437\u0440\u044F\u0434\u043E\u0432 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
     { type: "CURRENCY_MISMATCH", pool: "Currency", severity: "Major", en: "Currency markers differ between source and target.", ru: "\u041E\u0431\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0432\u0430\u043B\u044E\u0442\u044B \u043E\u0442\u043B\u0438\u0447\u0430\u044E\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
     { type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", en: "Currency placement or spacing does not follow the selected profile.", ru: "\u041F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442\u044B \u0438\u043B\u0438 \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
@@ -1424,6 +1467,7 @@
     { type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", en: "Quotation marks do not follow the selected language profile.", ru: "\u041A\u0430\u0432\u044B\u0447\u043A\u0438 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
     { type: "MULTIPLE_SPACES", pool: "Spacing", severity: "Minor", en: "Target contains consecutive spaces.", ru: "\u0412 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u043E\u0431\u043D\u0430\u0440\u0443\u0436\u0435\u043D\u044B \u0434\u0432\u043E\u0439\u043D\u044B\u0435 \u0438\u043B\u0438 \u043C\u043D\u043E\u0436\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0435 \u043F\u0440\u043E\u0431\u0435\u043B\u044B." },
     { type: "TRAILING_SPACE", pool: "Spacing", severity: "Minor", en: "Target contains a space at the end of a line.", ru: "\u0412 \u043A\u043E\u043D\u0446\u0435 \u0441\u0442\u0440\u043E\u043A\u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0441\u0442\u043E\u0438\u0442 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
+    { type: "LEADING_SPACE", pool: "Spacing", severity: "Minor", en: "Target contains a space at the beginning of a line.", ru: "\u0412 \u043D\u0430\u0447\u0430\u043B\u0435 \u0441\u0442\u0440\u043E\u043A\u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0441\u0442\u043E\u0438\u0442 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
     { type: "SPACE_BEFORE_PUNCTUATION", pool: "Spacing", severity: "Minor", en: "There is an unnecessary space before punctuation.", ru: "\u041F\u0435\u0440\u0435\u0434 \u0437\u043D\u0430\u043A\u043E\u043C \u043F\u0440\u0435\u043F\u0438\u043D\u0430\u043D\u0438\u044F \u0441\u0442\u043E\u0438\u0442 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
     { type: "NON_BREAKING_SPACE", pool: "Spacing", severity: "Minor", en: "Digit groups should use a non-breaking space in this language profile.", ru: "\u0412 \u044D\u0442\u043E\u043C \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u043C\u0435\u0436\u0434\u0443 \u0440\u0430\u0437\u0440\u044F\u0434\u0430\u043C\u0438 \u043D\u0443\u0436\u0435\u043D \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
     { type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", en: "A placeholder is missing or changed in the target.", ru: "\u041F\u043B\u0435\u0439\u0441\u0445\u043E\u043B\u0434\u0435\u0440 \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0438\u043B\u0438 \u0438\u0437\u043C\u0435\u043D\u0451\u043D \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
@@ -1435,6 +1479,7 @@
     { type: "TIMEZONE_FORMAT", pool: "Dates & Time", severity: "Minor", en: "The timezone marker contains a space or non-standard sign; use its exact spelling from the GMT table.", ru: "\u041C\u0430\u0440\u043A\u0435\u0440 \u0447\u0430\u0441\u043E\u0432\u043E\u0433\u043E \u043F\u043E\u044F\u0441\u0430 \u043D\u0430\u043F\u0438\u0441\u0430\u043D \u0441 \u043B\u0438\u0448\u043D\u0438\u043C \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C \u0438\u043B\u0438 \u043D\u0435\u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u044B\u043C \u0437\u043D\u0430\u043A\u043E\u043C; \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 \u0442\u043E\u0447\u043D\u0443\u044E \u0437\u0430\u043F\u0438\u0441\u044C \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B GMT." },
     { type: "INVALID_DATE", pool: "Dates & Time", severity: "Major", en: "A calendar date, clock time, or GMT offset is invalid in the source or target.", ru: "\u0412 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438\u043B\u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u043D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u0430\u044F \u0434\u0430\u0442\u0430, \u0432\u0440\u0435\u043C\u044F \u0438\u043B\u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 GMT." },
     { type: "DATE_FORMAT", pool: "Dates & Time", severity: "Minor", en: "Numeric date format does not follow the selected language profile.", ru: "\u0427\u0438\u0441\u043B\u043E\u0432\u0430\u044F \u0434\u0430\u0442\u0430 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0444\u043E\u0440\u043C\u0430\u0442\u0443 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0433\u043E \u044F\u0437\u044B\u043A\u0430." },
+    { type: "TIME_FORMAT", pool: "Dates & Time", severity: "Minor", en: "A time with a timezone needs a two-digit hour in this language profile.", ru: "\u0412\u0440\u0435\u043C\u044F \u0441 \u0443\u043A\u0430\u0437\u0430\u043D\u0438\u0435\u043C \u0447\u0430\u0441\u043E\u0432\u043E\u0433\u043E \u043F\u043E\u044F\u0441\u0430 \u0432 \u044D\u0442\u043E\u043C \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u0434\u0432\u0443\u0437\u043D\u0430\u0447\u043D\u043E\u0433\u043E \u0447\u0430\u0441\u0430." },
     { type: "DATE_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target contain different calendar dates.", ru: "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u0440\u0430\u0437\u043B\u0438\u0447\u0430\u044E\u0442\u0441\u044F." },
     { type: "TIME_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target contain different clock times.", ru: "\u0412\u0440\u0435\u043C\u044F \u043D\u0430 \u0447\u0430\u0441\u0430\u0445 \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u0440\u0430\u0437\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F." },
     { type: "DATETIME_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target resolve to different moments after timezone normalization.", ru: "\u041F\u043E\u0441\u043B\u0435 \u043D\u043E\u0440\u043C\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u0438 \u0447\u0430\u0441\u043E\u0432\u044B\u0445 \u043F\u043E\u044F\u0441\u043E\u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u0443\u043A\u0430\u0437\u044B\u0432\u0430\u044E\u0442 \u043D\u0430 \u0440\u0430\u0437\u043D\u044B\u0435 \u043C\u043E\u043C\u0435\u043D\u0442\u044B." }
@@ -1733,13 +1778,13 @@
     en: { en: "UK English conventions.", ru: "\u041F\u0440\u0430\u0432\u0438\u043B\u0430 \u0431\u0440\u0438\u0442\u0430\u043D\u0441\u043A\u043E\u0433\u043E \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u043E\u0433\u043E." },
     ru: { en: "Promotion T&Cs use HH:mm \u041C\u0421\u041A DD.MM.YYYY; grouping starts at five digits.", ru: "\u0412 \u0443\u0441\u043B\u043E\u0432\u0438\u044F\u0445 \u0430\u043A\u0446\u0438\u0438: \u0427\u0427:\u041C\u041C \u041C\u0421\u041A \u0414\u0414.\u041C\u041C.\u0413\u0413\u0413\u0413; \u0433\u0440\u0443\u043F\u043F\u044B \u0446\u0438\u0444\u0440 \u2014 \u043E\u0442 \u043F\u044F\u0442\u0438 \u0437\u043D\u0430\u043A\u043E\u0432." },
     es: { en: "Symbols usually follow the amount; US$/AR$ precede it. ISO codes have separate rules.", ru: "\u0421\u0438\u043C\u0432\u043E\u043B \u043E\u0431\u044B\u0447\u043D\u043E \u043F\u043E\u0441\u043B\u0435 \u0441\u0443\u043C\u043C\u044B; US$/AR$ \u043F\u0435\u0440\u0435\u0434 \u043D\u0435\u0439. \u0414\u043B\u044F \u043A\u043E\u0434\u043E\u0432 ISO \u2014 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u0430." },
-    "es-AR": { en: "Distinguish US$ and AR$; do not change the source currency or amount without instruction.", ru: "\u0420\u0430\u0437\u043B\u0438\u0447\u0430\u0439\u0442\u0435 US$ \u0438 AR$; \u043D\u0435 \u043C\u0435\u043D\u044F\u0439\u0442\u0435 \u0432\u0430\u043B\u044E\u0442\u0443 \u0438\u043B\u0438 \u0441\u0443\u043C\u043C\u0443 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0430 \u0431\u0435\u0437 \u0443\u043A\u0430\u0437\u0430\u043D\u0438\u044F." },
+    "es-AR": { en: "\u20AC and AR$ precede amounts. Distinguish US$ and AR$; do not change currency or amount without instruction.", ru: "\u20AC \u0438 AR$ \u043F\u0435\u0440\u0435\u0434 \u0441\u0443\u043C\u043C\u043E\u0439. \u0420\u0430\u0437\u043B\u0438\u0447\u0430\u0439\u0442\u0435 US$ \u0438 AR$; \u043D\u0435 \u043C\u0435\u043D\u044F\u0439\u0442\u0435 \u0432\u0430\u043B\u044E\u0442\u0443 \u0438\u043B\u0438 \u0441\u0443\u043C\u043C\u0443 \u0431\u0435\u0437 \u0443\u043A\u0430\u0437\u0430\u043D\u0438\u044F." },
     "uz-Cyrl": { en: "24-hour time; numeric dates use dots; five-digit grouping uses NBSP.", ru: "24-\u0447\u0430\u0441\u043E\u0432\u043E\u0435 \u0432\u0440\u0435\u043C\u044F; \u0434\u0430\u0442\u044B \u0447\u0435\u0440\u0435\u0437 \u0442\u043E\u0447\u043A\u0443; \u0440\u0430\u0437\u0440\u044F\u0434\u044B \u043E\u0442 \u043F\u044F\u0442\u0438 \u0446\u0438\u0444\u0440 \u2014 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
     "uz-Latn": { en: "24-hour time; numeric dates use dots; five-digit grouping uses NBSP.", ru: "24-\u0447\u0430\u0441\u043E\u0432\u043E\u0435 \u0432\u0440\u0435\u043C\u044F; \u0434\u0430\u0442\u044B \u0447\u0435\u0440\u0435\u0437 \u0442\u043E\u0447\u043A\u0443; \u0440\u0430\u0437\u0440\u044F\u0434\u044B \u043E\u0442 \u043F\u044F\u0442\u0438 \u0446\u0438\u0444\u0440 \u2014 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
     uk: { en: "UAH uses a non-breaking space after the amount; \u20AC, $ and \u20BD have no space before the amount.", ru: "UAH \u043F\u043E\u0441\u043B\u0435 \u0441\u0443\u043C\u043C\u044B \u0447\u0435\u0440\u0435\u0437 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B; \u20AC, $ \u0438 \u20BD \u043F\u0435\u0440\u0435\u0434 \u0441\u0443\u043C\u043C\u043E\u0439 \u0431\u0435\u0437 \u043F\u0440\u043E\u0431\u0435\u043B\u0430." },
     mn: { en: "MNT follows the number without a space; $, \u20AC and \u20BD precede it.", ru: "MNT \u043F\u043E\u0441\u043B\u0435 \u0447\u0438\u0441\u043B\u0430 \u0431\u0435\u0437 \u043F\u0440\u043E\u0431\u0435\u043B\u0430; $, \u20AC \u0438 \u20BD \u043F\u0435\u0440\u0435\u0434 \u0447\u0438\u0441\u043B\u043E\u043C." },
     da: { en: "Dynamic content, markets and odds may retain English decimal conventions.", ru: "\u0412 \u0434\u0438\u043D\u0430\u043C\u0438\u0447\u0435\u0441\u043A\u043E\u043C \u043A\u043E\u043D\u0442\u0435\u043D\u0442\u0435, \u0440\u044B\u043D\u043A\u0430\u0445 \u0438 \u043A\u043E\u044D\u0444\u0444\u0438\u0446\u0438\u0435\u043D\u0442\u0430\u0445 \u043C\u043E\u0436\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C\u0441\u044F \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438\u0439 \u0444\u043E\u0440\u043C\u0430\u0442 \u0434\u0440\u043E\u0431\u0435\u0439." },
-    "pt-BR": { en: "Use NBSP for R$ and BRL; some odds and score formats have explicit exceptions.", ru: "\u0414\u043B\u044F R$ \u0438 BRL \u043D\u0443\u0436\u0435\u043D \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B; \u0434\u043B\u044F \u043A\u043E\u044D\u0444\u0444\u0438\u0446\u0438\u0435\u043D\u0442\u043E\u0432 \u0438 \u0441\u0447\u0451\u0442\u0430 \u0435\u0441\u0442\u044C \u0438\u0441\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F." },
+    "pt-BR": { en: "GMT-3 in promotions; convert date too. Use NBSP for R$ and BRL; odds keep a decimal point.", ru: "\u0412 \u0430\u043A\u0446\u0438\u044F\u0445 GMT-3 \u0441 \u043F\u0435\u0440\u0435\u0441\u0447\u0451\u0442\u043E\u043C \u0434\u0430\u0442\u044B. \u0414\u043B\u044F R$ \u0438 BRL \u043D\u0443\u0436\u0435\u043D \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B; \u043A\u043E\u044D\u0444\u0444\u0438\u0446\u0438\u0435\u043D\u0442\u044B \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442 \u0442\u043E\u0447\u043A\u0443." },
     az: { en: "\u20BC follows the amount with a non-breaking space.", ru: "\u20BC \u043F\u043E\u0441\u043B\u0435 \u0441\u0443\u043C\u043C\u044B \u0447\u0435\u0440\u0435\u0437 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." }
   };
   function exampleDate(profile) {
@@ -1933,7 +1978,7 @@ ${GUIDE[code]}`
       gmtEquivalent: "Equivalent moment (any marker)",
       gmtFixed: "Fixed marker and offset",
       gmtExamplesTitle: "Checks",
-      gmtExamplesCopy: "20:59 GMT \u2192 17:59 GMT-3 passes for Argentine Spanish. GMT -3 has an extra space. 12:00 \u041C\u0421\u041A = 09:00 GMT.",
+      gmtExamplesCopy: "20:59 GMT \u2192 17:59 GMT-3 passes for Argentine Spanish and Brazilian Portuguese. GMT -3 has an extra space. 12:00 \u041C\u0421\u041A = 09:00 GMT.",
       gmtSaved: "GMT rule saved in this browser",
       gmtSaveError: "Enter a valid offset from -12 to +14 hours",
       rulesTab: "Language rules",
@@ -2049,7 +2094,7 @@ ${GUIDE[code]}`
       gmtEquivalent: "\u0422\u043E\u0442 \u0436\u0435 \u043C\u043E\u043C\u0435\u043D\u0442 (\u043B\u044E\u0431\u043E\u0439 \u043C\u0430\u0440\u043A\u0435\u0440)",
       gmtFixed: "\u0417\u0430\u0434\u0430\u043D\u044B \u043C\u0430\u0440\u043A\u0435\u0440 \u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435",
       gmtExamplesTitle: "\u041F\u0440\u0438\u043C\u0435\u0440\u044B \u043F\u0440\u043E\u0432\u0435\u0440\u043E\u043A",
-      gmtExamplesCopy: "20:59 GMT \u2192 17:59 GMT-3 \u2014 \u0432\u0435\u0440\u043D\u043E \u0434\u043B\u044F \u0430\u0440\u0433\u0435\u043D\u0442\u0438\u043D\u0441\u043A\u043E\u0433\u043E \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u0433\u043E. GMT -3 \u2014 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B. 12:00 \u041C\u0421\u041A = 09:00 GMT.",
+      gmtExamplesCopy: "20:59 GMT \u2192 17:59 GMT-3 \u2014 \u0432\u0435\u0440\u043D\u043E \u0434\u043B\u044F \u0430\u0440\u0433\u0435\u043D\u0442\u0438\u043D\u0441\u043A\u043E\u0433\u043E \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u0433\u043E \u0438 \u0431\u0440\u0430\u0437\u0438\u043B\u044C\u0441\u043A\u043E\u0433\u043E \u043F\u043E\u0440\u0442\u0443\u0433\u0430\u043B\u044C\u0441\u043A\u043E\u0433\u043E. GMT -3 \u2014 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B. 12:00 \u041C\u0421\u041A = 09:00 GMT.",
       gmtSaved: "\u041F\u0440\u0430\u0432\u0438\u043B\u043E GMT \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E \u0432 \u044D\u0442\u043E\u043C \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435",
       gmtSaveError: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u043E\u0435 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u043E\u0442 \u221212 \u0434\u043E +14 \u0447\u0430\u0441\u043E\u0432",
       rulesTab: "\u041F\u0440\u0430\u0432\u0438\u043B\u0430 \u044F\u0437\u044B\u043A\u043E\u0432",
@@ -2132,6 +2177,7 @@ ${GUIDE[code]}`
     { type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major", en: "Numeric values outside dates and times differ between source and target.", ru: "\u0427\u0438\u0441\u043B\u043E\u0432\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432\u043D\u0435 \u0434\u0430\u0442\u044B \u0438\u043B\u0438 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
     { type: "NUMBER_WORD_JOINED", pool: "Numbers", severity: "Minor", en: "A number is attached to a word and may indicate a typo or a missing space.", ru: "\u0426\u0438\u0444\u0440\u0430 \u043F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0430 \u043A \u0441\u043B\u043E\u0432\u0443 \u2014 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u044D\u0442\u043E \u043E\u043F\u0435\u0447\u0430\u0442\u043A\u0430 \u0438\u043B\u0438 \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D \u043F\u0440\u043E\u0431\u0435\u043B." },
     { type: "SPANISH_QUESTION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish questions should use an opening \xBF and a closing ?.", ru: "\u0412 \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u043C \u0432\u043E\u043F\u0440\u043E\u0441\u0435 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 \u0437\u043D\u0430\u043A \xBF \u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 ?." },
+    { type: "SPANISH_EXCLAMATION_MARKS", pool: "Punctuation", severity: "Minor", en: "Spanish exclamations should use an opening \xA1 and a closing !.", ru: "\u0412 \u0438\u0441\u043F\u0430\u043D\u0441\u043A\u043E\u043C \u0432\u043E\u0441\u043A\u043B\u0438\u0446\u0430\u043D\u0438\u0438 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 \u0437\u043D\u0430\u043A \xA1 \u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u044E\u0449\u0438\u0439 !." },
     { type: "NUMBER_FORMAT", pool: "Numbers", severity: "Minor", en: "Digit grouping does not follow the selected language profile.", ru: "\u0420\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u0438 \u0440\u0430\u0437\u0440\u044F\u0434\u043E\u0432 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
     { type: "CURRENCY_MISMATCH", pool: "Currency", severity: "Major", en: "Currency markers differ between source and target.", ru: "\u041E\u0431\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0432\u0430\u043B\u044E\u0442\u044B \u043E\u0442\u043B\u0438\u0447\u0430\u044E\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
     { type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", en: "Currency placement or spacing does not follow the selected profile.", ru: "\u041F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442\u044B \u0438\u043B\u0438 \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
@@ -2140,6 +2186,7 @@ ${GUIDE[code]}`
     { type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", en: "Quotation marks do not follow the selected language profile.", ru: "\u041A\u0430\u0432\u044B\u0447\u043A\u0438 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
     { type: "MULTIPLE_SPACES", pool: "Spacing", severity: "Minor", en: "Target contains consecutive spaces.", ru: "\u0412 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u043E\u0431\u043D\u0430\u0440\u0443\u0436\u0435\u043D\u044B \u0434\u0432\u043E\u0439\u043D\u044B\u0435 \u0438\u043B\u0438 \u043C\u043D\u043E\u0436\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u044B\u0435 \u043F\u0440\u043E\u0431\u0435\u043B\u044B." },
     { type: "TRAILING_SPACE", pool: "Spacing", severity: "Minor", en: "Target contains a space at the end of a line.", ru: "\u0412 \u043A\u043E\u043D\u0446\u0435 \u0441\u0442\u0440\u043E\u043A\u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0441\u0442\u043E\u0438\u0442 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
+    { type: "LEADING_SPACE", pool: "Spacing", severity: "Minor", en: "Target contains a space at the beginning of a line.", ru: "\u0412 \u043D\u0430\u0447\u0430\u043B\u0435 \u0441\u0442\u0440\u043E\u043A\u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0441\u0442\u043E\u0438\u0442 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
     { type: "SPACE_BEFORE_PUNCTUATION", pool: "Spacing", severity: "Minor", en: "There is an unnecessary space before punctuation.", ru: "\u041F\u0435\u0440\u0435\u0434 \u0437\u043D\u0430\u043A\u043E\u043C \u043F\u0440\u0435\u043F\u0438\u043D\u0430\u043D\u0438\u044F \u0441\u0442\u043E\u0438\u0442 \u043B\u0438\u0448\u043D\u0438\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
     { type: "NON_BREAKING_SPACE", pool: "Spacing", severity: "Minor", en: "Digit groups should use a non-breaking space in this language profile.", ru: "\u0412 \u044D\u0442\u043E\u043C \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u043C\u0435\u0436\u0434\u0443 \u0440\u0430\u0437\u0440\u044F\u0434\u0430\u043C\u0438 \u043D\u0443\u0436\u0435\u043D \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." },
     { type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", en: "A placeholder is missing or changed in the target.", ru: "\u041F\u043B\u0435\u0439\u0441\u0445\u043E\u043B\u0434\u0435\u0440 \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0438\u043B\u0438 \u0438\u0437\u043C\u0435\u043D\u0451\u043D \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
@@ -2151,6 +2198,7 @@ ${GUIDE[code]}`
     { type: "TIMEZONE_FORMAT", pool: "Dates & Time", severity: "Minor", en: "The timezone marker contains a space or non-standard sign; use its exact spelling from the GMT table.", ru: "\u041C\u0430\u0440\u043A\u0435\u0440 \u0447\u0430\u0441\u043E\u0432\u043E\u0433\u043E \u043F\u043E\u044F\u0441\u0430 \u043D\u0430\u043F\u0438\u0441\u0430\u043D \u0441 \u043B\u0438\u0448\u043D\u0438\u043C \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C \u0438\u043B\u0438 \u043D\u0435\u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u044B\u043C \u0437\u043D\u0430\u043A\u043E\u043C; \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 \u0442\u043E\u0447\u043D\u0443\u044E \u0437\u0430\u043F\u0438\u0441\u044C \u0438\u0437 \u0442\u0430\u0431\u043B\u0438\u0446\u044B GMT." },
     { type: "INVALID_DATE", pool: "Dates & Time", severity: "Major", en: "A calendar date, clock time, or GMT offset is invalid in the source or target.", ru: "\u0412 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438\u043B\u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u043D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u0430\u044F \u0434\u0430\u0442\u0430, \u0432\u0440\u0435\u043C\u044F \u0438\u043B\u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 GMT." },
     { type: "DATE_FORMAT", pool: "Dates & Time", severity: "Minor", en: "Numeric date format does not follow the selected language profile.", ru: "\u0427\u0438\u0441\u043B\u043E\u0432\u0430\u044F \u0434\u0430\u0442\u0430 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0444\u043E\u0440\u043C\u0430\u0442\u0443 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u0433\u043E \u044F\u0437\u044B\u043A\u0430." },
+    { type: "TIME_FORMAT", pool: "Dates & Time", severity: "Minor", en: "A time with a timezone needs a two-digit hour in this language profile.", ru: "\u0412\u0440\u0435\u043C\u044F \u0441 \u0443\u043A\u0430\u0437\u0430\u043D\u0438\u0435\u043C \u0447\u0430\u0441\u043E\u0432\u043E\u0433\u043E \u043F\u043E\u044F\u0441\u0430 \u0432 \u044D\u0442\u043E\u043C \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0442\u0440\u0435\u0431\u0443\u0435\u0442 \u0434\u0432\u0443\u0437\u043D\u0430\u0447\u043D\u043E\u0433\u043E \u0447\u0430\u0441\u0430." },
     { type: "DATE_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target contain different calendar dates.", ru: "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u0440\u0430\u0437\u043B\u0438\u0447\u0430\u044E\u0442\u0441\u044F." },
     { type: "TIME_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target contain different clock times.", ru: "\u0412\u0440\u0435\u043C\u044F \u043D\u0430 \u0447\u0430\u0441\u0430\u0445 \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u0440\u0430\u0437\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F." },
     { type: "DATETIME_MISMATCH", pool: "Dates & Time", severity: "Major", en: "Source and target resolve to different moments after timezone normalization.", ru: "\u041F\u043E\u0441\u043B\u0435 \u043D\u043E\u0440\u043C\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u0438 \u0447\u0430\u0441\u043E\u0432\u044B\u0445 \u043F\u043E\u044F\u0441\u043E\u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u0443\u043A\u0430\u0437\u044B\u0432\u0430\u044E\u0442 \u043D\u0430 \u0440\u0430\u0437\u043D\u044B\u0435 \u043C\u043E\u043C\u0435\u043D\u0442\u044B." }

@@ -32,6 +32,7 @@ assert.equal(checkDatesAndTime("00:30 GMT on 01/03/2027", "21:30 GMT-3 del 29/02
 const arRule = getTimezoneRule("es-AR");
 const ruRule = getTimezoneRule("ru");
 const ukRule = getTimezoneRule("uk");
+const brazilRule = getTimezoneRule("pt-BR");
 assert.deepEqual(checkDatesAndTime("20:59 GMT on 12/10/2026", "17:59 GMT-3 del 12/10/2026", { sourceProfile: english, targetProfile: spanish, targetTimezoneRule: arRule }), []);
 assert.equal(checkDatesAndTime("20:59 GMT", "17:59 GMT -3", { sourceProfile: english, targetProfile: spanish, targetTimezoneRule: arRule })[0].error_type, "TIMEZONE_FORMAT");
 assert.equal(checkDatesAndTime("20:59 GMT", "18:59 GMT-2", { sourceProfile: english, targetProfile: spanish, targetTimezoneRule: arRule })[0].error_type, "TIMEZONE_OFFSET_MISMATCH");
@@ -39,6 +40,7 @@ assert.equal(checkDatesAndTime("20:59 GMT", "17:59 UTC-3", { sourceProfile: engl
 assert.deepEqual(checkDatesAndTime("09:00 GMT", "12:00 МСК", { sourceProfile: english, targetProfile: getProfile("ru"), targetTimezoneRule: ruRule }), []);
 assert.deepEqual(checkDatesAndTime("12:00 МСК", "09:00 GMT", { sourceProfile: getProfile("ru"), targetProfile: getProfile("uk"), targetTimezoneRule: ukRule }), []);
 assert.deepEqual(checkDatesAndTime("00:30 GMT on 01/03/2028", "21:30 GMT-3 del 29/02/2028", { sourceProfile: english, targetProfile: spanish, targetTimezoneRule: arRule }), []);
+assert.deepEqual(checkDatesAndTime("00:01 GMT on 01/05/2023", "21:01 GMT-3 de 30/04/2023", { sourceProfile: english, targetProfile: getProfile("pt-BR"), targetTimezoneRule: brazilRule }), []);
 assert.equal(parseTemporal("1st July 2026", english).date.month, 7);
 assert.equal(parseTemporal("30 de junio de 2027", spanish).date.day, 30);
 const argentine = { ...getProfile("es-AR"), language: "es" };

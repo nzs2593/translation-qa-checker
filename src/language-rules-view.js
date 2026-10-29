@@ -20,13 +20,13 @@ const NOTES = {
   en: { en: "UK English conventions.", ru: "Правила британского английского." },
   ru: { en: "Promotion T&Cs use HH:mm МСК DD.MM.YYYY; grouping starts at five digits.", ru: "В условиях акции: ЧЧ:ММ МСК ДД.ММ.ГГГГ; группы цифр — от пяти знаков." },
   es: { en: "Symbols usually follow the amount; US$/AR$ precede it. ISO codes have separate rules.", ru: "Символ обычно после суммы; US$/AR$ перед ней. Для кодов ISO — отдельные правила." },
-  "es-AR": { en: "Distinguish US$ and AR$; do not change the source currency or amount without instruction.", ru: "Различайте US$ и AR$; не меняйте валюту или сумму оригинала без указания." },
+  "es-AR": { en: "€ and AR$ precede amounts. Distinguish US$ and AR$; do not change currency or amount without instruction.", ru: "€ и AR$ перед суммой. Различайте US$ и AR$; не меняйте валюту или сумму без указания." },
   "uz-Cyrl": { en: "24-hour time; numeric dates use dots; five-digit grouping uses NBSP.", ru: "24-часовое время; даты через точку; разряды от пяти цифр — неразрывный пробел." },
   "uz-Latn": { en: "24-hour time; numeric dates use dots; five-digit grouping uses NBSP.", ru: "24-часовое время; даты через точку; разряды от пяти цифр — неразрывный пробел." },
   uk: { en: "UAH uses a non-breaking space after the amount; €, $ and ₽ have no space before the amount.", ru: "UAH после суммы через неразрывный пробел; €, $ и ₽ перед суммой без пробела." },
   mn: { en: "MNT follows the number without a space; $, € and ₽ precede it.", ru: "MNT после числа без пробела; $, € и ₽ перед числом." },
   da: { en: "Dynamic content, markets and odds may retain English decimal conventions.", ru: "В динамическом контенте, рынках и коэффициентах может сохраняться английский формат дробей." },
-  "pt-BR": { en: "Use NBSP for R$ and BRL; some odds and score formats have explicit exceptions.", ru: "Для R$ и BRL нужен неразрывный пробел; для коэффициентов и счёта есть исключения." },
+  "pt-BR": { en: "GMT-3 in promotions; convert date too. Use NBSP for R$ and BRL; odds keep a decimal point.", ru: "В акциях GMT-3 с пересчётом даты. Для R$ и BRL нужен неразрывный пробел; коэффициенты сохраняют точку." },
   az: { en: "₼ follows the amount with a non-breaking space.", ru: "₼ после суммы через неразрывный пробел." }
 };
 

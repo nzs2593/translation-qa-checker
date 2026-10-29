@@ -1,4 +1,4 @@
-# CHECKform — v2.4.1
+# CHECKform — v2.5
 
 Local, deterministic translation QA checker. It uses only rule-based checks and never rewrites the target text. The UI follows the existing LOCform visual language with compact white panels, thin blue borders and blue actions.
 
@@ -24,6 +24,7 @@ Issue[]
 - The Language rules tab shows short dates, number separators, currency examples, percent spacing, quotation marks and guide-specific exceptions for all 11 profiles. The table is a quick reference to the profile values used by the checker.
 - `CHECKform-presentation-brief.md` is a Russian product description and presentation outline.
 - The planned Chrome extension is the primary future review surface for Crowdin: it will run this engine on visible source/target segment pairs as they appear on scroll. A timezone finding will highlight its exact marker, time or date in the segment and appear under the same finding number in a collapsible panel. The extension is not included in this site release.
+- The additional style guides supplied on 29 October 2026 add a default GMT−3 conversion for Brazilian Portuguese, including calendar rollover; a paired `¡…!` check in Spanish; and a leading-space check. The currency-format overview distinguishes explicit amounts, split placeholders and single money placeholders, as well as section-specific formats. These contextual exceptions remain documented rather than enforced globally.
 - `src/engine.js` runs deterministic checks, including glossary term matching within corresponding segments or paragraphs.
 - `data/5820713_glossary-0-3.xlsx` is the preserved source glossary; `scripts/build-glossary-data.py` converts its 821 rows into `src/glossary-data.js` for local browser use.
 - The Glossary tab shows the source and goal columns, supports searching and editing terms, and stores browser edits in `localStorage`. A change takes effect in the next check, without changing source or target text. Source entries that differ by capitalization remain distinct; when a capitalized glossary entry is used, a translation found with the wrong letter case produces a separate Minor finding. Ordinary lowercase entries allow sentence-initial capitalization.

@@ -110,6 +110,27 @@ function spanishQuestionMarkChecks(target) {
   return issues;
 }
 
+function spanishExclamationMarkChecks(target) {
+  const issues = [];
+  for (const match of target.matchAll(/!/g)) {
+    const start = Math.max(target.lastIndexOf(".", match.index - 1), target.lastIndexOf("?", match.index - 1), target.lastIndexOf("!", match.index - 1), target.lastIndexOf("\n", match.index - 1)) + 1;
+    if (!target.slice(start, match.index).includes("¡")) issues.push(createIssue({
+      error_type: "SPANISH_EXCLAMATION_MARKS", pool: "Punctuation", severity: "Minor",
+      location_in_target: location(match.index, match.index + 1),
+      explanation: "In Spanish, an exclamation should open with ¡ and close with !."
+    }));
+  }
+  for (const match of target.matchAll(/¡/g)) {
+    const next = target.slice(match.index + 1).search(/[.!?\n]/);
+    if (next < 0 || target[match.index + 1 + next] !== "!") issues.push(createIssue({
+      error_type: "SPANISH_EXCLAMATION_MARKS", pool: "Punctuation", severity: "Minor",
+      location_in_target: location(match.index, match.index + 1),
+      explanation: "In Spanish, an exclamation should open with ¡ and close with !."
+    }));
+  }
+  return issues;
+}
+
 function currencyForNumber(text, token) {
   for (const currency of text.matchAll(CURRENCY_RE)) {
     const start = currency.index ?? 0;
@@ -252,6 +273,7 @@ function coreChecks(source, target, sourceProfile, targetProfile, includePunctua
   issues.push(...compareAttachedNumberWords(source, target));
   const spanishQuestionIssues = targetProfile.language === "es" ? spanishQuestionMarkChecks(target) : [];
   issues.push(...spanishQuestionIssues);
+  if (targetProfile.language === "es") issues.push(...spanishExclamationMarkChecks(target));
   issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", explanation: "A placeholder is missing or changed in the target." }));
   issues.push(...compareMaskedPlaceholders(source, target));
   if (includePunctuation && shouldCompareTerminalPunctuation(source, target) && !spanishQuestionIssues.length) {
@@ -280,6 +302,11 @@ function checkNumericDateFormat(source, target, profile) {
 }
 
 function addSpacingChecks(target, targetProfile, issues) {
+  const leading = target.match(/(^|\n)[ \t]+/);
+  if (leading) {
+    const start = leading.index + (leading[1] ? 1 : 0);
+    issues.push(createIssue({ error_type: "LEADING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location(start, leading.index + leading[0].length), explanation: "Target contains a space at the beginning of a line." }));
+  }
   const multiple = target.match(/ {2,}/);
   if (multiple) issues.push(createIssue({ error_type: "MULTIPLE_SPACES", pool: "Spacing", severity: "Minor", location_in_target: location(multiple.index, multiple.index + multiple[0].length), explanation: "Target contains consecutive spaces." }));
   const trailing = target.match(/[ \t]+(?=\r?\n|$)/);
@@ -290,6 +317,16 @@ function addSpacingChecks(target, targetProfile, issues) {
     const regularGrouped = target.match(/\d \d{3}(?: \d{3})*/);
     if (regularGrouped) issues.push(createIssue({ error_type: "NON_BREAKING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location(regularGrouped.index, regularGrouped.index + regularGrouped[0].length), explanation: "Digit groups should use a non-breaking space in this language profile." }));
   }
+}
+
+function addTimeFormatChecks(target, targetProfile, issues) {
+  if (!["en", "es", "uz"].includes(targetProfile.language)) return;
+  const match = target.match(/(?<!\d)\d:\d{2}[ \t]+(?:GMT|UTC|MSK|МСК)(?![\p{L}])/iu);
+  if (match) issues.push(createIssue({
+    error_type: "TIME_FORMAT", pool: "Dates & Time", severity: "Minor",
+    location_in_target: location(match.index, match.index + match[0].length),
+    explanation: "This language profile requires a two-digit hour when a timezone is shown."
+  }));
 }
 
 function addNumberFormatChecks(target, targetProfile, issues) {
@@ -371,6 +408,7 @@ function addQuotationChecks(target, targetProfile, issues) {
 
 function addLightChecks(source, target, targetProfile, issues) {
   addSpacingChecks(target, targetProfile, issues);
+  addTimeFormatChecks(target, targetProfile, issues);
   addNumberFormatChecks(target, targetProfile, issues);
   addPercentageChecks(target, targetProfile, issues);
   addCurrencyChecks(target, targetProfile, issues);

@@ -15,7 +15,7 @@ export const LANGUAGE_PROFILES = Object.freeze({
   "es-AR": {
     label: "Argentine Spanish", dateOrder: "DMY", dateFormat: "DD/MM/YYYY", dateSeparator: "/", decimal: ",", grouping: ".", percentSpace: false,
     quoteStyle: null, currencyPlacement: "prefix", currencySpace: "", defaultTimezone: null, preferredTimezoneOffsetMinutes: -180,
-    currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "€": { placement: "suffix", space: "" }, "EUR": { placement: "suffix", space: " " }, "USD": { placement: "prefix", space: " " }, "ARS": { placement: "prefix", space: " " } }
+    currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "€": { placement: "prefix", space: "" }, "EUR": { placement: "suffix", space: " " }, "USD": { placement: "prefix", space: " " }, "ARS": { placement: "prefix", space: " " } }
   },
   "uz-Cyrl": {
     label: "Uzbek Cyrillic", dateOrder: "DMY", dateFormat: "DD.MM.YYYY", dateSeparator: ".", decimal: ".", grouping: "nbsp", percentSpace: false,
