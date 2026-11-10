@@ -1,4 +1,6 @@
-# CHECKform — v2.8
+# CHECKform — v2.9
+
+The first live Crowdin segment check confirmed that source and target can be read by matching segment ID without changing translations. In an English-to-Argentine-Spanish segment, `$20` and `US$20` are treated as the same currency amount; `US$21` produces a major amount mismatch, while `AR$20` remains a currency conversion review. The `21:00 GMT` to `18:00 GMT-3` example passes calendar and time conversion checks.
 
 Currency checks now cover every occurrence. If source and target use the same currency, CHECKform normalizes locale separators and compares the amounts, then checks target placement and spacing. If the currency changes, each occurrence becomes an informational conversion review; no exchange rate is assumed. The currency checkbox disables these currency findings and monetary numeric comparisons.
 

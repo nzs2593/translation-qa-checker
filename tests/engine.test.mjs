@@ -90,6 +90,24 @@ const localizedMoney = runRuleEngine({
 });
 assert.equal(localizedMoney.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
 assert.equal(localizedMoney.some((issue) => issue.error_type === "CURRENCY_CONVERSION_REVIEW"), true);
+const crowdinDollarSource = "Get a <0>$20</0> Free Bet once you have met the requirements.";
+const crowdinDollarTarget = "Una vez cumplidos los requisitos, recibí una Apuesta Gratis de <0>US$20</0>.";
+const sameDollar = runRuleEngine({
+  source: crowdinDollarSource, target: crowdinDollarTarget,
+  sourceLanguage: "en", targetLanguage: "es-AR", glossaryRows: []
+});
+assert.equal(sameDollar.some((issue) => issue.pool === "Currency"), false);
+const mistypedDollar = runRuleEngine({
+  source: crowdinDollarSource, target: crowdinDollarTarget.replace("US$20", "US$21"),
+  sourceLanguage: "en", targetLanguage: "es-AR", glossaryRows: []
+});
+assert.equal(mistypedDollar.filter((issue) => issue.error_type === "CURRENCY_AMOUNT_MISMATCH").length, 1);
+assert.equal(mistypedDollar.some((issue) => issue.error_type === "CURRENCY_CONVERSION_REVIEW"), false);
+const changedDollar = runRuleEngine({
+  source: crowdinDollarSource, target: crowdinDollarTarget.replace("US$20", "AR$20"),
+  sourceLanguage: "en", targetLanguage: "es-AR", glossaryRows: []
+});
+assert.equal(changedDollar.some((issue) => issue.error_type === "CURRENCY_CONVERSION_REVIEW"), true);
 const repeatedConversion = runRuleEngine({
   source: "You’ll get up to €100.\n\nYou’ll get up to €100.",
   target: "Recibirás hasta AR$150.000.\n\nRecibirás hasta AR$150.000.",

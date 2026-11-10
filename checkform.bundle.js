@@ -997,6 +997,10 @@
   function canonicalCurrency(marker) {
     return marker.toUpperCase() === "ARS$" ? "AR$" : marker.toUpperCase();
   }
+  function sameCurrency(sourceMarker, targetMarker, sourceProfile) {
+    if (sourceMarker === targetMarker) return true;
+    return sourceProfile.language === "en" && sourceMarker === "$" && targetMarker === "US$";
+  }
   function addCurrencyChecks(target, targetProfile, issues) {
     const numbers = numberTokens(target, targetProfile);
     for (const currency of target.matchAll(CURRENCY_RE)) {
@@ -1045,7 +1049,7 @@
       const targetNumber = adjacentNumber(target, targetNumbers, targetMatch);
       const sourceRange = location(Math.min(sourceMatch.index, sourceNumber?.index ?? sourceMatch.index), Math.max(sourceMatch.index + sourceMatch[0].length, sourceNumber ? sourceNumber.index + sourceNumber.raw.length : 0));
       const targetRange = location(Math.min(targetMatch.index, targetNumber?.index ?? targetMatch.index), Math.max(targetMatch.index + targetMatch[0].length, targetNumber ? targetNumber.index + targetNumber.raw.length : 0));
-      if (sourceCurrencies[index] !== targetCurrencies[index]) {
+      if (!sameCurrency(sourceCurrencies[index], targetCurrencies[index], sourceProfile)) {
         issues.push(createIssue({ error_type: "CURRENCY_CONVERSION_REVIEW", pool: "Currency", severity: "Info", location_in_source: sourceRange, location_in_target: targetRange, explanation: "The currency changes between source and target. Verify the converted amount against the market rules." }));
       } else if (sourceNumber && targetNumber && sourceNumber.normalized !== targetNumber.normalized) {
         issues.push(createIssue({ error_type: "CURRENCY_AMOUNT_MISMATCH", pool: "Currency", severity: "Major", location_in_source: sourceRange, location_in_target: targetRange, explanation: "The currency is unchanged but the numeric amount differs after locale formatting is normalized." }));
