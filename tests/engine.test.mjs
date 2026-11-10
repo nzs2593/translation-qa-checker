@@ -137,7 +137,17 @@ const currencyDisabled = runRuleEngine({
   target: "El bono es AR$7.500 y dura 24 horas.",
   sourceLanguage: "en", targetLanguage: "es-AR", checkCurrency: false
 });
-assert.equal(currencyDisabled.some((issue) => issue.pool === "Currency" || issue.error_type === "NUMBER_MISMATCH"), false);
+assert.equal(currencyDisabled.some((issue) => ["CURRENCY_CONVERSION_REVIEW", "CURRENCY_AMOUNT_MISMATCH", "NUMBER_MISMATCH"].includes(issue.error_type)), false);
+const currencyFormatWithComparisonOff = (source, target, targetLanguage) => runRuleEngine({
+  source, target, sourceLanguage: "en", targetLanguage, checkCurrency: false, glossaryRows: []
+}).filter((issue) => issue.pool === "Currency");
+assert.equal(currencyFormatWithComparisonOff("The bonus is $20.", "Bonus 20 $.", "az").length, 0);
+assert.equal(currencyFormatWithComparisonOff("The bonus is $20.", "Bonus 20 $.", "az").some((issue) => issue.error_type === "CURRENCY_FORMAT"), true);
+assert.equal(currencyFormatWithComparisonOff("The bonus is €1,500.", "Bonus 1 500 €.", "az").length, 0);
+assert.equal(currencyFormatWithComparisonOff("The bonus is €1,500.", "Bonus 1.500 €.", "az").some((issue) => issue.error_type === "CURRENCY_NUMBER_FORMAT"), true);
+assert.equal(currencyFormatWithComparisonOff("The bonus is €100.", "Bono 100€.", "es").length, 0);
+assert.equal(currencyFormatWithComparisonOff("The bonus is AR$100.", "Bono 100AR$.", "es").length, 0);
+assert.equal(currencyFormatWithComparisonOff("The bonus is R$100.", "Bônus R$ 100.", "pt-BR").length, 0);
 
 const percentageAfterSpanishDel = runRuleEngine({
   source: "However, to get you back in the game, we’ll give you a 50% Casino Bonus based on your next deposit.",

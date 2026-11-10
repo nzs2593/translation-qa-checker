@@ -1,4 +1,6 @@
-# CHECKform — v2.9
+# CHECKform — v2.10
+
+The currency checkbox now controls source-to-target comparison of currency identity and amount values. Target money formatting is checked even when comparison is off. Per-symbol placement and spacing follows the supplied currency matrix for supported language profiles; monetary decimal and thousands separators are checked separately. The Chrome preview in [`chrome-extension`](chrome-extension) reads mounted Crowdin source/translation pairs by segment ID, runs the same rule engine, and shows a collapsible finding panel. See [`CHROME_EXTENSION.md`](CHROME_EXTENSION.md) for local testing and the publication route.
 
 The first live Crowdin segment check confirmed that source and target can be read by matching segment ID without changing translations. In an English-to-Argentine-Spanish segment, `$20` and `US$20` are treated as the same currency amount; `US$21` produces a major amount mismatch, while `AR$20` remains a currency conversion review. The `21:00 GMT` to `18:00 GMT-3` example passes calendar and time conversion checks.
 

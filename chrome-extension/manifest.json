@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "CHECKform for Crowdin",
+  "version": "0.1.0",
+  "description": "Read-only translation QA for visible Crowdin segments.",
+  "permissions": ["storage"],
+  "options_page": "options.html",
+  "host_permissions": ["https://marathonbetops.crowdin.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://marathonbetops.crowdin.com/editor/*"],
+      "js": ["checkform-content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["content.css"], "matches": ["https://marathonbetops.crowdin.com/*"] }
+  ]
+}

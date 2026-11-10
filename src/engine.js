@@ -16,7 +16,7 @@ const SCORE_RE = /\b\d{1,3}\s*[-:]\s*\d{1,3}\b/g;
 const MALFORMED_DATE_RE = /\b(?:\d{1,2}[-/.]\d{1,2}[-/.]\d{5,}|\d{4}[-/.]\d{1,2}[-/.]\d{3,})\b/g;
 const DATE_SHAPE_RE = /\b\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}\b/g;
 const ATTACHED_NUMBER_WORD_RE = /(?:\b\d+(?:[.,]\d+)?[\p{Ll}][\p{L}]*\b|\b[\p{Ll}][\p{L}]*\d+(?:[.,]\d+)?\b)/gu;
-const CURRENCY_RE = /ARS\$|AR\$|US\$|R\$|[€$£₽₮₼]|(?<![\w])(USD|EUR|GBP|RUB|UAH|KZT|MNT|AZN|UZS|BRL)(?![\w])/gi;
+const CURRENCY_RE = /ARS\$|AR\$|US\$|R\$|[€$£₽₮₼]|(?<![\w])(USD|EUR|GBP|RUB|UAH|KZT|MNT|AZN|UZS|BRL|BYN|kr\.)(?![\w])/gi;
 
 function compareTokens(source, target, regex, issue) {
   const sourceTokens = [...source.matchAll(regex)].map((m) => m[0]);
@@ -366,6 +366,13 @@ function sameCurrency(sourceMarker, targetMarker, sourceProfile) {
   return sourceProfile.language === "en" && sourceMarker === "$" && targetMarker === "US$";
 }
 
+function validCurrencyNumber(raw, profile) {
+  const grouping = profile.grouping === "nbsp" ? "\u00a0" : profile.grouping;
+  const escapedGrouping = grouping.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedDecimal = profile.decimal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^(?:\\d+|\\d{1,3}(?:${escapedGrouping}\\d{3})+)(?:${escapedDecimal}\\d{1,2})?$`).test(raw);
+}
+
 function addCurrencyChecks(target, targetProfile, issues) {
   const numbers = numberTokens(target, targetProfile);
   for (const currency of target.matchAll(CURRENCY_RE)) {
@@ -382,6 +389,9 @@ function addCurrencyChecks(target, targetProfile, issues) {
       continue;
     }
     const rule = currencyRule(targetProfile, currency[0]);
+    if (!validCurrencyNumber(adjacent.raw, targetProfile)) {
+      issues.push(createIssue({ error_type: "CURRENCY_NUMBER_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(adjacent.index, adjacent.index + adjacent.raw.length), explanation: "The amount does not use the target language's decimal and thousands separators." }));
+    }
     const numberBefore = adjacent.index + adjacent.raw.length <= currencyStart;
     const actualPlacement = numberBefore ? "suffix" : "prefix";
     const betweenStart = actualPlacement === "suffix" ? adjacent.index + adjacent.raw.length : currencyEnd;
@@ -436,10 +446,8 @@ function addLightChecks(source, target, sourceProfile, targetProfile, issues, ch
   addTimeFormatChecks(target, targetProfile, issues);
   addNumberFormatChecks(target, targetProfile, issues);
   addPercentageChecks(target, targetProfile, issues);
-  if (checkCurrency) {
-    addCurrencyChecks(target, targetProfile, issues);
-    addCurrencyComparisons(source, target, sourceProfile, targetProfile, issues);
-  }
+  addCurrencyChecks(target, targetProfile, issues);
+  if (checkCurrency) addCurrencyComparisons(source, target, sourceProfile, targetProfile, issues);
   addQuotationChecks(target, targetProfile, issues);
 }
 

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>CHECKform · Настройки</title>
+  <style>
+    body { max-width: 680px; margin: 40px auto; padding: 0 20px; font: 15px/1.5 Arial, sans-serif; color: #172b49; }
+    h1 { color: #1554b7; }
+    .card { padding: 20px; border: 1px solid #c8d9ef; border-radius: 10px; }
+    input { display: block; margin: 16px 0; }
+    code { background: #eef4fd; padding: 2px 5px; }
+    #status { color: #1554b7; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <h1>CHECKform для Crowdin</h1>
+  <div class="card">
+    <h2>Словарь и GMT</h2>
+    <p>На сайте CHECKform нажмите «Экспорт настроек Chrome». Здесь выберите скачанный <code>checkform-settings.json</code>. Данные сохраняются только в Chrome и применяются к открытой странице Crowdin.</p>
+    <label>Файл настроек <input id="settings-file" type="file" accept="application/json,.json"></label>
+    <p id="status" role="status"></p>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

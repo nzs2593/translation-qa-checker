@@ -106,6 +106,7 @@ function applyTranslations() {
   $("issues-label").textContent = t(currentLocale, "issues");
   $("review-findings").textContent = t(currentLocale, "reviewFindings");
   $("export-pdf").textContent = t(currentLocale, "exportPdf");
+  $("export-extension-settings").textContent = t(currentLocale, "exportExtensionSettings");
   $("footer-copy").textContent = t(currentLocale, "footer");
   $("error-table-open").textContent = t(currentLocale, "errorTable");
   $("reset-workspace").textContent = t(currentLocale, "startAgain");
@@ -451,6 +452,22 @@ sourceText.addEventListener("scroll", () => {
   $("source-highlight-layer").scrollLeft = sourceText.scrollLeft;
 });
 exportPdfButton.addEventListener("click", () => exportPdf(currentIssues));
+$("export-extension-settings").addEventListener("click", () => {
+  const read = (key) => {
+    try { return JSON.parse(localStorage.getItem(key) ?? "{}"); } catch { return {}; }
+  };
+  const settings = {
+    schema: "checkform-settings-v1",
+    glossary: read("checkform-glossary-edits-v1"),
+    timezone: read("checkform-timezone-rules-v1")
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "checkform-settings.json";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 $("check-currency").addEventListener("change", render);
 
 $("reset-workspace").addEventListener("click", () => {

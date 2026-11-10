@@ -48,7 +48,8 @@
       quoteStyle: "uk-single",
       currencyPlacement: "prefix",
       currencySpace: "",
-      defaultTimezone: null
+      defaultTimezone: null,
+      currencyRules: { "MNT": { placement: "suffix", space: " " }, "UAH": { placement: "suffix", space: " " }, "UZS": { placement: "suffix", space: " " }, "BYN": { placement: "suffix", space: " " }, "KR.": { placement: "suffix", space: " " } }
     },
     "ru": {
       label: "Russian",
@@ -75,7 +76,7 @@
       currencyPlacement: "suffix",
       currencySpace: "",
       defaultTimezone: null,
-      currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "USD": { placement: "suffix", space: " " }, "EUR": { placement: "suffix", space: " " } }
+      currencyRules: { "AR$": { placement: "suffix", space: "" }, "\u20BC": { placement: "suffix", space: "" }, "US$": { placement: "prefix", space: "" }, "USD": { placement: "suffix", space: " " }, "EUR": { placement: "suffix", space: " " } }
     },
     "es-AR": {
       label: "Argentine Spanish",
@@ -90,7 +91,7 @@
       currencySpace: "",
       defaultTimezone: null,
       preferredTimezoneOffsetMinutes: -180,
-      currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "\u20AC": { placement: "prefix", space: "" }, "EUR": { placement: "suffix", space: " " }, "USD": { placement: "prefix", space: " " }, "ARS": { placement: "prefix", space: " " } }
+      currencyRules: { "AR$": { placement: "prefix", space: "" }, "US$": { placement: "prefix", space: "" }, "$": { placement: "prefix", space: "" }, "\u20AC": { placement: "prefix", space: "" }, "EUR": { placement: "suffix", space: " " }, "USD": { placement: "prefix", space: " " }, "ARS": { placement: "prefix", space: " " }, "MNT": { placement: "prefix", space: " " }, "UAH": { placement: "prefix", space: " " }, "UZS": { placement: "prefix", space: " " } }
     },
     "uz-Cyrl": {
       label: "Uzbek Cyrillic",
@@ -103,7 +104,8 @@
       quoteStyle: "guillemets",
       currencyPlacement: "suffix",
       currencySpace: " ",
-      defaultTimezone: null
+      defaultTimezone: null,
+      currencyRules: { "\u20AC": { placement: "suffix", space: "nbsp" }, "$": { placement: "suffix", space: "nbsp" }, "\u20BD": { placement: "suffix", space: "nbsp" } }
     },
     "uz-Latn": {
       label: "Uzbek Latin",
@@ -116,7 +118,8 @@
       quoteStyle: "double",
       currencyPlacement: "suffix",
       currencySpace: " ",
-      defaultTimezone: null
+      defaultTimezone: null,
+      currencyRules: { "\u20AC": { placement: "suffix", space: "nbsp" }, "$": { placement: "suffix", space: "nbsp" }, "\u20BD": { placement: "suffix", space: "nbsp" } }
     },
     "uk": {
       label: "Ukrainian",
@@ -130,7 +133,7 @@
       currencyPlacement: "prefix",
       currencySpace: "",
       defaultTimezone: null,
-      currencyRules: { "UAH": { placement: "suffix", space: "nbsp" } }
+      currencyRules: { "UAH": { placement: "suffix", space: " " } }
     },
     "mn": {
       label: "Mongolian",
@@ -144,7 +147,7 @@
       currencyPlacement: "prefix",
       currencySpace: "",
       defaultTimezone: null,
-      currencyRules: { "MNT": { placement: "suffix", space: "" } }
+      currencyRules: { "MNT": { placement: "suffix", space: "" }, "UAH": { placement: "suffix", space: "" }, "UZS": { placement: "suffix", space: "" } }
     },
     "da": {
       label: "Danish",
@@ -169,9 +172,9 @@
       percentSpace: false,
       quoteStyle: "double",
       currencyPlacement: "prefix",
-      currencySpace: "nbsp",
+      currencySpace: " ",
       defaultTimezone: null,
-      currencyRules: { "BRL": { placement: "suffix", space: "nbsp" } }
+      currencyRules: { "BRL": { placement: "suffix", space: "nbsp" }, "MNT": { placement: "suffix", space: " " }, "UAH": { placement: "suffix", space: " " }, "UZS": { placement: "suffix", space: " " } }
     },
     "az": {
       label: "Azerbaijani",
@@ -183,8 +186,9 @@
       percentSpace: false,
       quoteStyle: "double",
       currencyPlacement: "suffix",
-      currencySpace: "nbsp",
-      defaultTimezone: null
+      currencySpace: " ",
+      defaultTimezone: null,
+      currencyRules: { "\u20AC": { placement: "suffix", space: "nbsp" }, "$": { placement: "suffix", space: "nbsp" }, "\u20BD": { placement: "suffix", space: "nbsp" } }
     }
   });
   function getProfile(code) {
@@ -670,7 +674,7 @@
   var MALFORMED_DATE_RE = /\b(?:\d{1,2}[-/.]\d{1,2}[-/.]\d{5,}|\d{4}[-/.]\d{1,2}[-/.]\d{3,})\b/g;
   var DATE_SHAPE_RE = /\b\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}\b/g;
   var ATTACHED_NUMBER_WORD_RE = /(?:\b\d+(?:[.,]\d+)?[\p{Ll}][\p{L}]*\b|\b[\p{Ll}][\p{L}]*\d+(?:[.,]\d+)?\b)/gu;
-  var CURRENCY_RE = /ARS\$|AR\$|US\$|R\$|[€$£₽₮₼]|(?<![\w])(USD|EUR|GBP|RUB|UAH|KZT|MNT|AZN|UZS|BRL)(?![\w])/gi;
+  var CURRENCY_RE = /ARS\$|AR\$|US\$|R\$|[€$£₽₮₼]|(?<![\w])(USD|EUR|GBP|RUB|UAH|KZT|MNT|AZN|UZS|BRL|BYN|kr\.)(?![\w])/gi;
   function compareTokens(source, target, regex, issue) {
     const sourceTokens = [...source.matchAll(regex)].map((m) => m[0]);
     const targetTokens = [...target.matchAll(regex)].map((m) => m[0]);
@@ -1001,6 +1005,12 @@
     if (sourceMarker === targetMarker) return true;
     return sourceProfile.language === "en" && sourceMarker === "$" && targetMarker === "US$";
   }
+  function validCurrencyNumber(raw, profile) {
+    const grouping = profile.grouping === "nbsp" ? "\xA0" : profile.grouping;
+    const escapedGrouping = grouping.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedDecimal = profile.decimal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`^(?:\\d+|\\d{1,3}(?:${escapedGrouping}\\d{3})+)(?:${escapedDecimal}\\d{1,2})?$`).test(raw);
+  }
   function addCurrencyChecks(target, targetProfile, issues) {
     const numbers = numberTokens(target, targetProfile);
     for (const currency of target.matchAll(CURRENCY_RE)) {
@@ -1016,6 +1026,9 @@
         continue;
       }
       const rule = currencyRule(targetProfile, currency[0]);
+      if (!validCurrencyNumber(adjacent.raw, targetProfile)) {
+        issues.push(createIssue({ error_type: "CURRENCY_NUMBER_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(adjacent.index, adjacent.index + adjacent.raw.length), explanation: "The amount does not use the target language's decimal and thousands separators." }));
+      }
       const numberBefore = adjacent.index + adjacent.raw.length <= currencyStart;
       const actualPlacement = numberBefore ? "suffix" : "prefix";
       const betweenStart = actualPlacement === "suffix" ? adjacent.index + adjacent.raw.length : currencyEnd;
@@ -1066,10 +1079,8 @@
     addTimeFormatChecks(target, targetProfile, issues);
     addNumberFormatChecks(target, targetProfile, issues);
     addPercentageChecks(target, targetProfile, issues);
-    if (checkCurrency) {
-      addCurrencyChecks(target, targetProfile, issues);
-      addCurrencyComparisons(source, target, sourceProfile, targetProfile, issues);
-    }
+    addCurrencyChecks(target, targetProfile, issues);
+    if (checkCurrency) addCurrencyComparisons(source, target, sourceProfile, targetProfile, issues);
     addQuotationChecks(target, targetProfile, issues);
   }
   function runRuleEngine({ source, target, sourceLanguage: sourceLanguage2 = "en", targetLanguage: targetLanguage2 = "ru", glossaryRows, checkCurrency = true }) {
@@ -1263,7 +1274,8 @@
       sideView: "Findings on side",
       bottomView: "Findings below",
       dragFindings: "Drag findings to the right or below",
-      checkCurrency: "Check currency",
+      checkCurrency: "Compare currency and amounts",
+      exportExtensionSettings: "Export Chrome settings",
       count: "Count",
       edit: "Edit",
       done: "Done",
@@ -1384,7 +1396,8 @@
       sideView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u0431\u043E\u043A\u0443",
       bottomView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u043D\u0438\u0437\u0443",
       dragFindings: "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0448\u0438\u0431\u043E\u043A \u0432\u043F\u0440\u0430\u0432\u043E \u0438\u043B\u0438 \u0432\u043D\u0438\u0437",
-      checkCurrency: "\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443",
+      checkCurrency: "\u0421\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443 \u0438 \u0441\u0443\u043C\u043C\u044B",
+      exportExtensionSettings: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043A Chrome",
       count: "\u0423\u0447\u0438\u0442\u044B\u0432\u0430\u0442\u044C",
       edit: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C",
       done: "\u0413\u043E\u0442\u043E\u0432\u043E",
@@ -1498,6 +1511,7 @@
     { type: "CURRENCY_CONVERSION_REVIEW", pool: "Currency", severity: "Info", en: "The currency changes in translation. Verify the converted amount against the market rules.", ru: "\u0412\u0430\u043B\u044E\u0442\u0430 \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0430. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u0441\u0447\u0438\u0442\u0430\u043D\u043D\u0443\u044E \u0441\u0443\u043C\u043C\u0443 \u043F\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u0430\u043C \u0440\u044B\u043D\u043A\u0430." },
     { type: "CURRENCY_AMOUNT_MISMATCH", pool: "Currency", severity: "Major", en: "The currency is unchanged, but the numeric amount differs after locale normalization.", ru: "\u0412\u0430\u043B\u044E\u0442\u0430 \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0430\u0441\u044C, \u043D\u043E \u0447\u0438\u0441\u043B\u043E\u0432\u0430\u044F \u0441\u0443\u043C\u043C\u0430 \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0443\u0447\u0451\u0442\u0430 \u0444\u043E\u0440\u043C\u0430\u0442\u0430 \u044F\u0437\u044B\u043A\u0430." },
     { type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", en: "Currency placement or spacing does not follow the selected profile.", ru: "\u041F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442\u044B \u0438\u043B\u0438 \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
+    { type: "CURRENCY_NUMBER_FORMAT", pool: "Currency", severity: "Minor", en: "The amount does not follow the target language's decimal and thousands separators.", ru: "\u0421\u0443\u043C\u043C\u0430 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u043D\u0435 \u043F\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u0430\u043C \u0446\u0435\u043B\u0435\u0432\u043E\u0433\u043E \u044F\u0437\u044B\u043A\u0430: \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0434\u0435\u0441\u044F\u0442\u0438\u0447\u043D\u044B\u0439 \u0440\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u044C \u0438 \u0440\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u044C \u0442\u044B\u0441\u044F\u0447." },
     { type: "PERCENTAGE_FORMAT", pool: "Percentage", severity: "Minor", en: "The percentage sign uses an incorrect position or spacing.", ru: "\u0417\u043D\u0430\u043A \u043F\u0440\u043E\u0446\u0435\u043D\u0442\u0430 \u0441\u0442\u043E\u0438\u0442 \u043D\u0435\u0432\u0435\u0440\u043D\u043E \u0438\u043B\u0438 \u043E\u0442\u0434\u0435\u043B\u0451\u043D \u043D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u044B\u043C \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C." },
     { type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", en: "Terminal punctuation differs between source and target.", ru: "\u041A\u043E\u043D\u0435\u0447\u043D\u044B\u0439 \u0437\u043D\u0430\u043A \u043F\u0440\u0435\u043F\u0438\u043D\u0430\u043D\u0438\u044F \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
     { type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", en: "Quotation marks do not follow the selected language profile.", ru: "\u041A\u0430\u0432\u044B\u0447\u043A\u0438 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
@@ -1996,7 +2010,8 @@ ${GUIDE[code]}`
       sideView: "Findings on side",
       bottomView: "Findings below",
       dragFindings: "Drag findings to the right or below",
-      checkCurrency: "Check currency",
+      checkCurrency: "Compare currency and amounts",
+      exportExtensionSettings: "Export Chrome settings",
       count: "Count",
       edit: "Edit",
       done: "Done",
@@ -2117,7 +2132,8 @@ ${GUIDE[code]}`
       sideView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u0431\u043E\u043A\u0443",
       bottomView: "\u041E\u0448\u0438\u0431\u043A\u0438 \u0441\u043D\u0438\u0437\u0443",
       dragFindings: "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u043F\u0430\u043D\u0435\u043B\u044C \u043E\u0448\u0438\u0431\u043E\u043A \u0432\u043F\u0440\u0430\u0432\u043E \u0438\u043B\u0438 \u0432\u043D\u0438\u0437",
-      checkCurrency: "\u041F\u0440\u043E\u0432\u0435\u0440\u044F\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443",
+      checkCurrency: "\u0421\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443 \u0438 \u0441\u0443\u043C\u043C\u044B",
+      exportExtensionSettings: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043A Chrome",
       count: "\u0423\u0447\u0438\u0442\u044B\u0432\u0430\u0442\u044C",
       edit: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C",
       done: "\u0413\u043E\u0442\u043E\u0432\u043E",
@@ -2231,6 +2247,7 @@ ${GUIDE[code]}`
     { type: "CURRENCY_CONVERSION_REVIEW", pool: "Currency", severity: "Info", en: "The currency changes in translation. Verify the converted amount against the market rules.", ru: "\u0412\u0430\u043B\u044E\u0442\u0430 \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0430. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u0441\u0447\u0438\u0442\u0430\u043D\u043D\u0443\u044E \u0441\u0443\u043C\u043C\u0443 \u043F\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u0430\u043C \u0440\u044B\u043D\u043A\u0430." },
     { type: "CURRENCY_AMOUNT_MISMATCH", pool: "Currency", severity: "Major", en: "The currency is unchanged, but the numeric amount differs after locale normalization.", ru: "\u0412\u0430\u043B\u044E\u0442\u0430 \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u0430\u0441\u044C, \u043D\u043E \u0447\u0438\u0441\u043B\u043E\u0432\u0430\u044F \u0441\u0443\u043C\u043C\u0430 \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0443\u0447\u0451\u0442\u0430 \u0444\u043E\u0440\u043C\u0430\u0442\u0430 \u044F\u0437\u044B\u043A\u0430." },
     { type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", en: "Currency placement or spacing does not follow the selected profile.", ru: "\u041F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442\u044B \u0438\u043B\u0438 \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
+    { type: "CURRENCY_NUMBER_FORMAT", pool: "Currency", severity: "Minor", en: "The amount does not follow the target language's decimal and thousands separators.", ru: "\u0421\u0443\u043C\u043C\u0430 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u043D\u0435 \u043F\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u0430\u043C \u0446\u0435\u043B\u0435\u0432\u043E\u0433\u043E \u044F\u0437\u044B\u043A\u0430: \u043F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0434\u0435\u0441\u044F\u0442\u0438\u0447\u043D\u044B\u0439 \u0440\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u044C \u0438 \u0440\u0430\u0437\u0434\u0435\u043B\u0438\u0442\u0435\u043B\u044C \u0442\u044B\u0441\u044F\u0447." },
     { type: "PERCENTAGE_FORMAT", pool: "Percentage", severity: "Minor", en: "The percentage sign uses an incorrect position or spacing.", ru: "\u0417\u043D\u0430\u043A \u043F\u0440\u043E\u0446\u0435\u043D\u0442\u0430 \u0441\u0442\u043E\u0438\u0442 \u043D\u0435\u0432\u0435\u0440\u043D\u043E \u0438\u043B\u0438 \u043E\u0442\u0434\u0435\u043B\u0451\u043D \u043D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u044B\u043C \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C." },
     { type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", en: "Terminal punctuation differs between source and target.", ru: "\u041A\u043E\u043D\u0435\u0447\u043D\u044B\u0439 \u0437\u043D\u0430\u043A \u043F\u0440\u0435\u043F\u0438\u043D\u0430\u043D\u0438\u044F \u043E\u0442\u043B\u0438\u0447\u0430\u0435\u0442\u0441\u044F \u0432 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0435 \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435." },
     { type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", en: "Quotation marks do not follow the selected language profile.", ru: "\u041A\u0430\u0432\u044B\u0447\u043A\u0438 \u043D\u0435 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u0443\u044E\u0442 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u043E\u043C\u0443 \u044F\u0437\u044B\u043A\u043E\u0432\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E." },
@@ -2403,6 +2420,7 @@ ${GUIDE[code]}`
     $4("issues-label").textContent = t2(currentLocale, "issues");
     $4("review-findings").textContent = t2(currentLocale, "reviewFindings");
     $4("export-pdf").textContent = t2(currentLocale, "exportPdf");
+    $4("export-extension-settings").textContent = t2(currentLocale, "exportExtensionSettings");
     $4("footer-copy").textContent = t2(currentLocale, "footer");
     $4("error-table-open").textContent = t2(currentLocale, "errorTable");
     $4("reset-workspace").textContent = t2(currentLocale, "startAgain");
@@ -2814,6 +2832,26 @@ ${range.hint}`;
     $4("source-highlight-layer").scrollLeft = sourceText.scrollLeft;
   });
   exportPdfButton.addEventListener("click", () => exportPdf(currentIssues));
+  $4("export-extension-settings").addEventListener("click", () => {
+    const read = (key) => {
+      try {
+        return JSON.parse(localStorage.getItem(key) ?? "{}");
+      } catch {
+        return {};
+      }
+    };
+    const settings = {
+      schema: "checkform-settings-v1",
+      glossary: read("checkform-glossary-edits-v1"),
+      timezone: read("checkform-timezone-rules-v1")
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "checkform-settings.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1e3);
+  });
   $4("check-currency").addEventListener("change", render);
   $4("reset-workspace").addEventListener("click", () => {
     clearTimeout(timer);
