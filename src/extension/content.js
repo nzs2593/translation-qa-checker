@@ -97,6 +97,7 @@ function start() {
 
   function scan() {
     const rows = readCrowdinRows();
+    const glossaryRows = getGlossaryRows();
     const currentIds = new Set();
     state.results = rows.map((item) => {
       currentIds.add(item.id);
@@ -105,7 +106,7 @@ function start() {
       if (!cached || cached.signature !== signature) {
         const issues = item.sourceText && item.targetText ? runRuleEngine({
           source: item.sourceText, target: item.targetText, ...languages,
-          checkCurrency: state.checkCurrency, glossaryRows: getGlossaryRows()
+          checkCurrency: state.checkCurrency, glossaryRows
         }) : [];
         cached = { signature, issues };
         state.signatures.set(item.id, cached);

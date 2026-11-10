@@ -1328,6 +1328,7 @@
     }, true);
     function scan() {
       const rows = readCrowdinRows();
+      const glossaryRows = getGlossaryRows2();
       const currentIds = /* @__PURE__ */ new Set();
       state.results = rows.map((item) => {
         currentIds.add(item.id);
@@ -1339,7 +1340,7 @@
             target: item.targetText,
             ...languages,
             checkCurrency: state.checkCurrency,
-            glossaryRows: getGlossaryRows2()
+            glossaryRows
           }) : [];
           cached = { signature, issues };
           state.signatures.set(item.id, cached);
