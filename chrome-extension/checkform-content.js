@@ -1217,6 +1217,39 @@
     });
   }
 
+  // src/extension/check-settings.js
+  var DEFAULT_CHECKS = Object.freeze({
+    glossary: true,
+    dates: true,
+    numbers: true,
+    currencyComparison: true,
+    moneyFormat: true,
+    spacing: true,
+    punctuation: true,
+    placeholders: true,
+    other: true
+  });
+  function normalizeChecks(saved, legacyCurrency = true) {
+    const checks = { ...DEFAULT_CHECKS };
+    if (saved && typeof saved === "object" && !Array.isArray(saved)) {
+      for (const key of Object.keys(checks)) if (typeof saved[key] === "boolean") checks[key] = saved[key];
+    } else checks.currencyComparison = legacyCurrency !== false;
+    return checks;
+  }
+  function issueCheck(issue) {
+    if (issue.pool === "Terminology") return "glossary";
+    if (issue.pool === "Dates & Time") return "dates";
+    if (issue.pool === "Numbers" || issue.pool === "Percentage") return "numbers";
+    if (issue.pool === "Currency") return ["CURRENCY_FORMAT", "CURRENCY_NUMBER_FORMAT"].includes(issue.error_type) ? "moneyFormat" : "currencyComparison";
+    if (issue.pool === "Spacing") return "spacing";
+    if (issue.pool === "Punctuation" || issue.pool === "Capitalization") return "punctuation";
+    if (issue.pool === "Placeholders") return "placeholders";
+    return "other";
+  }
+  function enabledIssues(issues, checks) {
+    return issues.filter((issue) => checks[issueCheck(issue)] !== false);
+  }
+
   // src/extension/content.js
   var languages = editorLanguages(location.pathname);
   var russian = navigator.language.toLowerCase().startsWith("ru");
@@ -1229,7 +1262,23 @@
     segments: "\u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u043D\u044B\u0445 \u0441\u0435\u0433\u043C\u0435\u043D\u0442\u043E\u0432",
     segment: "\u0421\u0435\u0433\u043C\u0435\u043D\u0442",
     empty: "\u0412 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u043D\u044B\u0445 \u0441\u0435\u0433\u043C\u0435\u043D\u0442\u0430\u0445 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0438\u0439 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E.",
-    review: "\u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u044D\u0442\u043E\u0442 \u0441\u0435\u0433\u043C\u0435\u043D\u0442."
+    review: "\u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u044D\u0442\u043E\u0442 \u0441\u0435\u0433\u043C\u0435\u043D\u0442.",
+    settings: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u043E\u043A",
+    back: "\u041A \u0437\u0430\u043C\u0435\u0447\u0430\u043D\u0438\u044F\u043C",
+    reset: "\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0432\u0441\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438",
+    import: "\u0418\u043C\u043F\u043E\u0440\u0442 \u0441\u043B\u043E\u0432\u0430\u0440\u044F \u0438 GMT",
+    settingsHint: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u043A\u0430\u043A\u0438\u0435 \u0437\u0430\u043C\u0435\u0447\u0430\u043D\u0438\u044F \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 Crowdin.",
+    checkLabels: {
+      glossary: "\u0413\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439",
+      dates: "\u0414\u0430\u0442\u044B, \u0432\u0440\u0435\u043C\u044F \u0438 GMT",
+      numbers: "\u0427\u0438\u0441\u043B\u0430 \u0438 \u043F\u0440\u043E\u0446\u0435\u043D\u0442\u044B",
+      currencyComparison: "\u0421\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442 \u0438 \u0441\u0443\u043C\u043C",
+      moneyFormat: "\u0424\u043E\u0440\u043C\u0430\u0442 \u0441\u0443\u043C\u043C \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435",
+      spacing: "\u041F\u0440\u043E\u0431\u0435\u043B\u044B",
+      punctuation: "\u041F\u0443\u043D\u043A\u0442\u0443\u0430\u0446\u0438\u044F \u0438 \u0440\u0435\u0433\u0438\u0441\u0442\u0440",
+      placeholders: "\u041F\u043B\u0435\u0439\u0441\u0445\u043E\u043B\u0434\u0435\u0440\u044B",
+      other: "\u0414\u0440\u0443\u0433\u0438\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u0430"
+    }
   } : {
     open: "Open CHECKform findings",
     compare: "Compare currency and amounts",
@@ -1238,11 +1287,27 @@
     segments: "loaded segments",
     segment: "Segment",
     empty: "No rule violations in loaded segments.",
-    review: "Review this segment."
+    review: "Review this segment.",
+    settings: "Check settings",
+    back: "Back to findings",
+    reset: "Enable all checks",
+    import: "Import glossary and GMT",
+    settingsHint: "Choose which findings to show in Crowdin.",
+    checkLabels: {
+      glossary: "Glossary",
+      dates: "Dates, time and GMT",
+      numbers: "Numbers and percentages",
+      currencyComparison: "Compare currencies and amounts",
+      moneyFormat: "Target money format",
+      spacing: "Spacing",
+      punctuation: "Punctuation and case",
+      placeholders: "Placeholders",
+      other: "Other rules"
+    }
   };
   if (languages) start();
   function start() {
-    const state = { checkCurrency: true, open: false, results: [], selectedId: null, signatures: /* @__PURE__ */ new Map() };
+    const state = { checks: normalizeChecks(), open: false, settingsOpen: false, results: [], selectedId: null, signatures: /* @__PURE__ */ new Map() };
     const host = document.createElement("div");
     host.id = "checkform-extension-root";
     const shadow = host.attachShadow({ mode: "open" });
@@ -1257,10 +1322,11 @@
     const panel = document.createElement("section");
     panel.className = "cf-panel";
     panel.hidden = true;
-    panel.innerHTML = `<header><strong>CHECKform <small>Chrome preview</small></strong><button class="cf-close" type="button" aria-label="${copy.close}">\xD7</button></header>
-    <div class="cf-controls"><label><input class="cf-currency" type="checkbox" checked> ${copy.compare}</label><span class="cf-lang"></span></div>
-    <button class="cf-settings" type="button">${russian ? "\u0421\u043B\u043E\u0432\u0430\u0440\u044C \u0438 GMT" : "Glossary and GMT"}</button>
-    <div class="cf-summary"></div><div class="cf-list"></div>`;
+    panel.innerHTML = `<header><strong>CHECKform <small>Chrome preview</small></strong><div class="cf-header-actions"><button class="cf-config" type="button" aria-label="${copy.settings}" title="${copy.settings}">\u2699</button><button class="cf-close" type="button" aria-label="${copy.close}">\xD7</button></div></header>
+    <div class="cf-results-view"><div class="cf-controls"><span class="cf-lang"></span><button class="cf-open-settings" type="button">${copy.settings}</button></div>
+    <div class="cf-summary"></div><div class="cf-list"></div></div>
+    <div class="cf-settings-view" hidden><button class="cf-back" type="button">\u2190 ${copy.back}</button><h2>${copy.settings}</h2><p>${copy.settingsHint}</p><div class="cf-check-list"></div>
+    <button class="cf-reset" type="button">${copy.reset}</button><button class="cf-import" type="button">${copy.import}</button></div>`;
     shadow.append(sheet, toggle, panel);
     document.documentElement.append(host);
     const close = () => {
@@ -1272,33 +1338,70 @@
       state.open = true;
       panel.hidden = false;
       toggle.setAttribute("aria-expanded", "true");
+      showSettings(false);
       renderPanel();
+    };
+    const showSettings = (visible) => {
+      state.settingsOpen = visible;
+      panel.querySelector(".cf-results-view").hidden = visible;
+      panel.querySelector(".cf-settings-view").hidden = !visible;
+      panel.querySelector(".cf-config").setAttribute("aria-pressed", String(visible));
     };
     toggle.addEventListener("click", () => state.open ? close() : open());
     panel.querySelector(".cf-close").addEventListener("click", close);
-    panel.querySelector(".cf-settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
-    panel.querySelector(".cf-lang").textContent = `${languages.sourceLanguage} \u2192 ${languages.targetLanguage}`;
-    panel.querySelector(".cf-currency").addEventListener("change", (event) => {
-      state.checkCurrency = event.target.checked;
-      chrome.storage.local.set({ checkCurrency: state.checkCurrency });
-      state.signatures.clear();
+    panel.querySelector(".cf-config").addEventListener("click", () => showSettings(!state.settingsOpen));
+    panel.querySelector(".cf-open-settings").addEventListener("click", () => showSettings(true));
+    panel.querySelector(".cf-back").addEventListener("click", () => showSettings(false));
+    panel.querySelector(".cf-import").addEventListener("click", () => chrome.runtime.openOptionsPage());
+    panel.querySelector(".cf-reset").addEventListener("click", () => {
+      state.checks = { ...DEFAULT_CHECKS };
+      persistChecks();
+      syncCheckControls();
       scan();
     });
+    panel.querySelector(".cf-lang").textContent = `${languages.sourceLanguage} \u2192 ${languages.targetLanguage}`;
+    const checkList = panel.querySelector(".cf-check-list");
+    for (const [key, label] of Object.entries(copy.checkLabels)) {
+      const item = document.createElement("label");
+      item.className = "cf-check-row";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.dataset.check = key;
+      input.checked = state.checks[key];
+      input.addEventListener("change", () => {
+        state.checks[key] = input.checked;
+        persistChecks();
+        scan();
+      });
+      const text = document.createElement("span");
+      text.textContent = label;
+      item.append(input, text);
+      checkList.append(item);
+    }
+    function syncCheckControls() {
+      for (const input of checkList.querySelectorAll("input[data-check]")) input.checked = state.checks[input.dataset.check];
+    }
+    function persistChecks() {
+      chrome.storage.local.set({ checks: state.checks });
+      state.signatures.clear();
+    }
     function loadSettings(saved) {
       const storage = { getItem: (key) => key === "checkform-glossary-edits-v1" ? JSON.stringify(saved.glossarySettings ?? {}) : key === "checkform-timezone-rules-v1" ? JSON.stringify(saved.timezoneSettings ?? {}) : null };
       loadGlossaryEdits(storage);
       loadTimezoneRules(storage);
     }
-    chrome.storage.local.get({ checkCurrency: true }, (saved) => {
+    chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {
       loadSettings(saved);
-      state.checkCurrency = saved.checkCurrency !== false;
-      panel.querySelector(".cf-currency").checked = state.checkCurrency;
+      state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
+      syncCheckControls();
       scan();
     });
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "local" || !changes.glossarySettings && !changes.timezoneSettings) return;
-      chrome.storage.local.get(["glossarySettings", "timezoneSettings"], (saved) => {
+      if (area !== "local" || !changes.glossarySettings && !changes.timezoneSettings && !changes.checks) return;
+      chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {
         loadSettings(saved);
+        state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
+        syncCheckControls();
         state.signatures.clear();
         scan();
       });
@@ -1328,20 +1431,20 @@
     }, true);
     function scan() {
       const rows = readCrowdinRows();
-      const glossaryRows = getGlossaryRows2();
+      const glossaryRows = state.checks.glossary ? getGlossaryRows2() : [];
       const currentIds = /* @__PURE__ */ new Set();
       state.results = rows.map((item) => {
         currentIds.add(item.id);
-        const signature = `${languages.sourceLanguage}|${languages.targetLanguage}|${state.checkCurrency}|${item.sourceText}|${item.targetText}`;
+        const signature = `${languages.sourceLanguage}|${languages.targetLanguage}|${JSON.stringify(state.checks)}|${item.sourceText}|${item.targetText}`;
         let cached = state.signatures.get(item.id);
         if (!cached || cached.signature !== signature) {
-          const issues = item.sourceText && item.targetText ? runRuleEngine({
+          const issues = item.sourceText && item.targetText ? enabledIssues(runRuleEngine({
             source: item.sourceText,
             target: item.targetText,
             ...languages,
-            checkCurrency: state.checkCurrency,
+            checkCurrency: state.checks.currencyComparison,
             glossaryRows
-          }) : [];
+          }), state.checks) : [];
           cached = { signature, issues };
           state.signatures.set(item.id, cached);
         }

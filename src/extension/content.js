@@ -3,6 +3,7 @@ import { getGlossaryRows, loadGlossaryEdits } from "../glossary.js";
 import { loadTimezoneRules } from "../timezone-rules.js";
 import { issueDescription, severityLabel } from "../i18n.js";
 import { editorLanguages, readCrowdinRows } from "./crowdin-adapter.js";
+import { DEFAULT_CHECKS, enabledIssues, normalizeChecks } from "./check-settings.js";
 
 const languages = editorLanguages(location.pathname);
 const russian = navigator.language.toLowerCase().startsWith("ru");
@@ -10,16 +11,26 @@ const uiLocale = russian ? "ru" : "en";
 const copy = russian ? {
   open: "Открыть замечания CHECKform", compare: "Сравнивать валюту и суммы",
   close: "Закрыть", findings: "замечаний", segments: "загруженных сегментов",
-  segment: "Сегмент", empty: "В загруженных сегментах нарушений не найдено.", review: "Проверьте этот сегмент."
+  segment: "Сегмент", empty: "В загруженных сегментах нарушений не найдено.", review: "Проверьте этот сегмент.",
+  settings: "Настройки проверок", back: "К замечаниям", reset: "Включить все проверки",
+  import: "Импорт словаря и GMT", settingsHint: "Выберите, какие замечания показывать в Crowdin.",
+  checkLabels: { glossary: "Глоссарий", dates: "Даты, время и GMT", numbers: "Числа и проценты",
+    currencyComparison: "Сравнение валют и сумм", moneyFormat: "Формат сумм в переводе",
+    spacing: "Пробелы", punctuation: "Пунктуация и регистр", placeholders: "Плейсхолдеры", other: "Другие правила" }
 } : {
   open: "Open CHECKform findings", compare: "Compare currency and amounts",
   close: "Close", findings: "findings", segments: "loaded segments",
-  segment: "Segment", empty: "No rule violations in loaded segments.", review: "Review this segment."
+  segment: "Segment", empty: "No rule violations in loaded segments.", review: "Review this segment.",
+  settings: "Check settings", back: "Back to findings", reset: "Enable all checks",
+  import: "Import glossary and GMT", settingsHint: "Choose which findings to show in Crowdin.",
+  checkLabels: { glossary: "Glossary", dates: "Dates, time and GMT", numbers: "Numbers and percentages",
+    currencyComparison: "Compare currencies and amounts", moneyFormat: "Target money format",
+    spacing: "Spacing", punctuation: "Punctuation and case", placeholders: "Placeholders", other: "Other rules" }
 };
 if (languages) start();
 
 function start() {
-  const state = { checkCurrency: true, open: false, results: [], selectedId: null, signatures: new Map() };
+  const state = { checks: normalizeChecks(), open: false, settingsOpen: false, results: [], selectedId: null, signatures: new Map() };
   const host = document.createElement("div");
   host.id = "checkform-extension-root";
   const shadow = host.attachShadow({ mode: "open" });
@@ -34,41 +45,78 @@ function start() {
   const panel = document.createElement("section");
   panel.className = "cf-panel";
   panel.hidden = true;
-  panel.innerHTML = `<header><strong>CHECKform <small>Chrome preview</small></strong><button class="cf-close" type="button" aria-label="${copy.close}">×</button></header>
-    <div class="cf-controls"><label><input class="cf-currency" type="checkbox" checked> ${copy.compare}</label><span class="cf-lang"></span></div>
-    <button class="cf-settings" type="button">${russian ? "Словарь и GMT" : "Glossary and GMT"}</button>
-    <div class="cf-summary"></div><div class="cf-list"></div>`;
+  panel.innerHTML = `<header><strong>CHECKform <small>Chrome preview</small></strong><div class="cf-header-actions"><button class="cf-config" type="button" aria-label="${copy.settings}" title="${copy.settings}">⚙</button><button class="cf-close" type="button" aria-label="${copy.close}">×</button></div></header>
+    <div class="cf-results-view"><div class="cf-controls"><span class="cf-lang"></span><button class="cf-open-settings" type="button">${copy.settings}</button></div>
+    <div class="cf-summary"></div><div class="cf-list"></div></div>
+    <div class="cf-settings-view" hidden><button class="cf-back" type="button">← ${copy.back}</button><h2>${copy.settings}</h2><p>${copy.settingsHint}</p><div class="cf-check-list"></div>
+    <button class="cf-reset" type="button">${copy.reset}</button><button class="cf-import" type="button">${copy.import}</button></div>`;
   shadow.append(sheet, toggle, panel);
   document.documentElement.append(host);
 
   const close = () => { state.open = false; panel.hidden = true; toggle.setAttribute("aria-expanded", "false"); };
-  const open = () => { state.open = true; panel.hidden = false; toggle.setAttribute("aria-expanded", "true"); renderPanel(); };
+  const open = () => { state.open = true; panel.hidden = false; toggle.setAttribute("aria-expanded", "true"); showSettings(false); renderPanel(); };
+  const showSettings = (visible) => {
+    state.settingsOpen = visible;
+    panel.querySelector(".cf-results-view").hidden = visible;
+    panel.querySelector(".cf-settings-view").hidden = !visible;
+    panel.querySelector(".cf-config").setAttribute("aria-pressed", String(visible));
+  };
   toggle.addEventListener("click", () => state.open ? close() : open());
   panel.querySelector(".cf-close").addEventListener("click", close);
-  panel.querySelector(".cf-settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
-  panel.querySelector(".cf-lang").textContent = `${languages.sourceLanguage} → ${languages.targetLanguage}`;
-  panel.querySelector(".cf-currency").addEventListener("change", (event) => {
-    state.checkCurrency = event.target.checked;
-    chrome.storage.local.set({ checkCurrency: state.checkCurrency });
-    state.signatures.clear();
+  panel.querySelector(".cf-config").addEventListener("click", () => showSettings(!state.settingsOpen));
+  panel.querySelector(".cf-open-settings").addEventListener("click", () => showSettings(true));
+  panel.querySelector(".cf-back").addEventListener("click", () => showSettings(false));
+  panel.querySelector(".cf-import").addEventListener("click", () => chrome.runtime.openOptionsPage());
+  panel.querySelector(".cf-reset").addEventListener("click", () => {
+    state.checks = { ...DEFAULT_CHECKS };
+    persistChecks();
+    syncCheckControls();
     scan();
   });
+  panel.querySelector(".cf-lang").textContent = `${languages.sourceLanguage} → ${languages.targetLanguage}`;
+  const checkList = panel.querySelector(".cf-check-list");
+  for (const [key, label] of Object.entries(copy.checkLabels)) {
+    const item = document.createElement("label");
+    item.className = "cf-check-row";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.check = key;
+    input.checked = state.checks[key];
+    input.addEventListener("change", () => {
+      state.checks[key] = input.checked;
+      persistChecks();
+      scan();
+    });
+    const text = document.createElement("span");
+    text.textContent = label;
+    item.append(input, text);
+    checkList.append(item);
+  }
+  function syncCheckControls() {
+    for (const input of checkList.querySelectorAll("input[data-check]")) input.checked = state.checks[input.dataset.check];
+  }
+  function persistChecks() {
+    chrome.storage.local.set({ checks: state.checks });
+    state.signatures.clear();
+  }
   function loadSettings(saved) {
     const storage = { getItem: (key) => key === "checkform-glossary-edits-v1" ? JSON.stringify(saved.glossarySettings ?? {})
       : key === "checkform-timezone-rules-v1" ? JSON.stringify(saved.timezoneSettings ?? {}) : null };
     loadGlossaryEdits(storage);
     loadTimezoneRules(storage);
   }
-  chrome.storage.local.get({ checkCurrency: true }, (saved) => {
+  chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {
     loadSettings(saved);
-    state.checkCurrency = saved.checkCurrency !== false;
-    panel.querySelector(".cf-currency").checked = state.checkCurrency;
+    state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
+    syncCheckControls();
     scan();
   });
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || (!changes.glossarySettings && !changes.timezoneSettings)) return;
-    chrome.storage.local.get(["glossarySettings", "timezoneSettings"], (saved) => {
+    if (area !== "local" || (!changes.glossarySettings && !changes.timezoneSettings && !changes.checks)) return;
+    chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {
       loadSettings(saved);
+      state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
+      syncCheckControls();
       state.signatures.clear();
       scan();
     });
@@ -97,17 +145,17 @@ function start() {
 
   function scan() {
     const rows = readCrowdinRows();
-    const glossaryRows = getGlossaryRows();
+    const glossaryRows = state.checks.glossary ? getGlossaryRows() : [];
     const currentIds = new Set();
     state.results = rows.map((item) => {
       currentIds.add(item.id);
-      const signature = `${languages.sourceLanguage}|${languages.targetLanguage}|${state.checkCurrency}|${item.sourceText}|${item.targetText}`;
+      const signature = `${languages.sourceLanguage}|${languages.targetLanguage}|${JSON.stringify(state.checks)}|${item.sourceText}|${item.targetText}`;
       let cached = state.signatures.get(item.id);
       if (!cached || cached.signature !== signature) {
-        const issues = item.sourceText && item.targetText ? runRuleEngine({
+        const issues = item.sourceText && item.targetText ? enabledIssues(runRuleEngine({
           source: item.sourceText, target: item.targetText, ...languages,
-          checkCurrency: state.checkCurrency, glossaryRows
-        }) : [];
+          checkCurrency: state.checks.currencyComparison, glossaryRows
+        }), state.checks) : [];
         cached = { signature, issues };
         state.signatures.set(item.id, cached);
       }

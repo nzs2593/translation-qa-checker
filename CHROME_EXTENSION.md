@@ -7,6 +7,7 @@
 - Runs the same local CHECKform engine for glossary, date, GMT, number, spacing, and currency checks. It does not save or alter Crowdin translations and makes no network requests with their text.
 - Adds a finding-count badge beside each affected translation. Clicking it opens a collapsible panel with the finding and target excerpt. The current preview marks a segment, not the exact characters inside Crowdin's textarea.
 - The compare-currency checkbox disables currency-identity and amount-value comparisons; target currency placement, spaces, and number format remain checked.
+- Open the floating CHECKform button and choose **Check settings** (or the gear icon). Glossary, dates and GMT, numbers, currency comparison, money format, spacing, punctuation, placeholders, and other checks can be switched independently. The choices persist in Chrome.
 - Source and target locale codes are read from the Crowdin editor URL. Unsupported locale pairs are ignored.
 
 ## Build and local test
