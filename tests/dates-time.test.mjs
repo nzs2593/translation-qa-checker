@@ -47,4 +47,17 @@ const argentine = { ...getProfile("es-AR"), language: "es" };
 assert.deepEqual(checkDatesAndTime(sourceRange, targetRange, { sourceProfile: english, targetProfile: argentine }), []);
 assert.equal(checkDatesAndTime("00:01 GMT on 01/07/2026", "22:01 GMT-2 del 30/06/2026", { sourceProfile: english, targetProfile: argentine })[0].error_type, "TIMEZONE_MISMATCH");
 
+const azRule = getTimezoneRule("az");
+const azSource = "20:01 GMT on 25/11/2026 and 00:59 GMT on 14/01/2027";
+const azCorrect = "26.11.2026-cı il saat 00:01 GMT+4-dən 14.01.2027-ci il saat 04:59 GMT+4-dək (25.11.2026 saat 20:01 GMT-dən 14.01.2027 saat 00:59 GMT-dək)";
+const azOptions = { sourceProfile: english, targetProfile: getProfile("az"), targetTimezoneRule: azRule };
+assert.deepEqual(checkDatesAndTime(azSource, azCorrect, azOptions), []);
+assert.equal(checkDatesAndTime(azSource, azCorrect.replace("26.11.2026", "25.11.2026"), azOptions)[0].error_type, "DATE_MISMATCH");
+assert.equal(checkDatesAndTime(azSource, azCorrect.replace("GMT+4", "GMT +4"), azOptions)[0].error_type, "TIMEZONE_FORMAT");
+const spanishRule = getTimezoneRule("es");
+const esSource = "20:01 GMT on 16/12/2026 until 00:59 GMT on 14/01/2027";
+const esTarget = "15:01 GMT-5 del 16/12/2026 y 19:59 GMT-5 del 13/01/2027 (20:01 GMT del 16/12/2026 y 00:59 GMT del 14/01/2027)";
+assert.deepEqual(checkDatesAndTime(esSource, esTarget, { sourceProfile: english, targetProfile: spanish, targetTimezoneRule: spanishRule }), []);
+assert.equal(checkDatesAndTime(esSource, esTarget.replace("13/01/2027", "14/01/2027"), { sourceProfile: english, targetProfile: spanish, targetTimezoneRule: spanishRule }).length, 1);
+
 console.log("Dates & Time tests passed");

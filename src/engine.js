@@ -154,6 +154,10 @@ function compareNumbersOutsideTemporalText(source, target, sourceProfile, target
   }
   let sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
   let targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
+  if (/\boctavos\s+de\s+final\b/iu.test(target)) {
+    sourceTokens = sourceTokens.filter((token) => !(token.normalized === "16" &&
+      /\bround\s+of\s*$/iu.test(source.slice(Math.max(0, token.index - 24), token.index))));
+  }
   const moneyPositions = new Set(Array.from({ length: Math.max(sourceTokens.length, targetTokens.length) }, (_, index) => index)
     .filter((index) => sourceTokens[index]?.currency || targetTokens[index]?.currency));
   sourceTokens = sourceTokens.filter((_, index) => !moneyPositions.has(index));

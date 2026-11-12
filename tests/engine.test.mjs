@@ -255,4 +255,16 @@ const mixedPlaceholder = runRuleEngine({
 });
 assert.equal(mixedPlaceholder.some((issue) => issue.error_type === "PLACEHOLDER_MISMATCH"), true);
 
+const roundOf16 = runRuleEngine({
+  source: "Underdogs are rare from the round of 16 onwards.",
+  target: "Es raro encontrar perdedores a partir de los octavos de final.",
+  sourceLanguage: "en", targetLanguage: "es-AR", glossaryRows: []
+});
+assert.equal(roundOf16.some((issue) => issue.error_type === "NUMBER_MISMATCH"), false);
+assert.equal(runRuleEngine({
+  source: "Underdogs are rare from the round of 16 onwards.",
+  target: "Es raro encontrar perdedores a partir de los cuartos de final.",
+  sourceLanguage: "en", targetLanguage: "es-AR", glossaryRows: []
+}).some((issue) => issue.error_type === "NUMBER_MISMATCH"), true);
+
 console.log("Engine tests passed");

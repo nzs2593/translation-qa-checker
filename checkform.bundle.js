@@ -200,7 +200,7 @@
   var SOURCE_LANGUAGE = Object.freeze({ uk: "ru" });
   var DEFAULTS = Object.freeze(Object.fromEntries(Object.keys(LANGUAGE_PROFILES).map((code) => [
     code,
-    code === "es-AR" || code === "pt-BR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 } : code === "ru" ? { mode: "fixed", label: "\u041C\u0421\u041A", offsetMinutes: 180 } : code === "uk" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 } : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 } : { mode: "source", label: "GMT", offsetMinutes: 0 }
+    code === "es-AR" || code === "pt-BR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 } : code === "ru" ? { mode: "fixed", label: "\u041C\u0421\u041A", offsetMinutes: 180 } : code === "az" ? { mode: "fixed", label: "GMT", offsetMinutes: 240 } : code === "es" || code === "uk" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 } : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 } : { mode: "source", label: "GMT", offsetMinutes: 0 }
   ])));
   var edits = {};
   function browserStorage() {
@@ -266,7 +266,7 @@
   var MONTH_MAP = Object.fromEntries(Object.entries(MONTHS).flatMap(([language, words]) => words.split(" ").map((word, index) => [`${language}:${word}`, index + 1])));
   var MONTH_WORDS = Object.values(MONTHS).join("|").replaceAll(" ", "|");
   var DATE_RE = new RegExp(`(\\d{4})[-/.](\\d{1,2})[-/.](\\d{1,2})|(\\d{1,2})[-/.](\\d{1,2})[-/.](\\d{2,4})|(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:de\\s+)?(${MONTH_WORDS})(?:\\s+(?:de|of))?\\s+(\\d{4})`, "giu");
-  var TIME_RE = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?\s*(?:(GMT|UTC|MSK|МСК)(?:\s*([+\-−])\s*(\d{1,2})?(?::?(\d{2}))?)?)?/giu;
+  var TIME_RE = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?\s*(?:(GMT|UTC|MSK|МСК)(?:\s*([+\-−])\s*(\d{1,2})(?::?(\d{2}))?)?)?/giu;
   function parseTimezone(zone, sign, hours = "0", minutes = "0") {
     if (!zone) return null;
     const name = zone.toUpperCase();
@@ -347,7 +347,7 @@
       const gapEnd = Math.max(time.index, date.index);
       const length = Math.max(0, gapEnd - gapStart);
       if (length > 32 || length >= shortest) continue;
-      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em)\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
+      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
       if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd)) continue;
       best = index;
       shortest = length;
@@ -396,7 +396,16 @@
     const targetItems = parseTemporals(target, targetProfile);
     const invalid = [...sourceItems, ...targetItems].filter((item) => !item.validDate || !item.validTime || !item.validTimezone);
     if (invalid.length) return invalid.map((item) => issueFor(sourceItems.includes(item) ? item : null, targetItems.includes(item) ? item : null, "INVALID_DATE", "A calendar date, clock time, or GMT offset is invalid in the source or target."));
-    const pairs = sourceItems.map((sourceItem, index) => [sourceItem, targetItems[index]]);
+    const outsideParentheses = targetItems.filter((item) => {
+      let depth = 0;
+      for (const character of target.slice(0, item.index)) {
+        if (character === "(") depth++;
+        else if (character === ")") depth = Math.max(0, depth - 1);
+      }
+      return depth === 0;
+    });
+    const comparisonItems = outsideParentheses.length >= sourceItems.length ? outsideParentheses : targetItems;
+    const pairs = sourceItems.map((sourceItem, index) => [sourceItem, comparisonItems[index]]);
     return pairs.flatMap(([sourceItem, targetItem]) => {
       if (!targetItem) return issueFor(sourceItem, null, "DATETIME_MISMATCH", "A source date or time is missing from the target.");
       if (sourceItem.timezone && !targetItem.timezone) return issueFor(sourceItem, targetItem, "TIMEZONE_MISSING", "Timezone is present in the source but missing in the target.");
@@ -418,6 +427,18 @@
       }
       if (sourceItem.timezone && targetItem.timezone && sourceItem.localKey === targetItem.localKey && sourceItem.timezone.offsetMinutes !== targetItem.timezone.offsetMinutes) return issueFor(sourceItem, targetItem, "TIMEZONE_MISMATCH", "The local date/time matches, but the timezone offset differs.");
       if (sourceItem.date && targetItem.date && !sourceItem.hasTime && !targetItem.hasTime) return issueFor(sourceItem, targetItem, "DATE_MISMATCH", "Source and target contain different calendar dates.");
+      if (sourceItem.date && targetItem.date && sourceItem.timezone && targetItem.timezone && sourceItem.utcMillis != null) {
+        const expectedLocal = new Date(sourceItem.utcMillis + targetItem.timezone.offsetMinutes * 6e4);
+        const expectedDate = expectedLocal.toISOString().slice(0, 10);
+        const actualDate = targetItem.localKey.slice(0, 10);
+        if (expectedDate !== actualDate) return issueFor(
+          sourceItem,
+          targetItem,
+          "DATE_MISMATCH",
+          `After timezone conversion the target date should be ${expectedDate}; found ${actualDate}.`,
+          targetItem.dateLocation
+        );
+      }
       if (sourceItem.date && targetItem.date && sourceItem.hasTime && targetItem.hasTime && sourceItem.localKey.slice(0, 10) === targetItem.localKey.slice(0, 10) && sourceItem.localKey.slice(11) !== targetItem.localKey.slice(11)) return [issueFor(sourceItem, targetItem, "TIME_MISMATCH", "Source and target contain different clock times."), ...formatIssue ? [formatIssue] : []];
       return [issueFor(sourceItem, targetItem, "DATETIME_MISMATCH", "Source and target resolve to different moments in time after timezone normalization."), ...formatIssue ? [formatIssue] : []];
     }).flat();
@@ -806,6 +827,9 @@
     }
     let sourceTokens = numberTokens(source, sourceProfile).map((token) => ({ ...token, currency: currencyForNumber(source, token) }));
     let targetTokens = numberTokens(target, targetProfile).map((token) => ({ ...token, currency: currencyForNumber(target, token) }));
+    if (/\boctavos\s+de\s+final\b/iu.test(target)) {
+      sourceTokens = sourceTokens.filter((token) => !(token.normalized === "16" && /\bround\s+of\s*$/iu.test(source.slice(Math.max(0, token.index - 24), token.index))));
+    }
     const moneyPositions = new Set(Array.from({ length: Math.max(sourceTokens.length, targetTokens.length) }, (_, index) => index).filter((index) => sourceTokens[index]?.currency || targetTokens[index]?.currency));
     sourceTokens = sourceTokens.filter((_, index) => !moneyPositions.has(index));
     targetTokens = targetTokens.filter((_, index) => !moneyPositions.has(index));
