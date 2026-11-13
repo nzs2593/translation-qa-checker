@@ -1,32 +1,18 @@
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "chrome-extension" / "icons"
 OUT.mkdir(parents=True, exist_ok=True)
-FONT = Path("C:/Windows/Fonts/segoeuib.ttf")
+SOURCE = ROOT / "assets" / "QAform-01.png"
+source = Image.open(SOURCE).convert("RGBA")
 
 for size in (16, 32, 48, 128):
-    scale = 4
-    canvas_size = size * scale
-    image = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    margin = round(size * .125 * scale)
-    radius = round(size * .22 * scale)
-    draw.rounded_rectangle(
-        (margin, margin, canvas_size - margin - 1, canvas_size - margin - 1),
-        radius=radius,
-        fill="#175CD3",
-    )
-    font = ImageFont.truetype(str(FONT), round(size * .56 * scale))
-    draw.text(
-        (canvas_size / 2, canvas_size / 2 - size * .02 * scale),
-        "C",
-        font=font,
-        anchor="mm",
-        fill="white",
-        stroke_width=0,
-    )
-    image.resize((size, size), Image.Resampling.LANCZOS).save(OUT / f"icon-{size}.png")
+    # Keep the approved artwork intact; Chrome's store icon needs 16 px padding.
+    margin = size // 8 if size == 128 else 0
+    artwork_size = size - 2 * margin
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    image.alpha_composite(source.resize((artwork_size, artwork_size), Image.Resampling.LANCZOS), (margin, margin))
+    image.save(OUT / f"icon-{size}.png")
