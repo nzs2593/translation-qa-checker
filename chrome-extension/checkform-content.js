@@ -15,7 +15,7 @@
     "File structure"
   ]);
   var SEVERITIES = Object.freeze(["Critical", "Major", "Minor", "Info"]);
-  function createIssue({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format }) {
+  function createIssue({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date }) {
     if (!error_type || !POOLS.includes(pool) || !SEVERITIES.includes(severity)) {
       throw new Error("Invalid issue contract");
     }
@@ -28,7 +28,8 @@
       ...explanation ? { explanation } : {},
       ...glossary ? { glossary } : {},
       ...timezone ? { timezone } : {},
-      ...format ? { format } : {}
+      ...format ? { format } : {},
+      ...date ? { date } : {}
     };
   }
   function location2(start2, end) {
@@ -366,7 +367,7 @@
     }
     return source.localKey === target.localKey;
   }
-  function issueFor(source, target, error_type, explanation, targetLocation = null, timezone = null) {
+  function issueFor(source, target, error_type, explanation, targetLocation = null, timezone = null, date = null) {
     return createIssue({
       error_type,
       pool: "Dates & Time",
@@ -374,7 +375,8 @@
       location_in_source: source ? location2(source.index, source.index + source.raw.length) : location2(0, 0),
       location_in_target: targetLocation ?? (target ? location2(target.index, target.index + target.raw.length) : location2(0, 0)),
       explanation,
-      timezone
+      timezone,
+      date
     });
   }
   function checkDatesAndTime(source, target, { sourceProfile, targetProfile, targetTimezoneRule = null }) {
@@ -417,13 +419,23 @@
         const expectedLocal = new Date(sourceItem.utcMillis + targetItem.timezone.offsetMinutes * 6e4);
         const expectedDate = expectedLocal.toISOString().slice(0, 10);
         const actualDate = targetItem.localKey.slice(0, 10);
-        if (expectedDate !== actualDate) return issueFor(
-          sourceItem,
-          targetItem,
-          "DATE_MISMATCH",
-          `After timezone conversion the target date should be ${expectedDate}; found ${actualDate}.`,
-          targetItem.dateLocation
-        );
+        if (expectedDate !== actualDate) {
+          const dateText = target.slice(targetItem.dateLocation.start, targetItem.dateLocation.end);
+          const separator = dateText.includes(".") ? "." : dateText.includes("/") ? "/" : "-";
+          const displayDate = (iso) => {
+            const [year, month, day] = iso.split("-");
+            return targetProfile.dateOrder === "MDY" ? [month, day, year].join(separator) : targetProfile.dateOrder === "DMY" ? [day, month, year].join(separator) : iso;
+          };
+          return issueFor(
+            sourceItem,
+            targetItem,
+            "DATE_MISMATCH",
+            `After timezone conversion the target date should be ${expectedDate}; found ${actualDate}.`,
+            targetItem.dateLocation,
+            null,
+            { expected: displayDate(expectedDate), actual: dateText, zone: targetItem.timezone.label }
+          );
+        }
       }
       if (sourceItem.date && targetItem.date && sourceItem.hasTime && targetItem.hasTime && sourceItem.localKey.slice(0, 10) === targetItem.localKey.slice(0, 10) && sourceItem.localKey.slice(11) !== targetItem.localKey.slice(11)) return [issueFor(sourceItem, targetItem, "TIME_MISMATCH", "Source and target contain different clock times."), ...formatIssue ? [formatIssue] : []];
       return [issueFor(sourceItem, targetItem, "DATETIME_MISMATCH", "Source and target resolve to different moments in time after timezone normalization."), ...formatIssue ? [formatIssue] : []];
@@ -449,7 +461,7 @@
     "File structure"
   ]);
   var SEVERITIES2 = Object.freeze(["Critical", "Major", "Minor", "Info"]);
-  function createIssue2({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format }) {
+  function createIssue2({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date }) {
     if (!error_type || !POOLS2.includes(pool) || !SEVERITIES2.includes(severity)) {
       throw new Error("Invalid issue contract");
     }
@@ -462,7 +474,8 @@
       ...explanation ? { explanation } : {},
       ...glossary ? { glossary } : {},
       ...timezone ? { timezone } : {},
-      ...format ? { format } : {}
+      ...format ? { format } : {},
+      ...date ? { date } : {}
     };
   }
   function location3(start2, end) {
@@ -1180,6 +1193,10 @@
     return ISSUE_CATALOG.find((entry) => entry.type === errorType);
   }
   function issueDescription(locale, issue) {
+    if (issue.date) {
+      const { expected, actual, zone } = issue.date;
+      return locale === "ru" ? `\u041E\u0448\u0438\u0431\u043A\u0430 \u0434\u0430\u0442\u044B \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0432 ${zone}: \u043E\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044F ${expected}, \u0443\u043A\u0430\u0437\u0430\u043D\u043E ${actual}. \u0412\u0440\u0435\u043C\u044F \u043F\u0435\u0440\u0435\u0432\u0435\u0434\u0435\u043D\u043E, \u043D\u043E \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0439 \u0434\u0435\u043D\u044C \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0451\u043D.` : `Date error after conversion to ${zone}: expected ${expected}, found ${actual}. The clock time was converted, but the calendar day was not updated.`;
+    }
     if (issue.format) {
       const { expected, actual } = issue.format;
       return locale === "ru" ? `\u0424\u043E\u0440\u043C\u0430\u0442 \u0434\u0430\u0442\u044B: \u043E\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044F ${expected}, \u043D\u0430\u0439\u0434\u0435\u043D\u043E \xAB${actual}\xBB.` : `Date format: expected ${expected}; found \u201C${actual}\u201D.`;

@@ -322,6 +322,12 @@ export function catalogEntry(errorType) {
 }
 
 export function issueDescription(locale, issue) {
+  if (issue.date) {
+    const { expected, actual, zone } = issue.date;
+    return locale === "ru"
+      ? `Ошибка даты после перевода времени в ${zone}: ожидается ${expected}, указано ${actual}. Время переведено, но календарный день не изменён.`
+      : `Date error after conversion to ${zone}: expected ${expected}, found ${actual}. The clock time was converted, but the calendar day was not updated.`;
+  }
   if (issue.format) {
     const { expected, actual } = issue.format;
     return locale === "ru" ? `Формат даты: ожидается ${expected}, найдено «${actual}».` : `Date format: expected ${expected}; found “${actual}”.`;

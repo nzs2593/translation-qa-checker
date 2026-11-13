@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { checkDatesAndTime, parseTemporal, parseTemporals } from "../src/dates-time.js";
 import { getProfile } from "../src/profiles.js";
 import { getTimezoneRule } from "../src/timezone-rules.js";
+import { issueDescription } from "../src/i18n.js";
 
 const profile = { dateOrder: "YMD", language: "en" };
 
@@ -52,7 +53,11 @@ const azSource = "20:01 GMT on 25/11/2026 and 00:59 GMT on 14/01/2027";
 const azCorrect = "26.11.2026-cı il saat 00:01 GMT+4-dən 14.01.2027-ci il saat 04:59 GMT+4-dək (25.11.2026 saat 20:01 GMT-dən 14.01.2027 saat 00:59 GMT-dək)";
 const azOptions = { sourceProfile: english, targetProfile: getProfile("az"), targetTimezoneRule: azRule };
 assert.deepEqual(checkDatesAndTime(azSource, azCorrect, azOptions), []);
-assert.equal(checkDatesAndTime(azSource, azCorrect.replace("26.11.2026", "25.11.2026"), azOptions)[0].error_type, "DATE_MISMATCH");
+const azWrongDate = azCorrect.replace("26.11.2026", "25.11.2026");
+const azDateIssue = checkDatesAndTime(azSource, azWrongDate, azOptions)[0];
+assert.equal(azDateIssue.error_type, "DATE_MISMATCH");
+assert.equal(azWrongDate.slice(azDateIssue.location_in_target.start, azDateIssue.location_in_target.end), "25.11.2026");
+assert.match(issueDescription("ru", azDateIssue), /26\.11\.2026.*25\.11\.2026/);
 assert.equal(checkDatesAndTime(azSource, azCorrect.replace("GMT+4", "GMT +4"), azOptions)[0].error_type, "TIMEZONE_FORMAT");
 const spanishRule = getTimezoneRule("es");
 const esSource = "20:01 GMT on 16/12/2026 until 00:59 GMT on 14/01/2027";

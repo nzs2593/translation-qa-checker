@@ -5,7 +5,7 @@ export const POOLS = Object.freeze([
 
 export const SEVERITIES = Object.freeze(["Critical", "Major", "Minor", "Info"]);
 
-export function createIssue({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format }) {
+export function createIssue({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date }) {
   if (!error_type || !POOLS.includes(pool) || !SEVERITIES.includes(severity)) {
     throw new Error("Invalid issue contract");
   }
@@ -18,7 +18,8 @@ export function createIssue({ error_type, pool, severity = "Minor", location_in_
     ...(explanation ? { explanation } : {}),
     ...(glossary ? { glossary } : {}),
     ...(timezone ? { timezone } : {}),
-    ...(format ? { format } : {})
+    ...(format ? { format } : {}),
+    ...(date ? { date } : {})
   };
 }
 

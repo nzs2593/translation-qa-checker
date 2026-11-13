@@ -122,12 +122,12 @@ function sameMoment(source, target) {
   return source.localKey === target.localKey;
 }
 
-function issueFor(source, target, error_type, explanation, targetLocation = null, timezone = null) {
+function issueFor(source, target, error_type, explanation, targetLocation = null, timezone = null, date = null) {
   return createIssue({
     error_type, pool: "Dates & Time", severity: ["TIMEZONE_EXTRA", "TIMEZONE_FORMAT"].includes(error_type) ? "Minor" : "Major",
     location_in_source: source ? location(source.index, source.index + source.raw.length) : location(0, 0),
     location_in_target: targetLocation ?? (target ? location(target.index, target.index + target.raw.length) : location(0, 0)),
-    explanation, timezone
+    explanation, timezone, date
   });
 }
 
@@ -175,8 +175,18 @@ export function checkDatesAndTime(source, target, { sourceProfile, targetProfile
       const expectedLocal = new Date(sourceItem.utcMillis + targetItem.timezone.offsetMinutes * 60000);
       const expectedDate = expectedLocal.toISOString().slice(0, 10);
       const actualDate = targetItem.localKey.slice(0, 10);
-      if (expectedDate !== actualDate) return issueFor(sourceItem, targetItem, "DATE_MISMATCH",
-        `After timezone conversion the target date should be ${expectedDate}; found ${actualDate}.`, targetItem.dateLocation);
+      if (expectedDate !== actualDate) {
+        const dateText = target.slice(targetItem.dateLocation.start, targetItem.dateLocation.end);
+        const separator = dateText.includes(".") ? "." : dateText.includes("/") ? "/" : "-";
+        const displayDate = (iso) => {
+          const [year, month, day] = iso.split("-");
+          return targetProfile.dateOrder === "MDY" ? [month, day, year].join(separator)
+            : targetProfile.dateOrder === "DMY" ? [day, month, year].join(separator) : iso;
+        };
+        return issueFor(sourceItem, targetItem, "DATE_MISMATCH",
+          `After timezone conversion the target date should be ${expectedDate}; found ${actualDate}.`,
+          targetItem.dateLocation, null, { expected: displayDate(expectedDate), actual: dateText, zone: targetItem.timezone.label });
+      }
     }
     if (sourceItem.date && targetItem.date && sourceItem.hasTime && targetItem.hasTime && sourceItem.localKey.slice(0, 10) === targetItem.localKey.slice(0, 10) && sourceItem.localKey.slice(11) !== targetItem.localKey.slice(11)) return [issueFor(sourceItem, targetItem, "TIME_MISMATCH", "Source and target contain different clock times."), ...(formatIssue ? [formatIssue] : [])];
     return [issueFor(sourceItem, targetItem, "DATETIME_MISMATCH", "Source and target resolve to different moments in time after timezone normalization."), ...(formatIssue ? [formatIssue] : [])];
