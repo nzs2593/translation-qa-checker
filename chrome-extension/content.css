@@ -69,6 +69,20 @@ button { font: inherit; cursor: pointer; }
 .cf-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; }
 .cf-open-settings { border: 0; background: transparent; color: #1554b7; padding: 0; text-decoration: underline; }
 .cf-lang { color: #4f6b90; white-space: nowrap; }
+.cf-counter { padding: 10px 16px; border-top: 1px solid #dbe8f7; background: #f7faff; }
+.cf-counter > strong { display: block; margin-bottom: 7px; font-size: 13px; }
+.cf-counter-controls { display: flex; align-items: end; gap: 7px; flex-wrap: wrap; }
+.cf-counter-controls label { display: flex; flex-direction: column; gap: 3px; color: #4f6b90; font-size: 11px; }
+.cf-counter-controls select, .cf-limit-custom { max-width: 140px; min-height: 28px; border: 1px solid #b7ccea; border-radius: 5px; background: white; color: #172b49; padding: 3px 6px; font: 12px Arial, sans-serif; }
+.cf-limit-custom { width: 70px; }
+.cf-limit-custom[hidden], .cf-limit-hint[hidden] { display: none; }
+.cf-limit-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px; color: #4f6b90; font-size: 11px; }
+.cf-limit-hint button { border: 1px solid #b7ccea; border-radius: 5px; background: #fff; color: #1554b7; padding: 3px 6px; white-space: nowrap; }
+.cf-counter-rows { margin-top: 8px; }
+.cf-counter-rows div, .cf-counter-rows strong { display: block; margin-top: 3px; font-size: 12px; }
+.cf-counter-rows .cf-count-over { color: #b23528; font-weight: 700; }
+.cf-counter-status { margin-top: 6px; color: #4f6b90; font-weight: 700; }
+.cf-counter-status.cf-over-limit { color: #b23528; }
 .cf-summary { padding: 0 16px 12px; color: #4f6b90; border-bottom: 1px solid #dbe8f7; }
 .cf-list { flex: 1; overflow: auto; padding: 12px; }
 .cf-settings-view { overflow: auto; padding: 16px; }

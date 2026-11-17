@@ -1435,6 +1435,10 @@
         id: row.getAttribute("data-id"),
         row,
         target,
+        selected: Boolean(row.querySelector('input[name="translation_checkbox"]')?.checked),
+        sourceRaw: source.textContent ?? "",
+        targetRaw: target.value ?? "",
+        limitContext: row.querySelector(".source-string-key")?.textContent ?? "",
         sourceText: cleanCrowdinMarkup(source.textContent),
         targetText: cleanCrowdinMarkup(target.value)
       }];
@@ -1485,6 +1489,32 @@
     return dx * dx + dy * dy >= 25;
   }
 
+  // src/extension/character-counter.js
+  function countCharacters(text) {
+    const visible = String(text ?? "").replace(/<\/?\d+\s*\/?>/gu, "");
+    if (typeof Intl.Segmenter !== "function") return [...visible].length;
+    return [...new Intl.Segmenter(void 0, { granularity: "grapheme" }).segment(visible)].length;
+  }
+  function parseCharacterLimitHint(label) {
+    const match = String(label ?? "").match(/\b(\d+)\s*(?:\+\s*(\d+))?\s*characters?\b/iu);
+    if (!match) return null;
+    const parts = [Number(match[1]), ...match[2] ? [Number(match[2])] : []];
+    if (parts.some((value) => !Number.isInteger(value) || value <= 0)) return null;
+    return { parts, total: parts.reduce((sum, value) => sum + value, 0) };
+  }
+  function evaluateCharacterLimit(rows, limit, scope = "total") {
+    const counts = rows.map((row) => ({
+      id: row.id,
+      source: countCharacters(row.sourceRaw),
+      target: countCharacters(row.targetRaw)
+    }));
+    const totalSource = counts.reduce((sum, row) => sum + row.source, 0);
+    const totalTarget = counts.reduce((sum, row) => sum + row.target, 0);
+    const threshold = Number.isInteger(limit) && limit > 0 ? limit : null;
+    const exceeded = threshold == null ? [] : scope === "each" ? counts.map((row, index) => ({ index: index + 1, by: row.target - threshold })).filter((row) => row.by > 0) : totalTarget > threshold ? [{ index: 0, by: totalTarget - threshold }] : [];
+    return { counts, totalSource, totalTarget, exceeded, limit: threshold };
+  }
+
   // src/extension/content.js
   var languages = editorLanguages(location.pathname);
   var russian = navigator.language.toLowerCase().startsWith("ru");
@@ -1503,6 +1533,24 @@
     reset: "\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0432\u0441\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438",
     import: "\u0418\u043C\u043F\u043E\u0440\u0442 \u0441\u043B\u043E\u0432\u0430\u0440\u044F \u0438 GMT",
     settingsHint: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u043A\u0430\u043A\u0438\u0435 \u0437\u0430\u043C\u0435\u0447\u0430\u043D\u0438\u044F \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 Crowdin.",
+    characters: "\u0421\u0438\u043C\u0432\u043E\u043B\u044B \u0432 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0445 \u0441\u0442\u0440\u043E\u043A\u0430\u0445",
+    limit: "\u041B\u0438\u043C\u0438\u0442",
+    scope: "\u0421\u0447\u0438\u0442\u0430\u0442\u044C",
+    total: "\u0412\u043C\u0435\u0441\u0442\u0435",
+    each: "\u041D\u0430 \u043A\u0430\u0436\u0434\u0443\u044E",
+    noLimit: "\u0411\u0435\u0437 \u043B\u0438\u043C\u0438\u0442\u0430",
+    customLimit: "\u0421\u0432\u043E\u0439 \u043B\u0438\u043C\u0438\u0442",
+    chooseRows: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0444\u043B\u0430\u0436\u043A\u0430\u043C\u0438 \u043E\u0434\u043D\u0443 \u0438\u043B\u0438 \u0434\u0432\u0435 \u0441\u0442\u0440\u043E\u043A\u0438 \u0432 Crowdin.",
+    tooManyRows: "\u0412\u044B\u0431\u0440\u0430\u043D\u043E \u0431\u043E\u043B\u044C\u0448\u0435 \u0434\u0432\u0443\u0445 \u0441\u0442\u0440\u043E\u043A. \u041E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043E\u0434\u043D\u0443 \u0438\u043B\u0438 \u0434\u0432\u0435.",
+    sourceCount: "\u041E\u0440\u0438\u0433\u0438\u043D\u0430\u043B",
+    targetCount: "\u041F\u0435\u0440\u0435\u0432\u043E\u0434",
+    combined: "\u0418\u0442\u043E\u0433\u043E",
+    exceeded: "\u041B\u0438\u043C\u0438\u0442 \u043F\u0440\u0435\u0432\u044B\u0448\u0435\u043D",
+    withinLimit: "\u0412 \u043F\u0440\u0435\u0434\u0435\u043B\u0430\u0445 \u043B\u0438\u043C\u0438\u0442\u0430",
+    charactersUnit: "\u0441\u0438\u043C\u0432.",
+    fromSource: "\u0412 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0435",
+    applyLimit: "\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C",
+    rowLabel: "\u0441\u0442\u0440\u043E\u043A\u0430",
     checkLabels: {
       glossary: "\u0413\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439",
       dates: "\u0414\u0430\u0442\u044B, \u0432\u0440\u0435\u043C\u044F \u0438 GMT",
@@ -1528,6 +1576,24 @@
     reset: "Enable all checks",
     import: "Import glossary and GMT",
     settingsHint: "Choose which findings to show in Crowdin.",
+    characters: "Characters in selected strings",
+    limit: "Limit",
+    scope: "Apply to",
+    total: "Together",
+    each: "Each string",
+    noLimit: "No limit",
+    customLimit: "Custom limit",
+    chooseRows: "Select one or two Crowdin strings using their checkboxes.",
+    tooManyRows: "More than two strings selected. Leave one or two selected.",
+    sourceCount: "Source",
+    targetCount: "Translation",
+    combined: "Total",
+    exceeded: "Limit exceeded",
+    withinLimit: "Within limit",
+    charactersUnit: "chars",
+    fromSource: "Source note",
+    applyLimit: "Apply",
+    rowLabel: "string",
     checkLabels: {
       glossary: "Glossary",
       dates: "Dates, time and GMT",
@@ -1542,7 +1608,7 @@
   };
   if (languages) start();
   function start() {
-    const state = { checks: normalizeChecks(), open: false, settingsOpen: false, results: [], selectedId: null, signatures: /* @__PURE__ */ new Map() };
+    const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: /* @__PURE__ */ new Map() };
     const host = document.createElement("div");
     host.id = "checkform-extension-root";
     const shadow = host.attachShadow({ mode: "open" });
@@ -1560,6 +1626,11 @@
     panel.hidden = true;
     panel.innerHTML = `<header><strong>CHECKform <small>Chrome preview</small></strong><div class="cf-header-actions"><button class="cf-config" type="button" aria-label="${copy.settings}" title="${copy.settings}">\u2699</button><button class="cf-close" type="button" aria-label="${copy.close}">\xD7</button></div></header>
     <div class="cf-results-view"><div class="cf-controls"><span class="cf-lang"></span><button class="cf-open-settings" type="button">${copy.settings}</button></div>
+    <div class="cf-counter"><strong>${copy.characters}</strong><div class="cf-counter-controls">
+    <label>${copy.limit} <select class="cf-limit-preset"><option value="">${copy.noLimit}</option><option value="15">15</option><option value="20">20</option><option value="30">30</option><option value="50">50</option><option value="80">80</option><option value="100">100</option><option value="custom">${copy.customLimit}</option></select></label>
+    <input class="cf-limit-custom" type="number" min="1" step="1" inputmode="numeric" aria-label="${copy.customLimit}" hidden>
+    <label>${copy.scope} <select class="cf-limit-scope"><option value="total">${copy.total}</option><option value="each">${copy.each}</option></select></label></div>
+    <div class="cf-limit-hint" hidden></div><div class="cf-counter-rows" aria-live="polite"></div><div class="cf-counter-status" aria-live="polite"></div></div>
     <div class="cf-summary"></div><div class="cf-list"></div></div>
     <div class="cf-settings-view" hidden><button class="cf-back" type="button">\u2190 ${copy.back}</button><h2>${copy.settings}</h2><p>${copy.settingsHint}</p><div class="cf-check-list"></div>
     <button class="cf-reset" type="button">${copy.reset}</button><button class="cf-import" type="button">${copy.import}</button></div>`;
@@ -1657,6 +1728,38 @@
       scan();
     });
     panel.querySelector(".cf-lang").textContent = `${languages.sourceLanguage} \u2192 ${languages.targetLanguage}`;
+    const limitPreset = panel.querySelector(".cf-limit-preset");
+    const limitCustom = panel.querySelector(".cf-limit-custom");
+    const limitScope = panel.querySelector(".cf-limit-scope");
+    const syncLimitControls = () => {
+      const presetValues = [15, 20, 30, 50, 80, 100];
+      limitPreset.value = state.characterLimit == null ? "" : presetValues.includes(state.characterLimit) ? String(state.characterLimit) : "custom";
+      limitCustom.hidden = limitPreset.value !== "custom";
+      if (state.characterLimit != null) limitCustom.value = String(state.characterLimit);
+      limitScope.value = state.characterScope;
+    };
+    const persistLimit = () => chrome.storage.local.set({ characterLimitConfig: {
+      limit: state.characterLimit,
+      scope: state.characterScope
+    } });
+    limitPreset.addEventListener("change", () => {
+      state.characterLimit = limitPreset.value === "custom" ? Number(limitCustom.value) || 1 : limitPreset.value ? Number(limitPreset.value) : null;
+      syncLimitControls();
+      persistLimit();
+      renderCounter();
+      if (limitPreset.value === "custom") limitCustom.focus();
+    });
+    limitCustom.addEventListener("change", () => {
+      const value = Number(limitCustom.value);
+      state.characterLimit = Number.isInteger(value) && value > 0 ? value : null;
+      persistLimit();
+      renderCounter();
+    });
+    limitScope.addEventListener("change", () => {
+      state.characterScope = limitScope.value === "each" ? "each" : "total";
+      persistLimit();
+      renderCounter();
+    });
     const checkList = panel.querySelector(".cf-check-list");
     for (const [key, label] of Object.entries(copy.checkLabels)) {
       const item = document.createElement("label");
@@ -1687,10 +1790,14 @@
       loadGlossaryEdits(storage);
       loadTimezoneRules(storage);
     }
-    chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null, togglePosition: null }, (saved) => {
+    chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null, togglePosition: null, characterLimitConfig: null }, (saved) => {
       if (saved.togglePosition && Number.isFinite(saved.togglePosition.x) && Number.isFinite(saved.togglePosition.y)) placeToggle(saved.togglePosition);
       loadSettings(saved);
       state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
+      const storedLimit = Number(saved.characterLimitConfig?.limit);
+      state.characterLimit = Number.isInteger(storedLimit) && storedLimit > 0 ? storedLimit : null;
+      state.characterScope = saved.characterLimitConfig?.scope === "each" ? "each" : "total";
+      syncLimitControls();
       syncCheckControls();
       scan();
     });
@@ -1726,6 +1833,9 @@
     watch();
     document.addEventListener("input", (event) => {
       if (event.target.matches?.("#texts_list textarea.side-by-side-textarea")) schedule();
+    }, true);
+    document.addEventListener("change", (event) => {
+      if (event.target.matches?.('#texts_list input[name="translation_checkbox"]')) schedule();
     }, true);
     function scan() {
       const rows = readCrowdinRows();
@@ -1786,6 +1896,7 @@
       const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
       summary.textContent = `${count} ${copy.findings} \xB7 ${state.results.length} ${copy.segments}`;
       if (!state.open) return;
+      renderCounter();
       list.replaceChildren();
       for (const row of state.results) {
         if (!row.issues.length) continue;
@@ -1823,6 +1934,57 @@
         empty.textContent = copy.empty;
         list.append(empty);
       }
+    }
+    function renderCounter() {
+      const selected = state.results.filter((row) => row.selected);
+      const lines = panel.querySelector(".cf-counter-rows");
+      const status = panel.querySelector(".cf-counter-status");
+      const hint = panel.querySelector(".cf-limit-hint");
+      lines.replaceChildren();
+      hint.replaceChildren();
+      hint.hidden = true;
+      status.classList.remove("cf-over-limit");
+      if (!selected.length || selected.length > 2) {
+        status.textContent = selected.length ? copy.tooManyRows : copy.chooseRows;
+        return;
+      }
+      const result = evaluateCharacterLimit(selected, state.characterLimit, state.characterScope);
+      const firstIndex = state.results.indexOf(selected[0]);
+      const contextLimit = parseCharacterLimitHint(selected[0].limitContext);
+      const appliesToSelection = contextLimit && (contextLimit.parts.length === 1 && selected.length === 1 || contextLimit.parts.length === 2 && selected.length === 2 && state.results[firstIndex + 1] === selected[1]);
+      if (appliesToSelection) {
+        hint.hidden = false;
+        const label = document.createElement("span");
+        label.textContent = `${copy.fromSource}: ${contextLimit.parts.join(" + ")} \u2192 ${contextLimit.total} ${copy.charactersUnit}`;
+        const apply = document.createElement("button");
+        apply.type = "button";
+        apply.textContent = `${copy.applyLimit} ${contextLimit.total}`;
+        apply.addEventListener("click", () => {
+          state.characterLimit = contextLimit.total;
+          state.characterScope = "total";
+          syncLimitControls();
+          persistLimit();
+          renderCounter();
+        });
+        hint.append(label, apply);
+      }
+      for (const [index, item] of result.counts.entries()) {
+        const line = document.createElement("div");
+        line.textContent = `${index + 1}. ${copy.sourceCount}: ${item.source} \xB7 ${copy.targetCount}: ${item.target} ${copy.charactersUnit}`;
+        if (result.limit != null && state.characterScope === "each" && item.target > result.limit) line.classList.add("cf-count-over");
+        lines.append(line);
+      }
+      if (result.counts.length === 2) {
+        const total = document.createElement("strong");
+        total.textContent = `${copy.combined}: ${copy.sourceCount} ${result.totalSource} \xB7 ${copy.targetCount} ${result.totalTarget} ${copy.charactersUnit}`;
+        if (result.limit != null && state.characterScope === "total" && result.totalTarget > result.limit) total.classList.add("cf-count-over");
+        lines.append(total);
+      }
+      if (result.limit == null) status.textContent = copy.noLimit;
+      else if (result.exceeded.length) {
+        status.classList.add("cf-over-limit");
+        status.textContent = `${copy.exceeded}: ${result.exceeded.map((item) => `${item.index ? `${copy.rowLabel} ${item.index} ` : ""}+${item.by} ${copy.charactersUnit}`).join("; ")}`;
+      } else status.textContent = `${copy.withinLimit}: ${result.limit} ${copy.charactersUnit}`;
     }
   }
 })();

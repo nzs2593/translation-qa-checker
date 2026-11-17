@@ -23,6 +23,10 @@ export function readCrowdinRows(root = document) {
     if (!source || !target) return [];
     return [{
       id: row.getAttribute("data-id"), row, target,
+      selected: Boolean(row.querySelector('input[name="translation_checkbox"]')?.checked),
+      sourceRaw: source.textContent ?? "",
+      targetRaw: target.value ?? "",
+      limitContext: row.querySelector(".source-string-key")?.textContent ?? "",
       sourceText: cleanCrowdinMarkup(source.textContent),
       targetText: cleanCrowdinMarkup(target.value)
     }];

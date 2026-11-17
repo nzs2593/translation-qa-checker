@@ -5,7 +5,8 @@
 - Manifest V3 content script runs only on `https://marathonbetops.crowdin.com/editor/*`.
 - Reads mounted side-by-side Crowdin rows by `data-id`, including the source string and the translation textarea. It observes later row mounts and edits.
 - Runs the same local CHECKform engine for glossary, date, GMT, number, spacing, and currency checks. It does not save or alter Crowdin translations and makes no network requests with their text.
-- Adds a finding-count badge beside each affected translation. Clicking it opens a collapsible panel with the finding and target excerpt. The current preview marks a segment, not the exact characters inside Crowdin's textarea.
+- Adds a numbered case badge beside each affected translation. Clicking it opens a collapsible panel with the finding and target excerpt. The current preview marks a segment, not the exact characters inside Crowdin's textarea.
+- The panel counts visible characters, including spaces, in one or two rows selected with Crowdin's own checkboxes. It shows source and translation counts per row and totals for two rows. A selectable limit applies either to the combined translation or to each selected translation; exceeding it produces a clear warning. Crowdin markup tags are excluded. A source context note such as `Title (15+15 characters)` offers a combined limit of 30; `Full description (80 characters)` offers 80 for one row.
 - The compare-currency checkbox disables currency-identity and amount-value comparisons; target currency placement, spaces, and number format remain checked.
 - Drag the floating CHECKform button to a convenient place. Its position is saved in this Chrome profile and clamped to the visible window after a resize; a normal click still opens the panel. By default it starts at the lower left so it does not cover Crowdin's lower-right controls.
 - Open the floating CHECKform button and choose **Check settings** (or the gear icon). Glossary, dates and GMT, numbers, currency comparison, money format, spacing, punctuation, placeholders, and other checks can be switched independently. The choices persist in Chrome.
@@ -13,7 +14,7 @@
 
 ## Build and local test
 
-From the repository root run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-extension.ps1`. Then, in Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose the `chrome-extension` folder. Reload the Crowdin editor tab and look for the CHECKform button near the bottom right. The folder, not the ZIP, is for this local test.
+From the repository root run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-extension.ps1`. Then, in Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose the `chrome-extension` folder. Reload the Crowdin editor tab and look for the CHECKform button near the bottom left. The folder, not the ZIP, is for this local test.
 
 The bundled glossary and GMT defaults work immediately. To carry over edits made on the CHECKform site, click **Export Chrome settings** on the site, open the extension's **Details → Extension options** or **Glossary and GMT** in its panel, and import the downloaded `checkform-settings.json`. This file contains glossary and GMT settings only, not the source or translation texts. Export again after later site edits; synchronization is manual in this preview.
 
