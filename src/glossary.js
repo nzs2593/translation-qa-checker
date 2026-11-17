@@ -77,9 +77,10 @@ export function glossaryEntryCount() {
   return GLOSSARY_DEFAULTS.length + customRows.length;
 }
 
-function phrasePattern(term, matchCase = false) {
+function phrasePattern(term, matchCase = false, allowAzeriSuffix = false) {
   const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+  const suffix = allowAzeriSuffix && /^[\p{L}]{5,}$/u.test(term.trim()) ? "[\\p{L}]{0,8}" : "";
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${suffix}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
 }
 
 function targetAnchor(target, sourcePosition, sourceLength) {
@@ -114,11 +115,13 @@ export function checkGlossary(source, target, sourceLanguage, targetLanguage, ro
       if (occupied.some((range) => start < range.end && end > range.start)) continue;
       occupied.push({ start, end });
       const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);
-      const entries = exactEntries.length ? exactEntries : group.entries;
+      const entries = (exactEntries.length ? exactEntries : group.entries)
+        .filter((entry) => entry.id !== 406 || /\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source));
       const expectedTerms = [...new Set(entries.map((entry) => entry.targetTerm).filter(Boolean))];
       if (!expectedTerms.length) continue;
-      if (expectedTerms.some((term) => phrasePattern(term, true).test(target))) continue;
-      const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term))][0]).find(Boolean);
+      const allowSuffix = targetLanguage === "az";
+      if (expectedTerms.some((term) => phrasePattern(term, true, allowSuffix).test(target))) continue;
+      const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term, false, allowSuffix))][0]).find(Boolean);
       const enforceCase = Boolean(exactEntries.length) &&
         (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
       if (caseOnlyMatch) {

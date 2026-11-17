@@ -322,6 +322,14 @@ export function catalogEntry(errorType) {
 }
 
 export function issueDescription(locale, issue) {
+  if (issue.currency) {
+    const spacing = issue.currency.space === "nbsp"
+      ? (locale === "ru" ? "с неразрывным пробелом" : "with a non-breaking space")
+      : issue.currency.space ? (locale === "ru" ? "с пробелом" : "with a space")
+        : (locale === "ru" ? "без пробела" : "without a space");
+    return locale === "ru" ? `Правильная запись: «${issue.currency.expected}» ${spacing}.`
+      : `Use “${issue.currency.expected}” ${spacing}.`;
+  }
   if (issue.date) {
     const { expected, actual, zone } = issue.date;
     return locale === "ru"

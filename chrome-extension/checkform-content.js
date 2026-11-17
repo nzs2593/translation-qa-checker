@@ -15,7 +15,7 @@
     "File structure"
   ]);
   var SEVERITIES = Object.freeze(["Critical", "Major", "Minor", "Info"]);
-  function createIssue({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date }) {
+  function createIssue({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date, currency }) {
     if (!error_type || !POOLS.includes(pool) || !SEVERITIES.includes(severity)) {
       throw new Error("Invalid issue contract");
     }
@@ -29,7 +29,8 @@
       ...glossary ? { glossary } : {},
       ...timezone ? { timezone } : {},
       ...format ? { format } : {},
-      ...date ? { date } : {}
+      ...date ? { date } : {},
+      ...currency ? { currency } : {}
     };
   }
   function location2(start2, end) {
@@ -334,7 +335,7 @@
       const gapEnd = Math.max(time.index, date.index);
       const length = Math.max(0, gapEnd - gapStart);
       if (length > 32 || length >= shortest) continue;
-      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
+      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
       if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd)) continue;
       best = index;
       shortest = length;
@@ -461,7 +462,7 @@
     "File structure"
   ]);
   var SEVERITIES2 = Object.freeze(["Critical", "Major", "Minor", "Info"]);
-  function createIssue2({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date }) {
+  function createIssue2({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date, currency }) {
     if (!error_type || !POOLS2.includes(pool) || !SEVERITIES2.includes(severity)) {
       throw new Error("Invalid issue contract");
     }
@@ -475,7 +476,8 @@
       ...glossary ? { glossary } : {},
       ...timezone ? { timezone } : {},
       ...format ? { format } : {},
-      ...date ? { date } : {}
+      ...date ? { date } : {},
+      ...currency ? { currency } : {}
     };
   }
   function location3(start2, end) {
@@ -507,9 +509,10 @@
       terms: { ...row.terms, ...overrides[row.id] ?? {} }
     }));
   }
-  function phrasePattern(term, matchCase = false) {
+  function phrasePattern(term, matchCase = false, allowAzeriSuffix = false) {
     const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+    const suffix = allowAzeriSuffix && /^[\p{L}]{5,}$/u.test(term.trim()) ? "[\\p{L}]{0,8}" : "";
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${suffix}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
   }
   function targetAnchor(target, sourcePosition, sourceLength) {
     if (!target.length) return location3(0, 0);
@@ -542,11 +545,12 @@
         if (occupied.some((range) => start2 < range.end && end > range.start)) continue;
         occupied.push({ start: start2, end });
         const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);
-        const entries = exactEntries.length ? exactEntries : group.entries;
+        const entries = (exactEntries.length ? exactEntries : group.entries).filter((entry) => entry.id !== 406 || /\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source));
         const expectedTerms = [...new Set(entries.map((entry) => entry.targetTerm).filter(Boolean))];
         if (!expectedTerms.length) continue;
-        if (expectedTerms.some((term) => phrasePattern(term, true).test(target))) continue;
-        const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term))][0]).find(Boolean);
+        const allowSuffix = targetLanguage === "az";
+        if (expectedTerms.some((term) => phrasePattern(term, true, allowSuffix).test(target))) continue;
+        const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term, false, allowSuffix))][0]).find(Boolean);
         const enforceCase = Boolean(exactEntries.length) && (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
         if (caseOnlyMatch) {
           if (!enforceCase) continue;
@@ -1005,7 +1009,8 @@
       const actualSpace = target.slice(betweenStart, betweenEnd);
       const expectedSpace = rule.space === "nbsp" ? "\xA0" : rule.space ?? "";
       if (actualPlacement !== rule.placement || actualSpace !== expectedSpace) {
-        issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location2(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), explanation: `Currency should be ${rule.placement === "prefix" ? "before" : "after"} the amount${expectedSpace ? " with the profile\u2019s required space" : " without a space"}.` }));
+        const example = rule.placement === "prefix" ? `${currency[0]}${expectedSpace}${adjacent.raw}` : `${adjacent.raw}${expectedSpace}${currency[0]}`;
+        issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location2(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), currency: { expected: example, space: rule.space }, explanation: `Use ${example} (${rule.space === "nbsp" ? "a non-breaking space" : expectedSpace ? "a space" : "no space"} between the amount and currency symbol).` }));
       }
     }
   }
@@ -1193,6 +1198,10 @@
     return ISSUE_CATALOG.find((entry) => entry.type === errorType);
   }
   function issueDescription(locale, issue) {
+    if (issue.currency) {
+      const spacing = issue.currency.space === "nbsp" ? locale === "ru" ? "\u0441 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u043C \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C" : "with a non-breaking space" : issue.currency.space ? locale === "ru" ? "\u0441 \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C" : "with a space" : locale === "ru" ? "\u0431\u0435\u0437 \u043F\u0440\u043E\u0431\u0435\u043B\u0430" : "without a space";
+      return locale === "ru" ? `\u041F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430\u044F \u0437\u0430\u043F\u0438\u0441\u044C: \xAB${issue.currency.expected}\xBB ${spacing}.` : `Use \u201C${issue.currency.expected}\u201D ${spacing}.`;
+    }
     if (issue.date) {
       const { expected, actual, zone } = issue.date;
       return locale === "ru" ? `\u041E\u0448\u0438\u0431\u043A\u0430 \u0434\u0430\u0442\u044B \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0432 ${zone}: \u043E\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044F ${expected}, \u0443\u043A\u0430\u0437\u0430\u043D\u043E ${actual}. \u0412\u0440\u0435\u043C\u044F \u043F\u0435\u0440\u0435\u0432\u0435\u0434\u0435\u043D\u043E, \u043D\u043E \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0439 \u0434\u0435\u043D\u044C \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0451\u043D.` : `Date error after conversion to ${zone}: expected ${expected}, found ${actual}. The clock time was converted, but the calendar day was not updated.`;
@@ -1474,6 +1483,7 @@
       const rows = readCrowdinRows();
       const glossaryRows = state.checks.glossary ? getGlossaryRows2() : [];
       const currentIds = /* @__PURE__ */ new Set();
+      let caseNumber = 0;
       state.results = rows.map((item) => {
         currentIds.add(item.id);
         const signature = `${languages.sourceLanguage}|${languages.targetLanguage}|${JSON.stringify(state.checks)}|${item.sourceText}|${item.targetText}`;
@@ -1489,15 +1499,16 @@
           cached = { signature, issues };
           state.signatures.set(item.id, cached);
         }
-        updateBadge(item, cached.issues);
-        return { ...item, issues: cached.issues };
+        const ordinal = cached.issues.length ? ++caseNumber : null;
+        updateBadge(item, cached.issues, ordinal);
+        return { ...item, issues: cached.issues, ordinal };
       });
       for (const id of state.signatures.keys()) if (!currentIds.has(id)) state.signatures.delete(id);
       const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
       toggle.textContent = count ? `CHECKform \xB7 ${count}` : "CHECKform";
       renderPanel();
     }
-    function updateBadge(item, issues) {
+    function updateBadge(item, issues, ordinal) {
       const container = item.target.closest('[class*="suggestion_"]') ?? item.target.parentElement;
       if (!container) return;
       let badge = container.querySelector(".checkform-row-badge");
@@ -1516,9 +1527,9 @@
         });
         container.append(badge);
       }
-      if (badge.textContent !== String(issues.length)) badge.textContent = String(issues.length);
+      if (badge.textContent !== String(ordinal)) badge.textContent = String(ordinal);
       badge.title = issues.map((issue) => `${issue.error_type}: ${issueDescription(uiLocale, issue)}`).join("\n");
-      badge.setAttribute("aria-label", `${issues.length} CHECKform ${copy.findings}`);
+      badge.setAttribute("aria-label", `${copy.segment} ${ordinal}: ${issues.length} CHECKform ${copy.findings}`);
     }
     function renderPanel() {
       const summary = panel.querySelector(".cf-summary");
@@ -1535,7 +1546,7 @@
         const heading = document.createElement("button");
         heading.type = "button";
         heading.className = "cf-segment";
-        heading.textContent = `${copy.segment} ${row.id} \xB7 ${row.issues.length} ${copy.findings}`;
+        heading.textContent = `${row.ordinal}. ${copy.segment} ${row.id} \xB7 ${row.issues.length} ${copy.findings}`;
         heading.addEventListener("click", () => {
           row.row.scrollIntoView({ block: "center", behavior: "smooth" });
           state.selectedId = row.id;

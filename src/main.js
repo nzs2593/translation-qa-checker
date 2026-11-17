@@ -183,7 +183,7 @@ function renderProfileRules(code) {
     [t(currentLocale, "targetTimezone"), timezoneRule.mode === "source" ? t(currentLocale, "gmtInherit") : timezoneRule.mode === "equivalent" ? t(currentLocale, "gmtEquivalent") : formatTimezone(timezoneRule.label, timezoneRule.offsetMinutes)],
     [t(currentLocale, "decimalSeparator"), profile.decimal],
     [t(currentLocale, "thousandSeparator"), separatorLabel(profile.grouping)],
-    [t(currentLocale, "currencyFormat"), `${currencyExample} (${currencyRule.placement === "prefix" ? t(currentLocale, "before") : t(currentLocale, "after")})`],
+    [t(currentLocale, "currencyFormat"), `${currencyExample}${code === "az" ? " · 850\u00a0$" : ""} (${currencyRule.placement === "prefix" ? t(currentLocale, "before") : t(currentLocale, "after")})`],
     [t(currentLocale, "percentageFormat"), `100${profile.percentSpace ? " " : ""}%`],
     [t(currentLocale, "quotationMarks"), quoteExample]
   ];

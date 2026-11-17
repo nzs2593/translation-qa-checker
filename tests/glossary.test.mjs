@@ -26,6 +26,14 @@ assert.equal(checkGlossary("account", "Cuenta", "en", "es", rows).length, 0);
 assert.equal(checkGlossary("История счёта", "Історія рахунку", "ru", "uk", rows).length, 0);
 assert.equal(checkGlossary("История счёта", "Історія облікового запису", "ru", "uk", rows).length, 1);
 assert.equal(checkGlossary("История счёта", "Історія облікового запису", "en", "uk", rows).length, 0);
+const azeriRows = [
+  { id: 320, terms: { "en-GB": "odds", az: "əmsal" } },
+  { id: 406, terms: { "en-GB": "run", az: "ran" } }
+];
+assert.equal(checkGlossary("minimum odds of 1.50", "minimum 1.50 əmsallı", "en", "az", azeriRows).length, 0);
+assert.equal(checkGlossary("minimum odds of 1.50", "minimum 1.50 əmsal", "en", "az", azeriRows).length, 0);
+assert.equal(checkGlossary("minimum odds of 1.50", "minimum 1.50 qəmsallı", "en", "az", azeriRows)[0].error_type, "GLOSSARY_TRANSLATION_MISSING");
+assert.equal(checkGlossary("This promotion will run", "Bu kampaniya davam edəcək", "en", "az", azeriRows).length, 0);
 
 const segmentIssues = runRuleEngine({
   source: "Account balance\n\nCashback",

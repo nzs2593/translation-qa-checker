@@ -403,7 +403,8 @@ function addCurrencyChecks(target, targetProfile, issues) {
     const actualSpace = target.slice(betweenStart, betweenEnd);
     const expectedSpace = rule.space === "nbsp" ? "\u00a0" : rule.space ?? "";
     if (actualPlacement !== rule.placement || actualSpace !== expectedSpace) {
-      issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), explanation: `Currency should be ${rule.placement === "prefix" ? "before" : "after"} the amount${expectedSpace ? " with the profile’s required space" : " without a space"}.` }));
+      const example = rule.placement === "prefix" ? `${currency[0]}${expectedSpace}${adjacent.raw}` : `${adjacent.raw}${expectedSpace}${currency[0]}`;
+      issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), currency: { expected: example, space: rule.space }, explanation: `Use ${example} (${rule.space === "nbsp" ? "a non-breaking space" : expectedSpace ? "a space" : "no space"} between the amount and currency symbol).` }));
     }
   }
 }

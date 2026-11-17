@@ -147,6 +147,7 @@ function start() {
     const rows = readCrowdinRows();
     const glossaryRows = state.checks.glossary ? getGlossaryRows() : [];
     const currentIds = new Set();
+    let caseNumber = 0;
     state.results = rows.map((item) => {
       currentIds.add(item.id);
       const signature = `${languages.sourceLanguage}|${languages.targetLanguage}|${JSON.stringify(state.checks)}|${item.sourceText}|${item.targetText}`;
@@ -159,8 +160,9 @@ function start() {
         cached = { signature, issues };
         state.signatures.set(item.id, cached);
       }
-      updateBadge(item, cached.issues);
-      return { ...item, issues: cached.issues };
+      const ordinal = cached.issues.length ? ++caseNumber : null;
+      updateBadge(item, cached.issues, ordinal);
+      return { ...item, issues: cached.issues, ordinal };
     });
     for (const id of state.signatures.keys()) if (!currentIds.has(id)) state.signatures.delete(id);
     const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
@@ -168,7 +170,7 @@ function start() {
     renderPanel();
   }
 
-  function updateBadge(item, issues) {
+  function updateBadge(item, issues, ordinal) {
     const container = item.target.closest('[class*="suggestion_"]') ?? item.target.parentElement;
     if (!container) return;
     let badge = container.querySelector(".checkform-row-badge");
@@ -180,9 +182,9 @@ function start() {
       badge.addEventListener("click", () => { state.selectedId = item.id; open(); renderPanel(); });
       container.append(badge);
     }
-    if (badge.textContent !== String(issues.length)) badge.textContent = String(issues.length);
+    if (badge.textContent !== String(ordinal)) badge.textContent = String(ordinal);
     badge.title = issues.map((issue) => `${issue.error_type}: ${issueDescription(uiLocale, issue)}`).join("\n");
-    badge.setAttribute("aria-label", `${issues.length} CHECKform ${copy.findings}`);
+    badge.setAttribute("aria-label", `${copy.segment} ${ordinal}: ${issues.length} CHECKform ${copy.findings}`);
   }
 
   function renderPanel() {
@@ -200,7 +202,7 @@ function start() {
       const heading = document.createElement("button");
       heading.type = "button";
       heading.className = "cf-segment";
-      heading.textContent = `${copy.segment} ${row.id} · ${row.issues.length} ${copy.findings}`;
+      heading.textContent = `${row.ordinal}. ${copy.segment} ${row.id} · ${row.issues.length} ${copy.findings}`;
       heading.addEventListener("click", () => {
         row.row.scrollIntoView({ block: "center", behavior: "smooth" });
         state.selectedId = row.id;

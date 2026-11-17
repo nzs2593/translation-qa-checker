@@ -83,7 +83,7 @@ function nearbyDate(text, time, dates, used, times) {
     const gapEnd = Math.max(time.index, date.index);
     const length = Math.max(0, gapEnd - gapStart);
     if (length > 32 || length >= shortest) continue;
-    if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
+    if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
     if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd)) continue;
     best = index; shortest = length;
   }

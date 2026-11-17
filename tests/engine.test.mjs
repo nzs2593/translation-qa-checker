@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { runRuleEngine } from "../src/engine.js";
+import { issueDescription } from "../src/i18n.js";
 
 const localizedFormatting = runRuleEngine({
   source: "MAILER 26/08. There are 3,125 ways and a 2,048x multiplier,",
@@ -142,7 +143,10 @@ const currencyFormatWithComparisonOff = (source, target, targetLanguage) => runR
   source, target, sourceLanguage: "en", targetLanguage, checkCurrency: false, glossaryRows: []
 }).filter((issue) => issue.pool === "Currency");
 assert.equal(currencyFormatWithComparisonOff("The bonus is $20.", "Bonus 20 $.", "az").length, 0);
+assert.equal(currencyFormatWithComparisonOff("2nd place: $850", "2-ci yer: 850 $", "az").length, 0);
+assert.equal(currencyFormatWithComparisonOff("Get up to $1,000", "1000 $-dək əldə edin", "az").length, 0);
 assert.equal(currencyFormatWithComparisonOff("The bonus is $20.", "Bonus 20 $.", "az").some((issue) => issue.error_type === "CURRENCY_FORMAT"), true);
+assert.match(issueDescription("ru", currencyFormatWithComparisonOff("The bonus is $20.", "Bonus 20 $.", "az")[0]), /20 \$.*неразрывным пробелом/);
 assert.equal(currencyFormatWithComparisonOff("The bonus is €1,500.", "Bonus 1 500 €.", "az").length, 0);
 assert.equal(currencyFormatWithComparisonOff("The bonus is €1,500.", "Bonus 1.500 €.", "az").some((issue) => issue.error_type === "CURRENCY_NUMBER_FORMAT"), true);
 assert.equal(currencyFormatWithComparisonOff("The bonus is €100.", "Bono 100€.", "es").length, 0);

@@ -15,7 +15,7 @@
     "File structure"
   ]);
   var SEVERITIES = Object.freeze(["Critical", "Major", "Minor", "Info"]);
-  function createIssue({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date }) {
+  function createIssue({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date, currency }) {
     if (!error_type || !POOLS.includes(pool) || !SEVERITIES.includes(severity)) {
       throw new Error("Invalid issue contract");
     }
@@ -29,7 +29,8 @@
       ...glossary ? { glossary } : {},
       ...timezone ? { timezone } : {},
       ...format ? { format } : {},
-      ...date ? { date } : {}
+      ...date ? { date } : {},
+      ...currency ? { currency } : {}
     };
   }
   function location(start, end) {
@@ -348,7 +349,7 @@
       const gapEnd = Math.max(time.index, date.index);
       const length = Math.max(0, gapEnd - gapStart);
       if (length > 32 || length >= shortest) continue;
-      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
+      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
       if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd)) continue;
       best = index;
       shortest = length;
@@ -475,7 +476,7 @@
     "File structure"
   ]);
   var SEVERITIES2 = Object.freeze(["Critical", "Major", "Minor", "Info"]);
-  function createIssue2({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date }) {
+  function createIssue2({ error_type, pool, severity = "Minor", location_in_target, location_in_source, explanation, glossary, timezone, format, date, currency }) {
     if (!error_type || !POOLS2.includes(pool) || !SEVERITIES2.includes(severity)) {
       throw new Error("Invalid issue contract");
     }
@@ -489,7 +490,8 @@
       ...glossary ? { glossary } : {},
       ...timezone ? { timezone } : {},
       ...format ? { format } : {},
-      ...date ? { date } : {}
+      ...date ? { date } : {},
+      ...currency ? { currency } : {}
     };
   }
   function location2(start, end) {
@@ -575,9 +577,10 @@
   function glossaryEntryCount() {
     return GLOSSARY_DEFAULTS.length + customRows.length;
   }
-  function phrasePattern(term, matchCase = false) {
+  function phrasePattern(term, matchCase = false, allowAzeriSuffix = false) {
     const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+    const suffix = allowAzeriSuffix && /^[\p{L}]{5,}$/u.test(term.trim()) ? "[\\p{L}]{0,8}" : "";
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${suffix}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
   }
   function targetAnchor(target, sourcePosition, sourceLength) {
     if (!target.length) return location2(0, 0);
@@ -610,11 +613,12 @@
         if (occupied.some((range) => start < range.end && end > range.start)) continue;
         occupied.push({ start, end });
         const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);
-        const entries = exactEntries.length ? exactEntries : group.entries;
+        const entries = (exactEntries.length ? exactEntries : group.entries).filter((entry) => entry.id !== 406 || /\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source));
         const expectedTerms = [...new Set(entries.map((entry) => entry.targetTerm).filter(Boolean))];
         if (!expectedTerms.length) continue;
-        if (expectedTerms.some((term) => phrasePattern(term, true).test(target))) continue;
-        const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term))][0]).find(Boolean);
+        const allowSuffix = targetLanguage2 === "az";
+        if (expectedTerms.some((term) => phrasePattern(term, true, allowSuffix).test(target))) continue;
+        const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term, false, allowSuffix))][0]).find(Boolean);
         const enforceCase = Boolean(exactEntries.length) && (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
         if (caseOnlyMatch) {
           if (!enforceCase) continue;
@@ -1073,7 +1077,8 @@
       const actualSpace = target.slice(betweenStart, betweenEnd);
       const expectedSpace = rule.space === "nbsp" ? "\xA0" : rule.space ?? "";
       if (actualPlacement !== rule.placement || actualSpace !== expectedSpace) {
-        issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), explanation: `Currency should be ${rule.placement === "prefix" ? "before" : "after"} the amount${expectedSpace ? " with the profile\u2019s required space" : " without a space"}.` }));
+        const example = rule.placement === "prefix" ? `${currency[0]}${expectedSpace}${adjacent.raw}` : `${adjacent.raw}${expectedSpace}${currency[0]}`;
+        issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), currency: { expected: example, space: rule.space }, explanation: `Use ${example} (${rule.space === "nbsp" ? "a non-breaking space" : expectedSpace ? "a space" : "no space"} between the amount and currency symbol).` }));
       }
     }
   }
@@ -1859,7 +1864,7 @@
     mn: "\u20AC100 \xB7 100MNT",
     da: "100 kr. \xB7 100 DKK",
     "pt-BR": "R$\xA0100 \xB7 100\xA0BRL",
-    az: "100\xA0\u20BC"
+    az: "100\xA0\u20BC \xB7 850\xA0$"
   };
   var NOTES = {
     en: { en: "UK English conventions.", ru: "\u041F\u0440\u0430\u0432\u0438\u043B\u0430 \u0431\u0440\u0438\u0442\u0430\u043D\u0441\u043A\u043E\u0433\u043E \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u043E\u0433\u043E." },
@@ -1872,7 +1877,7 @@
     mn: { en: "MNT follows the number without a space; $, \u20AC and \u20BD precede it.", ru: "MNT \u043F\u043E\u0441\u043B\u0435 \u0447\u0438\u0441\u043B\u0430 \u0431\u0435\u0437 \u043F\u0440\u043E\u0431\u0435\u043B\u0430; $, \u20AC \u0438 \u20BD \u043F\u0435\u0440\u0435\u0434 \u0447\u0438\u0441\u043B\u043E\u043C." },
     da: { en: "Dynamic content, markets and odds may retain English decimal conventions.", ru: "\u0412 \u0434\u0438\u043D\u0430\u043C\u0438\u0447\u0435\u0441\u043A\u043E\u043C \u043A\u043E\u043D\u0442\u0435\u043D\u0442\u0435, \u0440\u044B\u043D\u043A\u0430\u0445 \u0438 \u043A\u043E\u044D\u0444\u0444\u0438\u0446\u0438\u0435\u043D\u0442\u0430\u0445 \u043C\u043E\u0436\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0442\u044C\u0441\u044F \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438\u0439 \u0444\u043E\u0440\u043C\u0430\u0442 \u0434\u0440\u043E\u0431\u0435\u0439." },
     "pt-BR": { en: "GMT-3 in promotions; convert date too. Use NBSP for R$ and BRL; odds keep a decimal point.", ru: "\u0412 \u0430\u043A\u0446\u0438\u044F\u0445 GMT-3 \u0441 \u043F\u0435\u0440\u0435\u0441\u0447\u0451\u0442\u043E\u043C \u0434\u0430\u0442\u044B. \u0414\u043B\u044F R$ \u0438 BRL \u043D\u0443\u0436\u0435\u043D \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B; \u043A\u043E\u044D\u0444\u0444\u0438\u0446\u0438\u0435\u043D\u0442\u044B \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442 \u0442\u043E\u0447\u043A\u0443." },
-    az: { en: "\u20BC follows the amount with a non-breaking space.", ru: "\u20BC \u043F\u043E\u0441\u043B\u0435 \u0441\u0443\u043C\u043C\u044B \u0447\u0435\u0440\u0435\u0437 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B." }
+    az: { en: "\u20BC and $ follow the amount with a non-breaking space; keep the source currency unless conversion is required.", ru: "\u20BC \u0438 $ \u0441\u0442\u0430\u0432\u044F\u0442\u0441\u044F \u043F\u043E\u0441\u043B\u0435 \u0441\u0443\u043C\u043C\u044B \u0447\u0435\u0440\u0435\u0437 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u0439 \u043F\u0440\u043E\u0431\u0435\u043B; \u043D\u0435 \u0437\u0430\u043C\u0435\u043D\u044F\u0439\u0442\u0435 \u0432\u0430\u043B\u044E\u0442\u0443 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0430 \u0431\u0435\u0437 \u0443\u043A\u0430\u0437\u0430\u043D\u0438\u044F \u043D\u0430 \u043A\u043E\u043D\u0432\u0435\u0440\u0442\u0430\u0446\u0438\u044E." }
   };
   function exampleDate(profile) {
     const separator = profile.dateSeparator ?? "/";
@@ -2347,6 +2352,10 @@ ${GUIDE[code]}`
     return ISSUE_CATALOG2.find((entry) => entry.type === errorType);
   }
   function issueDescription(locale, issue) {
+    if (issue.currency) {
+      const spacing = issue.currency.space === "nbsp" ? locale === "ru" ? "\u0441 \u043D\u0435\u0440\u0430\u0437\u0440\u044B\u0432\u043D\u044B\u043C \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C" : "with a non-breaking space" : issue.currency.space ? locale === "ru" ? "\u0441 \u043F\u0440\u043E\u0431\u0435\u043B\u043E\u043C" : "with a space" : locale === "ru" ? "\u0431\u0435\u0437 \u043F\u0440\u043E\u0431\u0435\u043B\u0430" : "without a space";
+      return locale === "ru" ? `\u041F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430\u044F \u0437\u0430\u043F\u0438\u0441\u044C: \xAB${issue.currency.expected}\xBB ${spacing}.` : `Use \u201C${issue.currency.expected}\u201D ${spacing}.`;
+    }
     if (issue.date) {
       const { expected, actual, zone } = issue.date;
       return locale === "ru" ? `\u041E\u0448\u0438\u0431\u043A\u0430 \u0434\u0430\u0442\u044B \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0432 ${zone}: \u043E\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044F ${expected}, \u0443\u043A\u0430\u0437\u0430\u043D\u043E ${actual}. \u0412\u0440\u0435\u043C\u044F \u043F\u0435\u0440\u0435\u0432\u0435\u0434\u0435\u043D\u043E, \u043D\u043E \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0439 \u0434\u0435\u043D\u044C \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0451\u043D.` : `Date error after conversion to ${zone}: expected ${expected}, found ${actual}. The clock time was converted, but the calendar day was not updated.`;
@@ -2541,7 +2550,7 @@ ${GUIDE[code]}`
       [t2(currentLocale, "targetTimezone"), timezoneRule.mode === "source" ? t2(currentLocale, "gmtInherit") : timezoneRule.mode === "equivalent" ? t2(currentLocale, "gmtEquivalent") : formatTimezone(timezoneRule.label, timezoneRule.offsetMinutes)],
       [t2(currentLocale, "decimalSeparator"), profile.decimal],
       [t2(currentLocale, "thousandSeparator"), separatorLabel(profile.grouping)],
-      [t2(currentLocale, "currencyFormat"), `${currencyExample} (${currencyRule2.placement === "prefix" ? t2(currentLocale, "before") : t2(currentLocale, "after")})`],
+      [t2(currentLocale, "currencyFormat"), `${currencyExample}${code === "az" ? " \xB7 850\xA0$" : ""} (${currencyRule2.placement === "prefix" ? t2(currentLocale, "before") : t2(currentLocale, "after")})`],
       [t2(currentLocale, "percentageFormat"), `100${profile.percentSpace ? " " : ""}%`],
       [t2(currentLocale, "quotationMarks"), quoteExample2]
     ];

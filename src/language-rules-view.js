@@ -14,7 +14,7 @@ const CURRENCY_EXAMPLES = {
   en: "$100", ru: "100 ₽", es: "100€ · US$20", "es-AR": "AR$100 · US$20",
   "uz-Cyrl": "100 USD", "uz-Latn": "100 USD", uk: "€100 · 100\u00a0UAH",
   mn: "€100 · 100MNT", da: "100 kr. · 100 DKK",
-  "pt-BR": "R$\u00a0100 · 100\u00a0BRL", az: "100\u00a0₼"
+  "pt-BR": "R$\u00a0100 · 100\u00a0BRL", az: "100\u00a0₼ · 850\u00a0$"
 };
 const NOTES = {
   en: { en: "UK English conventions.", ru: "Правила британского английского." },
@@ -27,7 +27,7 @@ const NOTES = {
   mn: { en: "MNT follows the number without a space; $, € and ₽ precede it.", ru: "MNT после числа без пробела; $, € и ₽ перед числом." },
   da: { en: "Dynamic content, markets and odds may retain English decimal conventions.", ru: "В динамическом контенте, рынках и коэффициентах может сохраняться английский формат дробей." },
   "pt-BR": { en: "GMT-3 in promotions; convert date too. Use NBSP for R$ and BRL; odds keep a decimal point.", ru: "В акциях GMT-3 с пересчётом даты. Для R$ и BRL нужен неразрывный пробел; коэффициенты сохраняют точку." },
-  az: { en: "₼ follows the amount with a non-breaking space.", ru: "₼ после суммы через неразрывный пробел." }
+  az: { en: "₼ and $ follow the amount with a non-breaking space; keep the source currency unless conversion is required.", ru: "₼ и $ ставятся после суммы через неразрывный пробел; не заменяйте валюту оригинала без указания на конвертацию." }
 };
 
 function exampleDate(profile) {
