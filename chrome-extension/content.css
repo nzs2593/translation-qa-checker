@@ -93,7 +93,8 @@ button { font: inherit; cursor: pointer; }
 .cf-check-row { display: flex; align-items: center; gap: 10px; padding: 9px 3px; border-bottom: 1px solid #edf2f8; cursor: pointer; }
 .cf-check-row:last-child { border-bottom: 0; }
 .cf-check-row input { accent-color: #1554b7; width: 16px; height: 16px; }
-.cf-reset, .cf-import { display: block; margin-top: 12px; border: 1px solid #b7ccea; border-radius: 7px; background: #fff; color: #1554b7; padding: 8px 10px; }
+.cf-reset, .cf-import, .cf-glossary-link { display: block; width: fit-content; margin-top: 12px; border: 1px solid #b7ccea; border-radius: 7px; background: #fff; color: #1554b7; padding: 8px 10px; text-decoration: none; }
+.cf-glossary-row-link { display: inline-block; margin-top: 8px; color: #1554b7; font-size: 12px; font-weight: 700; }
 .cf-group { border: 1px solid #e0e9f4; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
 .cf-selected { border-color: #1554b7; }
 .cf-segment { display: block; width: 100%; padding: 8px 10px; text-align: left; border: 0; background: #eff5fd; color: #154787; font-weight: 700; }

@@ -33,7 +33,7 @@
       ...currency ? { currency } : {}
     };
   }
-  function location(start, end) {
+  function location2(start, end) {
     return { start, end };
   }
 
@@ -337,7 +337,7 @@
       raw: text.slice(index, end),
       index,
       date,
-      dateLocation: dateMatch ? location(dateMatch.index, dateMatch.index + dateMatch[0].length) : null,
+      dateLocation: dateMatch ? location2(dateMatch.index, dateMatch.index + dateMatch[0].length) : null,
       validDate: validDate(date),
       validTime,
       validTimezone,
@@ -347,7 +347,7 @@
       second,
       timezone,
       zoneRaw,
-      timezoneLocation: zoneStart == null ? null : location(zoneStart, zoneStart + zoneRaw.length),
+      timezoneLocation: zoneStart == null ? null : location2(zoneStart, zoneStart + zoneRaw.length),
       utcMillis: validDate(date) && validTime && validTimezone ? utc.getTime() - (timezone?.offsetMinutes ?? 0) * 6e4 : null,
       localKey: `${base.year}-${String(base.month).padStart(2, "0")}-${String(base.day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`
     };
@@ -403,8 +403,8 @@
       error_type,
       pool: "Dates & Time",
       severity: ["TIMEZONE_EXTRA", "TIMEZONE_FORMAT"].includes(error_type) ? "Minor" : "Major",
-      location_in_source: source ? location(source.index, source.index + source.raw.length) : location(0, 0),
-      location_in_target: targetLocation ?? (target ? location(target.index, target.index + target.raw.length) : location(0, 0)),
+      location_in_source: source ? location2(source.index, source.index + source.raw.length) : location2(0, 0),
+      location_in_target: targetLocation ?? (target ? location2(target.index, target.index + target.raw.length) : location2(0, 0)),
       explanation,
       timezone,
       date
@@ -510,7 +510,7 @@
       ...currency ? { currency } : {}
     };
   }
-  function location2(start, end) {
+  function location3(start, end) {
     return { start, end };
   }
 
@@ -720,13 +720,13 @@
     return prepared;
   }
   function targetAnchor(target, sourcePosition, sourceLength) {
-    if (!target.length) return location2(0, 0);
+    if (!target.length) return location3(0, 0);
     const approximate = Math.min(target.length - 1, Math.floor(sourcePosition / Math.max(sourceLength, 1) * target.length));
     const after = target.slice(approximate).search(/[\p{L}\p{N}]/u);
     const before = [...target.slice(0, approximate + 1).matchAll(/[\p{L}\p{N}]/gu)].at(-1)?.index;
     const start = after >= 0 ? approximate + after : before ?? 0;
     const word = target.slice(start).match(/^[\p{L}\p{N}]+/u)?.[0] ?? target[start];
-    return location2(start, start + word.length);
+    return location3(start, start + word.length);
   }
   function checkGlossary(source, target, sourceLanguage2, targetLanguage2, rows = getGlossaryRows()) {
     if (sourceLanguage2 !== glossarySourceLanguage(targetLanguage2) || !GLOSSARY_LANGUAGES[targetLanguage2]) return [];
@@ -756,8 +756,8 @@
             error_type: "GLOSSARY_CASE_MISMATCH",
             pool: "Terminology",
             severity: "Minor",
-            location_in_source: location2(start, end),
-            location_in_target: location2(caseOnlyMatch.index, caseOnlyMatch.index + caseOnlyMatch[0].length),
+            location_in_source: location3(start, end),
+            location_in_target: location3(caseOnlyMatch.index, caseOnlyMatch.index + caseOnlyMatch[0].length),
             glossary: { sourceTerm: match[0], expectedTerms, actualTerm: caseOnlyMatch[0], rows: entries.map((entry) => entry.id) },
             explanation: `Glossary translation has the wrong letter case. Expected: ${expectedTerms.join(" / ")}; found: ${caseOnlyMatch[0]}.`
           }));
@@ -767,7 +767,7 @@
           error_type: "GLOSSARY_TRANSLATION_MISSING",
           pool: "Terminology",
           severity: "Major",
-          location_in_source: location2(start, end),
+          location_in_source: location3(start, end),
           location_in_target: targetAnchor(target, start, source.length),
           glossary: { sourceTerm: match[0], expectedTerms, rows: entries.map((entry) => entry.id) },
           explanation: `Glossary term \u201C${match[0]}\u201D has no listed translation in this target passage. Expected: ${expectedTerms.join(" / ")}.`
@@ -849,7 +849,7 @@
     if (sourceTokens.join("|") === targetTokens.join("|")) return [];
     const sourceMatch = source.matchAll(regex).next().value;
     const targetMatch = target.matchAll(regex).next().value;
-    return [createIssue({ ...issue, location_in_source: sourceMatch ? location(sourceMatch.index, sourceMatch.index + sourceMatch[0].length) : location(0, 0), location_in_target: targetMatch ? location(targetMatch.index, targetMatch.index + targetMatch[0].length) : location(0, 0) })];
+    return [createIssue({ ...issue, location_in_source: sourceMatch ? location2(sourceMatch.index, sourceMatch.index + sourceMatch[0].length) : location2(0, 0), location_in_target: targetMatch ? location2(targetMatch.index, targetMatch.index + targetMatch[0].length) : location2(0, 0) })];
   }
   function canonicalNumber(value) {
     const [integer, fraction] = value.split(".");
@@ -906,7 +906,7 @@
           error_type: "SPANISH_QUESTION_MARKS",
           pool: "Punctuation",
           severity: "Minor",
-          location_in_target: location(match.index, match.index + 1),
+          location_in_target: location2(match.index, match.index + 1),
           explanation: "In Spanish, a question should open with \xBF and close with ?."
         }));
       }
@@ -919,7 +919,7 @@
           error_type: "SPANISH_QUESTION_MARKS",
           pool: "Punctuation",
           severity: "Minor",
-          location_in_target: location(match.index, match.index + 1),
+          location_in_target: location2(match.index, match.index + 1),
           explanation: "In Spanish, a question should open with \xBF and close with ?."
         }));
       }
@@ -934,7 +934,7 @@
         error_type: "SPANISH_EXCLAMATION_MARKS",
         pool: "Punctuation",
         severity: "Minor",
-        location_in_target: location(match.index, match.index + 1),
+        location_in_target: location2(match.index, match.index + 1),
         explanation: "In Spanish, an exclamation should open with \xA1 and close with !."
       }));
     }
@@ -944,7 +944,7 @@
         error_type: "SPANISH_EXCLAMATION_MARKS",
         pool: "Punctuation",
         severity: "Minor",
-        location_in_target: location(match.index, match.index + 1),
+        location_in_target: location2(match.index, match.index + 1),
         explanation: "In Spanish, an exclamation should open with \xA1 and close with !."
       }));
     }
@@ -969,8 +969,8 @@
         error_type: "NUMBER_MISMATCH",
         pool: "Numbers",
         severity: "Major",
-        location_in_source: sourceDate ? location(sourceDate.index, sourceDate.index + sourceDate[0].length) : location(0, 0),
-        location_in_target: location(malformedDate.index, malformedDate.index + malformedDate[0].length),
+        location_in_source: sourceDate ? location2(sourceDate.index, sourceDate.index + sourceDate[0].length) : location2(0, 0),
+        location_in_target: location2(malformedDate.index, malformedDate.index + malformedDate[0].length),
         explanation: "A numeric date token contains an extra or malformed digit."
       })];
     }
@@ -998,7 +998,7 @@
     }
     sourceToken ??= sourceTokens[0];
     targetToken ??= targetTokens[0];
-    return [createIssue({ error_type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major", location_in_source: sourceToken ? location(sourceToken.index, sourceToken.index + sourceToken.raw.length) : location(0, 0), location_in_target: targetToken ? location(targetToken.index, targetToken.index + targetToken.raw.length) : location(0, 0), explanation: "Numeric values outside dates and times differ between source and target." })];
+    return [createIssue({ error_type: "NUMBER_MISMATCH", pool: "Numbers", severity: "Major", location_in_source: sourceToken ? location2(sourceToken.index, sourceToken.index + sourceToken.raw.length) : location2(0, 0), location_in_target: targetToken ? location2(targetToken.index, targetToken.index + targetToken.raw.length) : location2(0, 0), explanation: "Numeric values outside dates and times differ between source and target." })];
   }
   function compareAttachedNumberWords(source, target) {
     ATTACHED_NUMBER_WORD_RE.lastIndex = 0;
@@ -1011,8 +1011,8 @@
       error_type: "NUMBER_WORD_JOINED",
       pool: "Numbers",
       severity: "Minor",
-      location_in_source: location(0, 0),
-      location_in_target: location(targetMatch.index, targetMatch.index + targetMatch[0].length),
+      location_in_source: location2(0, 0),
+      location_in_target: location2(targetMatch.index, targetMatch.index + targetMatch[0].length),
       explanation: "A number is attached to a word; check whether a space or a missing letter is required."
     })];
   }
@@ -1033,8 +1033,8 @@
         error_type: "PLACEHOLDER_MISMATCH",
         pool: "Placeholders",
         severity: "Major",
-        location_in_source: sourceToken ? location(sourceToken.index, sourceToken.index + sourceToken.raw.length) : location(0, 0),
-        location_in_target: location(targetToken.index, targetToken.index + targetToken.raw.length),
+        location_in_source: sourceToken ? location2(sourceToken.index, sourceToken.index + sourceToken.raw.length) : location2(0, 0),
+        location_in_target: location2(targetToken.index, targetToken.index + targetToken.raw.length),
         explanation: "A placeholder mixes Latin and Cyrillic characters in the target."
       })];
     }
@@ -1043,8 +1043,8 @@
   function offsetIssues(issues, targetOffset, sourceOffset = 0) {
     return issues.map((issue) => ({
       ...issue,
-      location_in_source: issue.location_in_source ? location(issue.location_in_source.start + sourceOffset, issue.location_in_source.end + sourceOffset) : issue.location_in_source,
-      location_in_target: location(issue.location_in_target.start + targetOffset, issue.location_in_target.end + targetOffset)
+      location_in_source: issue.location_in_source ? location2(issue.location_in_source.start + sourceOffset, issue.location_in_source.end + sourceOffset) : issue.location_in_source,
+      location_in_target: location2(issue.location_in_target.start + targetOffset, issue.location_in_target.end + targetOffset)
     }));
   }
   function splitParagraphs(text) {
@@ -1097,7 +1097,7 @@
     issues.push(...compareTokens(source, target, PLACEHOLDER_RE, { error_type: "PLACEHOLDER_MISMATCH", pool: "Placeholders", severity: "Major", explanation: "A placeholder is missing or changed in the target." }));
     issues.push(...compareMaskedPlaceholders(source, target));
     if (includePunctuation && shouldCompareTerminalPunctuation(source, target) && !spanishQuestionIssues.length) {
-      issues.push(createIssue({ error_type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", location_in_source: location(Math.max(source.trim().length - 1, 0), source.trim().length), location_in_target: location(Math.max(target.length - 1, 0), target.length), explanation: "Terminal punctuation differs between source and target." }));
+      issues.push(createIssue({ error_type: "PUNCTUATION_MISMATCH", pool: "Punctuation", severity: "Minor", location_in_source: location2(Math.max(source.trim().length - 1, 0), source.trim().length), location_in_target: location2(Math.max(target.length - 1, 0), target.length), explanation: "Terminal punctuation differs between source and target." }));
     }
     return issues;
   }
@@ -1114,8 +1114,8 @@
         error_type: "DATE_FORMAT",
         pool: "Dates & Time",
         severity: "Minor",
-        location_in_source: counterpart ? location(counterpart.index, counterpart.index + counterpart[0].length) : location(0, 0),
-        location_in_target: location(match.index, match.index + match[0].length),
+        location_in_source: counterpart ? location2(counterpart.index, counterpart.index + counterpart[0].length) : location2(0, 0),
+        location_in_target: location2(match.index, match.index + match[0].length),
         explanation: `Numeric dates in this language should use ${profile.dateFormat}.`,
         format: { expected: profile.dateFormat, actual: match[0] }
       })];
@@ -1125,17 +1125,17 @@
     const leading = target.match(/(^|\n)[ \t]+/);
     if (leading) {
       const start = leading.index + (leading[1] ? 1 : 0);
-      issues.push(createIssue({ error_type: "LEADING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location(start, leading.index + leading[0].length), explanation: "Target contains a space at the beginning of a line." }));
+      issues.push(createIssue({ error_type: "LEADING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location2(start, leading.index + leading[0].length), explanation: "Target contains a space at the beginning of a line." }));
     }
     const multiple = target.match(/ {2,}/);
-    if (multiple) issues.push(createIssue({ error_type: "MULTIPLE_SPACES", pool: "Spacing", severity: "Minor", location_in_target: location(multiple.index, multiple.index + multiple[0].length), explanation: "Target contains consecutive spaces." }));
+    if (multiple) issues.push(createIssue({ error_type: "MULTIPLE_SPACES", pool: "Spacing", severity: "Minor", location_in_target: location2(multiple.index, multiple.index + multiple[0].length), explanation: "Target contains consecutive spaces." }));
     const trailing = target.match(/[ \t]+(?=\r?\n|$)/);
-    if (trailing) issues.push(createIssue({ error_type: "TRAILING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location(trailing.index, trailing.index + trailing[0].length), explanation: "Target contains a space at the end of a line." }));
+    if (trailing) issues.push(createIssue({ error_type: "TRAILING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location2(trailing.index, trailing.index + trailing[0].length), explanation: "Target contains a space at the end of a line." }));
     const beforePunctuation = target.match(/[ \t]+[,.!?;:]/);
-    if (beforePunctuation) issues.push(createIssue({ error_type: "SPACE_BEFORE_PUNCTUATION", pool: "Spacing", severity: "Minor", location_in_target: location(beforePunctuation.index, beforePunctuation.index + beforePunctuation[0].length), explanation: "There is an unnecessary space before punctuation." }));
+    if (beforePunctuation) issues.push(createIssue({ error_type: "SPACE_BEFORE_PUNCTUATION", pool: "Spacing", severity: "Minor", location_in_target: location2(beforePunctuation.index, beforePunctuation.index + beforePunctuation[0].length), explanation: "There is an unnecessary space before punctuation." }));
     if (targetProfile.grouping === "nbsp") {
       const regularGrouped = target.match(/\d \d{3}(?: \d{3})*/);
-      if (regularGrouped) issues.push(createIssue({ error_type: "NON_BREAKING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location(regularGrouped.index, regularGrouped.index + regularGrouped[0].length), explanation: "Digit groups should use a non-breaking space in this language profile." }));
+      if (regularGrouped) issues.push(createIssue({ error_type: "NON_BREAKING_SPACE", pool: "Spacing", severity: "Minor", location_in_target: location2(regularGrouped.index, regularGrouped.index + regularGrouped[0].length), explanation: "Digit groups should use a non-breaking space in this language profile." }));
     }
   }
   function addTimeFormatChecks(target, targetProfile, issues) {
@@ -1145,7 +1145,7 @@
       error_type: "TIME_FORMAT",
       pool: "Dates & Time",
       severity: "Minor",
-      location_in_target: location(match.index, match.index + match[0].length),
+      location_in_target: location2(match.index, match.index + match[0].length),
       explanation: "This language profile requires a two-digit hour when a timezone is shown."
     }));
   }
@@ -1155,7 +1155,7 @@
       if (separators.length < 2) continue;
       const expected = targetProfile.grouping === "nbsp" ? "\xA0" : targetProfile.grouping;
       if (separators.some((separator) => separator !== expected && !(expected === " " && separator === "\xA0"))) {
-        issues.push(createIssue({ error_type: "NUMBER_FORMAT", pool: "Numbers", severity: "Minor", location_in_target: location(token.index, token.index + token.raw.length), explanation: `Digit groups should use ${targetProfile.grouping === "nbsp" ? "non-breaking spaces" : `\u201C${targetProfile.grouping}\u201D`} in this language profile.` }));
+        issues.push(createIssue({ error_type: "NUMBER_FORMAT", pool: "Numbers", severity: "Minor", location_in_target: location2(token.index, token.index + token.raw.length), explanation: `Digit groups should use ${targetProfile.grouping === "nbsp" ? "non-breaking spaces" : `\u201C${targetProfile.grouping}\u201D`} in this language profile.` }));
         break;
       }
     }
@@ -1166,7 +1166,7 @@
     const percentIndex = match[0].lastIndexOf("%");
     const actualSpace = match[0].slice(0, percentIndex).match(/[ \t]+$/)?.[0] ?? "";
     const expectedSpace = targetProfile.percentSpace ? " " : "";
-    if (actualSpace !== expectedSpace) issues.push(createIssue({ error_type: "PERCENTAGE_FORMAT", pool: "Percentage", severity: "Minor", location_in_target: location(match.index, match.index + match[0].length), explanation: `The percentage sign should be placed ${targetProfile.percentSpace ? "after a space" : "without a space"}.` }));
+    if (actualSpace !== expectedSpace) issues.push(createIssue({ error_type: "PERCENTAGE_FORMAT", pool: "Percentage", severity: "Minor", location_in_target: location2(match.index, match.index + match[0].length), explanation: `The percentage sign should be placed ${targetProfile.percentSpace ? "after a space" : "without a space"}.` }));
   }
   function currencyRule(profile, marker) {
     return profile.currencyRules?.[marker.toUpperCase()] ?? { placement: profile.currencyPlacement, space: profile.currencySpace };
@@ -1196,12 +1196,12 @@
       );
       if (!adjacent) continue;
       if (currency[0].toUpperCase() === "ARS$" && targetProfile.currencyRules?.["AR$"]) {
-        issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(currencyStart, currencyEnd), explanation: "Use the Argentine peso marker AR$ in this language profile." }));
+        issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location2(currencyStart, currencyEnd), explanation: "Use the Argentine peso marker AR$ in this language profile." }));
         continue;
       }
       const rule = currencyRule(targetProfile, currency[0]);
       if (!validCurrencyNumber(adjacent.raw, targetProfile)) {
-        issues.push(createIssue({ error_type: "CURRENCY_NUMBER_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(adjacent.index, adjacent.index + adjacent.raw.length), explanation: "The amount does not use the target language's decimal and thousands separators." }));
+        issues.push(createIssue({ error_type: "CURRENCY_NUMBER_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location2(adjacent.index, adjacent.index + adjacent.raw.length), explanation: "The amount does not use the target language's decimal and thousands separators." }));
       }
       const numberBefore = adjacent.index + adjacent.raw.length <= currencyStart;
       const actualPlacement = numberBefore ? "suffix" : "prefix";
@@ -1211,7 +1211,7 @@
       const expectedSpace = rule.space === "nbsp" ? "\xA0" : rule.space ?? "";
       if (actualPlacement !== rule.placement || actualSpace !== expectedSpace) {
         const example = rule.placement === "prefix" ? `${currency[0]}${expectedSpace}${adjacent.raw}` : `${adjacent.raw}${expectedSpace}${currency[0]}`;
-        issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), currency: { expected: example, space: rule.space }, explanation: `Use ${example} (${rule.space === "nbsp" ? "a non-breaking space" : expectedSpace ? "a space" : "no space"} between the amount and currency symbol).` }));
+        issues.push(createIssue({ error_type: "CURRENCY_FORMAT", pool: "Currency", severity: "Minor", location_in_target: location2(Math.min(currencyStart, adjacent.index), Math.max(currencyEnd, adjacent.index + adjacent.raw.length)), currency: { expected: example, space: rule.space }, explanation: `Use ${example} (${rule.space === "nbsp" ? "a non-breaking space" : expectedSpace ? "a space" : "no space"} between the amount and currency symbol).` }));
       }
     }
   }
@@ -1235,8 +1235,8 @@
       const targetMatch = targetMatches[index];
       const sourceNumber = adjacentNumber(source, sourceNumbers, sourceMatch);
       const targetNumber = adjacentNumber(target, targetNumbers, targetMatch);
-      const sourceRange = location(Math.min(sourceMatch.index, sourceNumber?.index ?? sourceMatch.index), Math.max(sourceMatch.index + sourceMatch[0].length, sourceNumber ? sourceNumber.index + sourceNumber.raw.length : 0));
-      const targetRange = location(Math.min(targetMatch.index, targetNumber?.index ?? targetMatch.index), Math.max(targetMatch.index + targetMatch[0].length, targetNumber ? targetNumber.index + targetNumber.raw.length : 0));
+      const sourceRange = location2(Math.min(sourceMatch.index, sourceNumber?.index ?? sourceMatch.index), Math.max(sourceMatch.index + sourceMatch[0].length, sourceNumber ? sourceNumber.index + sourceNumber.raw.length : 0));
+      const targetRange = location2(Math.min(targetMatch.index, targetNumber?.index ?? targetMatch.index), Math.max(targetMatch.index + targetMatch[0].length, targetNumber ? targetNumber.index + targetNumber.raw.length : 0));
       if (!sameCurrency(sourceCurrencies[index], targetCurrencies[index], sourceProfile)) {
         issues.push(createIssue({ error_type: "CURRENCY_CONVERSION_REVIEW", pool: "Currency", severity: "Info", location_in_source: sourceRange, location_in_target: targetRange, explanation: "The currency changes between source and target. Verify the converted amount against the market rules." }));
       } else if (sourceNumber && targetNumber && sourceNumber.normalized !== targetNumber.normalized) {
@@ -1247,7 +1247,7 @@
   function addQuotationChecks(target, targetProfile, issues) {
     if (!targetProfile.quoteStyle) return;
     const invalid = targetProfile.quoteStyle === "guillemets" ? target.match(/["“”]/) : targetProfile.quoteStyle === "double" ? target.match(/[«»“”]/) : target.match(/"/);
-    if (invalid) issues.push(createIssue({ error_type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", location_in_target: location(invalid.index, invalid.index + invalid[0].length), explanation: "Quotation marks do not follow the selected language profile." }));
+    if (invalid) issues.push(createIssue({ error_type: "QUOTATION_STYLE", pool: "Punctuation", severity: "Minor", location_in_target: location2(invalid.index, invalid.index + invalid[0].length), explanation: "Quotation marks do not follow the selected language profile." }));
   }
   function addLightChecks(source, target, sourceProfile, targetProfile, issues, checkCurrency = true) {
     addSpacingChecks(target, targetProfile, issues);
@@ -1849,6 +1849,7 @@
     const more = $("glossary-show-more");
     let visibleCount = PAGE_SIZE;
     let manuallySelected = false;
+    let focusedRowId = null;
     let saveTimer;
     function currentLanguages() {
       const target = languageSelect.value || "ru";
@@ -1949,6 +1950,7 @@
       const fragment = document.createDocumentFragment();
       for (const row of matching.slice(0, visibleCount)) {
         const tr = document.createElement("tr");
+        if (String(row.id) === focusedRowId) tr.classList.add("glossary-linked-row");
         const number = document.createElement("td");
         number.className = "glossary-row-number";
         number.textContent = String(row.id);
@@ -1982,6 +1984,28 @@
         updateLabels();
         renderRows();
       }
+    }
+    function focusRow(rowId, language) {
+      if (GLOSSARY_LANGUAGES2[language] && language !== "en") {
+        manuallySelected = true;
+        languageSelect.value = language;
+      }
+      const row = getGlossaryRows2().find((item) => String(item.id) === String(rowId));
+      if (!row) {
+        refresh();
+        return false;
+      }
+      focusedRowId = String(rowId);
+      const source = glossarySourceLanguage2(languageSelect.value);
+      search.value = row.terms[GLOSSARY_LANGUAGES2[source]] ?? "";
+      visibleCount = glossaryEntryCount();
+      updateLabels();
+      renderRows();
+      const button = [...tableBody.querySelectorAll("[data-propose-row]")].find((item) => item.dataset.proposeRow === String(rowId));
+      if (!button) return false;
+      const selected = button.closest("tr");
+      selected.scrollIntoView({ block: "center" });
+      return true;
     }
     languageSelect.addEventListener("change", () => {
       manuallySelected = true;
@@ -2041,7 +2065,7 @@
       onChange();
     });
     refresh();
-    return { refresh, syncLanguage };
+    return { refresh, syncLanguage, focusRow };
   }
 
   // src/glossary.js
@@ -3552,4 +3576,10 @@ ${range.hint}`;
   }
   applyTranslations();
   render();
+  var glossaryLink = new URLSearchParams(location.search);
+  if (glossaryLink.get("view") === "glossary") {
+    $5("glossary-tab").click();
+    if (glossaryLink.has("row")) glossaryView.focusRow(glossaryLink.get("row"), glossaryLink.get("lang") || "ru");
+    else if (glossaryLink.has("lang")) glossaryView.syncLanguage(glossaryLink.get("lang"));
+  }
 })();

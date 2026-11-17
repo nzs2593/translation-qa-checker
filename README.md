@@ -2,7 +2,7 @@
 
 ## Shared glossary proposals
 
-The Glossary tab now offers **Propose** for an existing term. A teammate chooses **add an accepted translation** or **replace a translation**, enters the new value and optionally a root, then submits the prefilled GitHub Issue. Approved shared data lives in `data/shared-glossary.json`; the original workbook remains intact. The site reads that JSON at startup. Chrome extension 0.2.12 fetches the same published data and caches it locally. No source or target document contents are sent with proposals or synchronization.
+The Glossary tab now offers **Propose** for an existing term. A teammate chooses **add an accepted translation** or **replace a translation**, enters the new value and optionally a root, then submits the prefilled GitHub Issue. Approved shared data lives in `data/shared-glossary.json`; the original workbook remains intact. The site reads that JSON at startup. Chrome extension 0.2.13 fetches the same published data and caches it locally. The extension settings and each glossary finding link to the site; a finding link selects the corresponding language and row. No source or target document contents are sent with proposals or synchronization.
 
 Approval by code is prepared in `approval-worker/`. It requires Cloudflare Access, a server-side code secret, a GitHub token and a KV attempt counter. The code is never stored in this repository or sent to GitHub. Until the Worker is deployed and `data/collaboration-config.json` contains its URL, approving from the site is disabled. See `approval-worker/README.md` for setup.
 

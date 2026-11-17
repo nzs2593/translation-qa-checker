@@ -16,7 +16,7 @@
 
 From the repository root run `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-extension.ps1`. Then, in Chrome, open `chrome://extensions`, enable **Developer mode**, select **Load unpacked**, and choose the `chrome-extension` folder. Reload the Crowdin editor tab and look for the CHECKform button near the bottom left. The folder, not the ZIP, is for this local test.
 
-The bundled glossary and GMT defaults work immediately. Version 0.2.12 also fetches the published shared glossary JSON from GitHub Pages on load and at five-minute intervals. It caches the last successful copy in Chrome storage. It sends no source or target text to that endpoint. The manual **Export Chrome settings** flow still exists for personal glossary overrides and GMT rules; published shared entries take precedence over older browser overrides.
+The bundled glossary and GMT defaults work immediately. Version 0.2.13 fetches the published shared glossary JSON from GitHub Pages on load and at five-minute intervals. It caches the last successful copy in Chrome storage. It sends no source or target text to that endpoint. The settings panel links to the glossary, and each glossary finding links directly to its language and term row. The manual **Export Chrome settings** flow still exists for personal glossary overrides and GMT rules; published shared entries take precedence over older browser overrides.
 
 ## Publishing route
 

@@ -13,6 +13,7 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
   const more = $("glossary-show-more");
   let visibleCount = PAGE_SIZE;
   let manuallySelected = false;
+  let focusedRowId = null;
   let saveTimer;
 
   function currentLanguages() {
@@ -115,6 +116,7 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
     const fragment = document.createDocumentFragment();
     for (const row of matching.slice(0, visibleCount)) {
       const tr = document.createElement("tr");
+      if (String(row.id) === focusedRowId) tr.classList.add("glossary-linked-row");
       const number = document.createElement("td"); number.className = "glossary-row-number"; number.textContent = String(row.id);
       const from = makeTermCell(row, source, t(locale, "glossaryMissing"));
       const to = makeTermCell(row, target, t(locale, "glossaryMissing"));
@@ -146,6 +148,27 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
       updateLabels();
       renderRows();
     }
+  }
+
+  function focusRow(rowId, language) {
+    if (GLOSSARY_LANGUAGES[language] && language !== "en") {
+      manuallySelected = true;
+      languageSelect.value = language;
+    }
+    const row = getGlossaryRows().find((item) => String(item.id) === String(rowId));
+    if (!row) { refresh(); return false; }
+    focusedRowId = String(rowId);
+    const source = glossarySourceLanguage(languageSelect.value);
+    search.value = row.terms[GLOSSARY_LANGUAGES[source]] ?? "";
+    visibleCount = glossaryEntryCount();
+    updateLabels();
+    renderRows();
+    const button = [...tableBody.querySelectorAll("[data-propose-row]")]
+      .find((item) => item.dataset.proposeRow === String(rowId));
+    if (!button) return false;
+    const selected = button.closest("tr");
+    selected.scrollIntoView({ block: "center" });
+    return true;
   }
 
   languageSelect.addEventListener("change", () => {
@@ -202,5 +225,5 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
   });
 
   refresh();
-  return { refresh, syncLanguage };
+  return { refresh, syncLanguage, focusRow };
 }

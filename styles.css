@@ -514,6 +514,7 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
 .glossary-collab h3, .glossary-collab h4 { margin: 0 0 6px; }
 .glossary-collab p { margin: 0 0 12px; }
 .glossary-propose-button { white-space: nowrap; }
+.glossary-linked-row { background: #eaf3ff; outline: 2px solid #397cd1; outline-offset: -2px; }
 #glossary-proposal-form { max-width: 640px; display: grid; gap: 12px; padding: 16px; background: white; border: 1px solid #d5e2f4; border-radius: 10px; }
 #glossary-proposal-form[hidden] { display: none; }
 #glossary-proposal-form > label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }

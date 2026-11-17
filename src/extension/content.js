@@ -8,6 +8,7 @@ import { clampTogglePosition, movedEnough } from "./drag-position.js";
 import { evaluateCharacterLimit, parseCharacterLimitHint } from "./character-counter.js";
 
 const languages = editorLanguages(location.pathname);
+const GLOSSARY_URL = "https://nzs2593.github.io/translation-qa-checker/?view=glossary";
 const russian = navigator.language.toLowerCase().startsWith("ru");
 const uiLocale = russian ? "ru" : "en";
 const copy = russian ? {
@@ -15,7 +16,7 @@ const copy = russian ? {
   close: "Закрыть", findings: "замечаний", segments: "загруженных сегментов",
   segment: "Сегмент", empty: "В загруженных сегментах нарушений не найдено.", review: "Проверьте этот сегмент.",
   settings: "Настройки проверок", back: "К замечаниям", reset: "Включить все проверки",
-  import: "Импорт словаря и GMT", settingsHint: "Выберите, какие замечания показывать в Crowdin.",
+  import: "Импорт словаря и GMT", glossary: "Открыть глоссарий", glossaryRow: "Открыть термин в глоссарии", settingsHint: "Выберите, какие замечания показывать в Crowdin.",
   characters: "Символы в выбранных строках", limit: "Лимит", scope: "Считать", total: "Вместе", each: "На каждую",
   noLimit: "Без лимита", customLimit: "Свой лимит", chooseRows: "Выберите флажками одну или две строки в Crowdin.",
   tooManyRows: "Выбрано больше двух строк. Оставьте одну или две.", sourceCount: "Оригинал", targetCount: "Перевод",
@@ -29,7 +30,7 @@ const copy = russian ? {
   close: "Close", findings: "findings", segments: "loaded segments",
   segment: "Segment", empty: "No rule violations in loaded segments.", review: "Review this segment.",
   settings: "Check settings", back: "Back to findings", reset: "Enable all checks",
-  import: "Import glossary and GMT", settingsHint: "Choose which findings to show in Crowdin.",
+  import: "Import glossary and GMT", glossary: "Open glossary", glossaryRow: "Open term in glossary", settingsHint: "Choose which findings to show in Crowdin.",
   characters: "Characters in selected strings", limit: "Limit", scope: "Apply to", total: "Together", each: "Each string",
   noLimit: "No limit", customLimit: "Custom limit", chooseRows: "Select one or two Crowdin strings using their checkboxes.",
   tooManyRows: "More than two strings selected. Leave one or two selected.", sourceCount: "Source", targetCount: "Translation",
@@ -67,7 +68,7 @@ function start() {
     <div class="cf-limit-hint" hidden></div><div class="cf-counter-rows" aria-live="polite"></div><div class="cf-counter-status" aria-live="polite"></div></div>
     <div class="cf-summary"></div><div class="cf-list"></div></div>
     <div class="cf-settings-view" hidden><button class="cf-back" type="button">← ${copy.back}</button><h2>${copy.settings}</h2><p>${copy.settingsHint}</p><div class="cf-check-list"></div>
-    <button class="cf-reset" type="button">${copy.reset}</button><button class="cf-import" type="button">${copy.import}</button></div>`;
+    <button class="cf-reset" type="button">${copy.reset}</button><a class="cf-glossary-link" href="${GLOSSARY_URL}&lang=${encodeURIComponent(languages.targetLanguage)}" target="_blank" rel="noopener noreferrer">${copy.glossary}</a><button class="cf-import" type="button">${copy.import}</button></div>`;
   shadow.append(sheet, toggle, panel);
   document.documentElement.append(host);
 
@@ -332,6 +333,15 @@ function start() {
         const { start, end } = issue.location_in_target;
         excerpt.textContent = row.targetText.slice(start, end) || row.targetText.slice(0, 80);
         finding.append(type, detail, excerpt);
+        if (issue.error_type.startsWith("GLOSSARY_") && issue.glossary?.rows?.length) {
+          const link = document.createElement("a");
+          link.className = "cf-glossary-row-link";
+          link.href = `${GLOSSARY_URL}&lang=${encodeURIComponent(languages.targetLanguage)}&row=${encodeURIComponent(issue.glossary.rows[0])}`;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = copy.glossaryRow;
+          finding.append(link);
+        }
         group.append(finding);
       }
       list.append(group);

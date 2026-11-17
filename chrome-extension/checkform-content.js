@@ -1544,6 +1544,7 @@
 
   // src/extension/content.js
   var languages = editorLanguages(location.pathname);
+  var GLOSSARY_URL = "https://nzs2593.github.io/translation-qa-checker/?view=glossary";
   var russian = navigator.language.toLowerCase().startsWith("ru");
   var uiLocale = russian ? "ru" : "en";
   var copy = russian ? {
@@ -1559,6 +1560,8 @@
     back: "\u041A \u0437\u0430\u043C\u0435\u0447\u0430\u043D\u0438\u044F\u043C",
     reset: "\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0432\u0441\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438",
     import: "\u0418\u043C\u043F\u043E\u0440\u0442 \u0441\u043B\u043E\u0432\u0430\u0440\u044F \u0438 GMT",
+    glossary: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439",
+    glossaryRow: "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u0432 \u0433\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0438",
     settingsHint: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u043A\u0430\u043A\u0438\u0435 \u0437\u0430\u043C\u0435\u0447\u0430\u043D\u0438\u044F \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 Crowdin.",
     characters: "\u0421\u0438\u043C\u0432\u043E\u043B\u044B \u0432 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0445 \u0441\u0442\u0440\u043E\u043A\u0430\u0445",
     limit: "\u041B\u0438\u043C\u0438\u0442",
@@ -1602,6 +1605,8 @@
     back: "Back to findings",
     reset: "Enable all checks",
     import: "Import glossary and GMT",
+    glossary: "Open glossary",
+    glossaryRow: "Open term in glossary",
     settingsHint: "Choose which findings to show in Crowdin.",
     characters: "Characters in selected strings",
     limit: "Limit",
@@ -1660,7 +1665,7 @@
     <div class="cf-limit-hint" hidden></div><div class="cf-counter-rows" aria-live="polite"></div><div class="cf-counter-status" aria-live="polite"></div></div>
     <div class="cf-summary"></div><div class="cf-list"></div></div>
     <div class="cf-settings-view" hidden><button class="cf-back" type="button">\u2190 ${copy.back}</button><h2>${copy.settings}</h2><p>${copy.settingsHint}</p><div class="cf-check-list"></div>
-    <button class="cf-reset" type="button">${copy.reset}</button><button class="cf-import" type="button">${copy.import}</button></div>`;
+    <button class="cf-reset" type="button">${copy.reset}</button><a class="cf-glossary-link" href="${GLOSSARY_URL}&lang=${encodeURIComponent(languages.targetLanguage)}" target="_blank" rel="noopener noreferrer">${copy.glossary}</a><button class="cf-import" type="button">${copy.import}</button></div>`;
     shadow.append(sheet, toggle, panel);
     document.documentElement.append(host);
     const close = () => {
@@ -1963,6 +1968,15 @@
           const { start: start2, end } = issue.location_in_target;
           excerpt.textContent = row.targetText.slice(start2, end) || row.targetText.slice(0, 80);
           finding.append(type, detail, excerpt);
+          if (issue.error_type.startsWith("GLOSSARY_") && issue.glossary?.rows?.length) {
+            const link = document.createElement("a");
+            link.className = "cf-glossary-row-link";
+            link.href = `${GLOSSARY_URL}&lang=${encodeURIComponent(languages.targetLanguage)}&row=${encodeURIComponent(issue.glossary.rows[0])}`;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            link.textContent = copy.glossaryRow;
+            finding.append(link);
+          }
           group.append(finding);
         }
         list.append(group);

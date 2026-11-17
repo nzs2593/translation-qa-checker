@@ -609,3 +609,9 @@ for (const tab of document.querySelectorAll(".workspace-tab")) {
 
 applyTranslations();
 render();
+const glossaryLink = new URLSearchParams(location.search);
+if (glossaryLink.get("view") === "glossary") {
+  $("glossary-tab").click();
+  if (glossaryLink.has("row")) glossaryView.focusRow(glossaryLink.get("row"), glossaryLink.get("lang") || "ru");
+  else if (glossaryLink.has("lang")) glossaryView.syncLanguage(glossaryLink.get("lang"));
+}
