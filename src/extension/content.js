@@ -4,6 +4,7 @@ import { loadTimezoneRules } from "../timezone-rules.js";
 import { issueDescription, severityLabel } from "../i18n.js";
 import { editorLanguages, readCrowdinRows } from "./crowdin-adapter.js";
 import { DEFAULT_CHECKS, enabledIssues, normalizeChecks } from "./check-settings.js";
+import { clampTogglePosition, movedEnough } from "./drag-position.js";
 
 const languages = editorLanguages(location.pathname);
 const russian = navigator.language.toLowerCase().startsWith("ru");
@@ -42,6 +43,7 @@ function start() {
   toggle.type = "button";
   toggle.textContent = "CHECKform";
   toggle.setAttribute("aria-label", copy.open);
+  toggle.title = russian ? "Перетащите кнопку в удобное место; нажмите, чтобы открыть" : "Drag to move; click to open";
   const panel = document.createElement("section");
   panel.className = "cf-panel";
   panel.hidden = true;
@@ -61,7 +63,52 @@ function start() {
     panel.querySelector(".cf-settings-view").hidden = !visible;
     panel.querySelector(".cf-config").setAttribute("aria-pressed", String(visible));
   };
-  toggle.addEventListener("click", () => state.open ? close() : open());
+  let togglePosition = null;
+  let drag = null;
+  let suppressClick = false;
+  const placeToggle = (position) => {
+    togglePosition = clampTogglePosition(position, toggle.getBoundingClientRect(),
+      { width: window.innerWidth, height: window.innerHeight });
+    toggle.style.left = `${togglePosition.x}px`;
+    toggle.style.top = `${togglePosition.y}px`;
+    toggle.style.right = "auto";
+    toggle.style.bottom = "auto";
+  };
+  toggle.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const rect = toggle.getBoundingClientRect();
+    drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+      left: rect.left, top: rect.top, moved: false };
+    toggle.setPointerCapture(event.pointerId);
+  });
+  toggle.addEventListener("pointermove", (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (!drag.moved && !movedEnough(dx, dy)) return;
+    drag.moved = true;
+    toggle.classList.add("cf-dragging");
+    placeToggle({ x: drag.left + dx, y: drag.top + dy });
+    event.preventDefault();
+  });
+  const finishDrag = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    if (drag.moved) {
+      suppressClick = true;
+      chrome.storage.local.set({ togglePosition });
+      setTimeout(() => { suppressClick = false; }, 0);
+    }
+    toggle.classList.remove("cf-dragging");
+    if (toggle.hasPointerCapture(event.pointerId)) toggle.releasePointerCapture(event.pointerId);
+    drag = null;
+  };
+  toggle.addEventListener("pointerup", finishDrag);
+  toggle.addEventListener("pointercancel", finishDrag);
+  toggle.addEventListener("click", (event) => {
+    if (suppressClick) { event.preventDefault(); return; }
+    state.open ? close() : open();
+  });
+  window.addEventListener("resize", () => { if (togglePosition) placeToggle(togglePosition); });
   panel.querySelector(".cf-close").addEventListener("click", close);
   panel.querySelector(".cf-config").addEventListener("click", () => showSettings(!state.settingsOpen));
   panel.querySelector(".cf-open-settings").addEventListener("click", () => showSettings(true));
@@ -105,7 +152,8 @@ function start() {
     loadGlossaryEdits(storage);
     loadTimezoneRules(storage);
   }
-  chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {
+  chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null, togglePosition: null }, (saved) => {
+    if (saved.togglePosition && Number.isFinite(saved.togglePosition.x) && Number.isFinite(saved.togglePosition.y)) placeToggle(saved.togglePosition);
     loadSettings(saved);
     state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
     syncCheckControls();
@@ -167,6 +215,7 @@ function start() {
     for (const id of state.signatures.keys()) if (!currentIds.has(id)) state.signatures.delete(id);
     const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
     toggle.textContent = count ? `CHECKform · ${count}` : "CHECKform";
+    if (togglePosition) placeToggle(togglePosition);
     renderPanel();
   }
 

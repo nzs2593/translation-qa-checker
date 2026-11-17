@@ -1439,6 +1439,17 @@
     return issues.filter((issue) => checks[issueCheck(issue)] !== false);
   }
 
+  // src/extension/drag-position.js
+  function clampTogglePosition(position, size, viewport, margin = 8) {
+    const maxX = Math.max(margin, viewport.width - size.width - margin);
+    const maxY = Math.max(margin, viewport.height - size.height - margin);
+    const coordinate = (value, max) => Math.min(max, Math.max(margin, Number.isFinite(value) ? value : margin));
+    return { x: Math.round(coordinate(position.x, maxX)), y: Math.round(coordinate(position.y, maxY)) };
+  }
+  function movedEnough(dx, dy) {
+    return dx * dx + dy * dy >= 25;
+  }
+
   // src/extension/content.js
   var languages = editorLanguages(location.pathname);
   var russian = navigator.language.toLowerCase().startsWith("ru");
@@ -1508,6 +1519,7 @@
     toggle.type = "button";
     toggle.textContent = "CHECKform";
     toggle.setAttribute("aria-label", copy.open);
+    toggle.title = russian ? "\u041F\u0435\u0440\u0435\u0442\u0430\u0449\u0438\u0442\u0435 \u043A\u043D\u043E\u043F\u043A\u0443 \u0432 \u0443\u0434\u043E\u0431\u043D\u043E\u0435 \u043C\u0435\u0441\u0442\u043E; \u043D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C" : "Drag to move; click to open";
     const panel = document.createElement("section");
     panel.className = "cf-panel";
     panel.hidden = true;
@@ -1536,7 +1548,68 @@
       panel.querySelector(".cf-settings-view").hidden = !visible;
       panel.querySelector(".cf-config").setAttribute("aria-pressed", String(visible));
     };
-    toggle.addEventListener("click", () => state.open ? close() : open());
+    let togglePosition = null;
+    let drag = null;
+    let suppressClick = false;
+    const placeToggle = (position) => {
+      togglePosition = clampTogglePosition(
+        position,
+        toggle.getBoundingClientRect(),
+        { width: window.innerWidth, height: window.innerHeight }
+      );
+      toggle.style.left = `${togglePosition.x}px`;
+      toggle.style.top = `${togglePosition.y}px`;
+      toggle.style.right = "auto";
+      toggle.style.bottom = "auto";
+    };
+    toggle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      const rect = toggle.getBoundingClientRect();
+      drag = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        left: rect.left,
+        top: rect.top,
+        moved: false
+      };
+      toggle.setPointerCapture(event.pointerId);
+    });
+    toggle.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      if (!drag.moved && !movedEnough(dx, dy)) return;
+      drag.moved = true;
+      toggle.classList.add("cf-dragging");
+      placeToggle({ x: drag.left + dx, y: drag.top + dy });
+      event.preventDefault();
+    });
+    const finishDrag = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      if (drag.moved) {
+        suppressClick = true;
+        chrome.storage.local.set({ togglePosition });
+        setTimeout(() => {
+          suppressClick = false;
+        }, 0);
+      }
+      toggle.classList.remove("cf-dragging");
+      if (toggle.hasPointerCapture(event.pointerId)) toggle.releasePointerCapture(event.pointerId);
+      drag = null;
+    };
+    toggle.addEventListener("pointerup", finishDrag);
+    toggle.addEventListener("pointercancel", finishDrag);
+    toggle.addEventListener("click", (event) => {
+      if (suppressClick) {
+        event.preventDefault();
+        return;
+      }
+      state.open ? close() : open();
+    });
+    window.addEventListener("resize", () => {
+      if (togglePosition) placeToggle(togglePosition);
+    });
     panel.querySelector(".cf-close").addEventListener("click", close);
     panel.querySelector(".cf-config").addEventListener("click", () => showSettings(!state.settingsOpen));
     panel.querySelector(".cf-open-settings").addEventListener("click", () => showSettings(true));
@@ -1579,7 +1652,8 @@
       loadGlossaryEdits(storage);
       loadTimezoneRules(storage);
     }
-    chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {
+    chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null, togglePosition: null }, (saved) => {
+      if (saved.togglePosition && Number.isFinite(saved.togglePosition.x) && Number.isFinite(saved.togglePosition.y)) placeToggle(saved.togglePosition);
       loadSettings(saved);
       state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
       syncCheckControls();
@@ -1645,6 +1719,7 @@
       for (const id of state.signatures.keys()) if (!currentIds.has(id)) state.signatures.delete(id);
       const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
       toggle.textContent = count ? `CHECKform \xB7 ${count}` : "CHECKform";
+      if (togglePosition) placeToggle(togglePosition);
       renderPanel();
     }
     function updateBadge(item, issues, ordinal) {

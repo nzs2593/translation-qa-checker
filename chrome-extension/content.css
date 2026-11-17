@@ -27,7 +27,7 @@ button { font: inherit; cursor: pointer; }
 .cf-toggle, .cf-panel { pointer-events: auto; }
 .cf-toggle {
   position: fixed;
-  right: 60px;
+  left: 16px;
   bottom: 16px;
   z-index: 2147483640;
   border: 1px solid #174ca8;
@@ -37,7 +37,11 @@ button { font: inherit; cursor: pointer; }
   font-weight: 700;
   padding: 9px 13px;
   box-shadow: 0 4px 14px #143e7f33;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
+.cf-toggle.cf-dragging { cursor: grabbing; }
 .cf-panel {
   position: fixed;
   z-index: 2147483641;
