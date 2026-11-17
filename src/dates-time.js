@@ -152,7 +152,7 @@ export function checkDatesAndTime(source, target, { sourceProfile, targetProfile
     if (!targetItem) return issueFor(sourceItem, null, "DATETIME_MISMATCH", "A source date or time is missing from the target.");
     if (sourceItem.timezone && !targetItem.timezone) return issueFor(sourceItem, targetItem, "TIMEZONE_MISSING", "Timezone is present in the source but missing in the target.");
     if (!sourceItem.timezone && targetItem.timezone) return issueFor(sourceItem, targetItem, "TIMEZONE_EXTRA", "Target adds a timezone that is not present in the source.");
-    const expected = targetTimezoneRule ? expectedTimezone(targetTimezoneRule, sourceItem.timezone) : null;
+    const expected = targetTimezoneRule ? expectedTimezone(targetTimezoneRule, sourceItem.timezone, sourceItem.date ? sourceItem.utcMillis : null) : null;
     const canonicalTarget = targetItem.timezone ? formatTimezone(targetItem.timezone.name, targetItem.timezone.offsetMinutes) : null;
     const formatIssue = targetItem.timezone && targetItem.zoneRaw !== canonicalTarget
       ? issueFor(sourceItem, targetItem, "TIMEZONE_FORMAT", `Timezone marker must not contain spaces or non-standard characters: use ${canonicalTarget}.`, targetItem.timezoneLocation, { expected: canonicalTarget, actual: targetItem.zoneRaw }) : null;

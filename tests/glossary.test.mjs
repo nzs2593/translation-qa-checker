@@ -47,6 +47,18 @@ assert.equal(checkGlossary("In the event of any discrepancy", "Uyğunsuzluq yara
 assert.equal(checkGlossary("promotional period", "kampaniya müddəti", "en", "az", senseRows).length, 0);
 assert.equal(checkGlossary("void bets", "etibarsız mərclər", "en", "az", senseRows).length, 0);
 const approvedAzeriRows = getGlossaryRows();
+const russianForms = approvedAzeriRows.filter((row) => [6, 7].includes(row.id));
+for (const form of ["страховка на экспресс", "страховки на экспресс", "страховке на экспресс",
+  "страховку на экспресс", "страховкой на экспресс", "страховки на экспрессы",
+  "страховок на экспрессы", "страховкам на экспрессы", "страховками на экспрессы", "страховках на экспрессы"]) {
+  assert.equal(checkGlossary("Acca Insurance", form, "en", "ru", russianForms).length, 0, form);
+}
+for (const form of ["учетная запись", "учетной записи", "учетную запись", "учетной записью",
+  "учетные записи", "учетных записей", "учетным записям", "учетными записями", "учетных записях",
+  "учётная запись", "учётную запись"]) {
+  assert.equal(checkGlossary("account", form, "en", "ru", russianForms).length, 0, form);
+}
+assert.equal(checkGlossary("account", "счет", "en", "ru", russianForms)[0].error_type, "GLOSSARY_TRANSLATION_MISSING");
 assert.equal(checkGlossary("Qualifying bets must be placed at minimum odds of 2.00.", "Seçim mərcləri minimum 2.00 əmsalla edilməlidir.", "en", "az", approvedAzeriRows).some((issue) => issue.glossary?.sourceTerm === "odds"), false);
 assert.equal(checkGlossary("Mbet may change the Terms and Conditions", "Mbet Şərtlər və Qaydaları dəyişdirə bilər", "en", "az", approvedAzeriRows).some((issue) => issue.glossary?.sourceTerm === "Terms and Conditions"), false);
 assert.equal(checkGlossary("banned from the Loyalty Program", "Loyallıq proqramından kənarlaşdırılmasına", "en", "az", approvedAzeriRows).some((issue) => issue.glossary?.sourceTerm === "Loyalty Program"), false);

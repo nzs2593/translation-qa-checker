@@ -180,7 +180,7 @@ function renderProfileRules(code) {
   const quoteExample = profile.quoteStyle === "guillemets" ? "«…»" : profile.quoteStyle === "uk-single" ? "‘…’" : profile.quoteStyle === "double" ? "“…”" : t(currentLocale, "notSpecified");
   const rows = [
     [t(currentLocale, "dateFormat"), profile.dateFormat ?? t(currentLocale, "notSpecified")],
-    [t(currentLocale, "targetTimezone"), timezoneRule.mode === "source" ? t(currentLocale, "gmtInherit") : timezoneRule.mode === "equivalent" ? t(currentLocale, "gmtEquivalent") : formatTimezone(timezoneRule.label, timezoneRule.offsetMinutes)],
+    [t(currentLocale, "targetTimezone"), timezoneRule.mode === "source" ? t(currentLocale, "gmtInherit") : timezoneRule.mode === "equivalent" ? t(currentLocale, "gmtEquivalent") : timezoneRule.mode === "seasonal" ? `${t(currentLocale, "gmtSeasonal")} · ${timezoneRule.zone}` : formatTimezone(timezoneRule.label, timezoneRule.offsetMinutes)],
     [t(currentLocale, "decimalSeparator"), profile.decimal],
     [t(currentLocale, "thousandSeparator"), separatorLabel(profile.grouping)],
     [t(currentLocale, "currencyFormat"), `${currencyExample}${code === "az" ? " · 850\u00a0$" : ""} (${currencyRule.placement === "prefix" ? t(currentLocale, "before") : t(currentLocale, "after")})`],

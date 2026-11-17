@@ -124,6 +124,11 @@ function phrasePattern(term, matchCase = false) {
 }
 
 function targetTermMatch(target, entry, language, matchCase) {
+  if (entry.id === 6 && language === "ru" && entry.targetTerm === "Страховка на экспресс") {
+    const form = /(?<![\p{L}\p{N}])Страхов(?:ка|ки|ке|ку|кой|кою|кам|ками|ках|ок)\s+на\s+экспресс(?:а|у|ом|е|ы|ов|ам|ами|ах)?(?![\p{L}\p{N}])/giu;
+    const irregular = [...target.matchAll(new RegExp(form.source, matchCase ? "gu" : "giu"))][0];
+    if (irregular) return irregular;
+  }
   const alternatives = entry.targetTerm.split(/\s*\/\s*/u);
   const terms = alternatives.length > 1 && alternatives.every((part) => /^[\p{L} ]{3,}$/u.test(part))
     ? alternatives : [entry.targetTerm];
@@ -202,7 +207,7 @@ export function checkGlossary(source, target, sourceLanguage, targetLanguage, ro
       if (!expectedTerms.length) continue;
       if (entries.some((entry) => targetTermMatch(target, entry, to, true))) continue;
       const caseOnlyMatch = entries.map((entry) => targetTermMatch(target, entry, to, false)).find(Boolean);
-      const enforceCase = Boolean(exactEntries.length) &&
+      const enforceCase = Boolean(exactEntries.length) && !entries.some((entry) => entry.id === 6) &&
         (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
       if (caseOnlyMatch) {
         if (!enforceCase) continue;

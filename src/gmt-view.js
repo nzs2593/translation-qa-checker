@@ -1,5 +1,5 @@
 import { LANGUAGE_PROFILES } from "./profiles.js";
-import { formatTimezone, getTimezoneRule, timezoneSourceLanguage, updateTimezoneRule } from "./timezone-rules.js";
+import { formatTimezone, getTimezoneRule, seasonalOffsetMinutes, timezoneSourceLanguage, updateTimezoneRule } from "./timezone-rules.js";
 import { profileLabel, t } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -38,6 +38,7 @@ export function initGmtView({ getLocale, onChange }) {
       mode.add(new Option(t(locale, "gmtInherit"), "source"));
       mode.add(new Option(t(locale, "gmtEquivalent"), "equivalent"));
       mode.add(new Option(t(locale, "gmtFixed"), "fixed"));
+      if (rule.zone || ["da", "uk"].includes(code)) mode.add(new Option(t(locale, "gmtSeasonal"), "seasonal"));
       mode.value = rule.mode; modeCell.append(mode);
       const labelCell = document.createElement("td");
       const label = document.createElement("select"); label.dataset.field = "label";
@@ -50,7 +51,9 @@ export function initGmtView({ getLocale, onChange }) {
       offset.disabled = rule.mode !== "fixed" || ["MSK", "МСК"].includes(rule.label);
       offset.setAttribute("aria-label", `${code} · ${t(locale, "gmtOffset")}`); offsetCell.append(offset);
       const example = document.createElement("td"); example.className = "gmt-example";
-      example.textContent = rule.mode === "source" ? "20:59 GMT → 20:59 GMT"
+      example.textContent = rule.mode === "seasonal" ?
+        `20:59 GMT → ${clockAt(seasonalOffsetMinutes(rule.zone, Date.UTC(2026, 0, 15)))} ${formatTimezone("GMT", seasonalOffsetMinutes(rule.zone, Date.UTC(2026, 0, 15)))} (Jan); ${clockAt(seasonalOffsetMinutes(rule.zone, Date.UTC(2026, 6, 15)))} ${formatTimezone("GMT", seasonalOffsetMinutes(rule.zone, Date.UTC(2026, 6, 15)))} (Jul)`
+        : rule.mode === "source" ? "20:59 GMT → 20:59 GMT"
         : rule.mode === "equivalent" ? "20:59 GMT ↔ 23:59 МСК"
           : `20:59 GMT → ${clockAt(rule.offsetMinutes)} ${formatTimezone(rule.label, rule.offsetMinutes)}`;
       row.append(language, source, modeCell, labelCell, offsetCell, example);
@@ -67,7 +70,8 @@ export function initGmtView({ getLocale, onChange }) {
     const label = row.querySelector('[data-field="label"]').value;
     const offset = Number(row.querySelector('[data-field="offset"]').value);
     const next = {
-      mode, label, offsetMinutes: ["MSK", "МСК"].includes(label) ? 180 : Math.round(offset * 60)
+      mode, label, offsetMinutes: ["MSK", "МСК"].includes(label) ? 180 : Math.round(offset * 60),
+      ...(mode === "seasonal" ? { zone: getTimezoneRule(code).zone ?? (code === "da" ? "Europe/Copenhagen" : "Europe/Kyiv") } : {})
     };
     if (!Number.isFinite(offset) || Math.abs(offset * 60 - next.offsetMinutes) > 0.001 || !updateTimezoneRule(code, next)) {
       status.textContent = t(getLocale(), "gmtSaveError");

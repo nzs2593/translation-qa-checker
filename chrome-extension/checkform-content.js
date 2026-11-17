@@ -202,7 +202,7 @@
   var SOURCE_LANGUAGE = Object.freeze({ uk: "ru" });
   var DEFAULTS = Object.freeze(Object.fromEntries(Object.keys(LANGUAGE_PROFILES).map((code) => [
     code,
-    code === "es-AR" || code === "pt-BR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 } : code === "ru" ? { mode: "fixed", label: "\u041C\u0421\u041A", offsetMinutes: 180 } : code === "az" ? { mode: "fixed", label: "GMT", offsetMinutes: 240 } : code === "es" || code === "uk" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 } : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 } : { mode: "source", label: "GMT", offsetMinutes: 0 }
+    code === "es-AR" || code === "pt-BR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 } : code === "ru" ? { mode: "fixed", label: "\u041C\u0421\u041A", offsetMinutes: 180 } : code === "az" ? { mode: "fixed", label: "GMT", offsetMinutes: 240 } : code === "uz-Cyrl" || code === "uz-Latn" ? { mode: "fixed", label: "GMT", offsetMinutes: 300 } : code === "mn" ? { mode: "fixed", label: "GMT", offsetMinutes: 480 } : code === "da" ? { mode: "seasonal", label: "GMT", offsetMinutes: 0, zone: "Europe/Copenhagen" } : code === "uk" ? { mode: "seasonal", label: "GMT", offsetMinutes: 0, zone: "Europe/Kyiv" } : code === "es" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 } : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 } : { mode: "source", label: "GMT", offsetMinutes: 0 }
   ])));
   var edits = {};
   function browserStorage() {
@@ -213,7 +213,7 @@
     }
   }
   function validTimezoneRule(rule) {
-    return Boolean(rule && ["source", "fixed", "equivalent"].includes(rule.mode) && ["GMT", "UTC", "MSK", "\u041C\u0421\u041A"].includes(rule.label) && Number.isInteger(rule.offsetMinutes) && rule.offsetMinutes >= -720 && rule.offsetMinutes <= 840 && !(["MSK", "\u041C\u0421\u041A"].includes(rule.label) && rule.offsetMinutes !== 180));
+    return Boolean(rule && ["source", "fixed", "equivalent", "seasonal"].includes(rule.mode) && ["GMT", "UTC", "MSK", "\u041C\u0421\u041A"].includes(rule.label) && Number.isInteger(rule.offsetMinutes) && rule.offsetMinutes >= -720 && rule.offsetMinutes <= 840 && (rule.mode !== "seasonal" || ["Europe/Copenhagen", "Europe/Kyiv"].includes(rule.zone)) && !(["MSK", "\u041C\u0421\u041A"].includes(rule.label) && rule.offsetMinutes !== 180));
   }
   function loadTimezoneRules(storage = browserStorage()) {
     try {
@@ -238,8 +238,15 @@
     const minutes = absolute % 60;
     return `${label}${offsetMinutes < 0 ? "-" : "+"}${hours}${minutes ? `:${String(minutes).padStart(2, "0")}` : ""}`;
   }
-  function expectedTimezone(rule, sourceTimezone) {
-    return rule?.mode === "fixed" ? { label: rule.label, offsetMinutes: rule.offsetMinutes } : rule?.mode === "source" && sourceTimezone ? { label: sourceTimezone.name, offsetMinutes: sourceTimezone.offsetMinutes } : null;
+  function seasonalOffsetMinutes(zone, utcMillis) {
+    if (!Number.isFinite(utcMillis)) return null;
+    const part = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "shortOffset" }).formatToParts(new Date(utcMillis)).find((item) => item.type === "timeZoneName")?.value;
+    const match = /^GMT(?:([+-])(\d{1,2})(?::(\d{2}))?)?$/u.exec(part ?? "");
+    if (!match) return null;
+    return (match[1] === "-" ? -1 : 1) * (Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0));
+  }
+  function expectedTimezone(rule, sourceTimezone, utcMillis = null) {
+    return rule?.mode === "fixed" ? { label: rule.label, offsetMinutes: rule.offsetMinutes } : rule?.mode === "seasonal" && Number.isFinite(utcMillis) ? { label: rule.label, offsetMinutes: seasonalOffsetMinutes(rule.zone, utcMillis) } : rule?.mode === "source" && sourceTimezone ? { label: sourceTimezone.name, offsetMinutes: sourceTimezone.offsetMinutes } : null;
   }
 
   // src/dates-time.js?v=2.1
@@ -399,7 +406,7 @@
       if (!targetItem) return issueFor(sourceItem, null, "DATETIME_MISMATCH", "A source date or time is missing from the target.");
       if (sourceItem.timezone && !targetItem.timezone) return issueFor(sourceItem, targetItem, "TIMEZONE_MISSING", "Timezone is present in the source but missing in the target.");
       if (!sourceItem.timezone && targetItem.timezone) return issueFor(sourceItem, targetItem, "TIMEZONE_EXTRA", "Target adds a timezone that is not present in the source.");
-      const expected = targetTimezoneRule ? expectedTimezone(targetTimezoneRule, sourceItem.timezone) : null;
+      const expected = targetTimezoneRule ? expectedTimezone(targetTimezoneRule, sourceItem.timezone, sourceItem.date ? sourceItem.utcMillis : null) : null;
       const canonicalTarget = targetItem.timezone ? formatTimezone(targetItem.timezone.name, targetItem.timezone.offsetMinutes) : null;
       const formatIssue = targetItem.timezone && targetItem.zoneRaw !== canonicalTarget ? issueFor(sourceItem, targetItem, "TIMEZONE_FORMAT", `Timezone marker must not contain spaces or non-standard characters: use ${canonicalTarget}.`, targetItem.timezoneLocation, { expected: canonicalTarget, actual: targetItem.zoneRaw }) : null;
       const expectedMarker = expected ? formatTimezone(expected.label, expected.offsetMinutes) : null;
@@ -491,7 +498,7 @@
     da: ["s", "e", "er", "en", "et", "ene", "erne", "ens", "ets"],
     mn: ["\u044B\u043D", "\u0438\u0439\u043D", "\u044B", "\u0438\u0439", "\u0434", "\u0442", "\u0430\u0430\u0440", "\u044D\u044D\u0440", "\u0430\u0430\u0441", "\u044D\u044D\u0441", "\u0443\u0443\u0434", "\u04AF\u04AF\u0434", "\u0443\u0443\u0434\u044B\u043D", "\u04AF\u04AF\u0434\u0438\u0439\u043D"],
     "pt-BR": ["s", "es"],
-    ru: ["\u0430", "\u044F", "\u044B", "\u0438", "\u0435", "\u0443", "\u044E", "\u043E\u0439", "\u0435\u0439", "\u043E\u043C", "\u0435\u043C", "\u043E\u0432", "\u0435\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u0435\u043C\u0443", "\u044B\u043C\u0438", "\u0438\u043C\u0438", "\u044B\u0439", "\u0438\u0439", "\u0430\u044F", "\u043E\u0435", "\u044B\u0435", "\u044B\u0445", "\u0443\u044E", "\u0442\u044C", "\u0435\u0442", "\u044E\u0442", "\u0443\u0442", "\u043B\u0430", "\u043B\u0438"],
+    ru: ["\u0430", "\u044F", "\u044B", "\u0438", "\u0435", "\u0443", "\u044E", "\u044C", "\u044C\u044E", "\u043E\u043A", "\u043E\u0439", "\u0435\u0439", "\u043E\u043C", "\u0435\u043C", "\u043E\u0432", "\u0435\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u043E\u043C\u0443", "\u0435\u043C\u0443", "\u044B\u043C\u0438", "\u0438\u043C\u0438", "\u044B\u043C", "\u044B\u0439", "\u0438\u0439", "\u0430\u044F", "\u043E\u0435", "\u044B\u0435", "\u044B\u0445", "\u0443\u044E", "\u0442\u044C", "\u0435\u0442", "\u044E\u0442", "\u0443\u0442", "\u043B\u0430", "\u043B\u0438"],
     es: ["s", "es"],
     "es-AR": ["s", "es"],
     uk: ["\u0430", "\u044F", "\u0438", "\u0456", "\u0435", "\u0443", "\u044E", "\u043E\u044E", "\u0435\u044E", "\u043E\u043C", "\u0435\u043C", "\u0456\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u043E\u043C\u0443", "\u0438\u043C\u0438", "\u0438\u0439", "\u0456\u0439", "\u043E\u0457", "\u043E\u044E", "\u0456\u0448\u0435", "\u0442\u0438", "\u0454", "\u044E\u0442\u044C"],
@@ -502,6 +509,8 @@
   var ROOT_PHRASE = /^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u;
   var CYRILLIC_ENDING = /[аяоеыийьії]$/u;
   var CURATED_GLOSSARY_ROOTS = Object.freeze({
+    6: { ru: "\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A \u043D\u0430 \u044D\u043A\u0441\u043F\u0440\u0435\u0441\u0441" },
+    7: { ru: "\u0443\u0447\u0435\u0442\u043D \u0437\u0430\u043F\u0438\u0441" },
     279: { az: "Loyall\u0131q proqram" },
     318: { az: "say" },
     356: { az: "yer" },
@@ -521,6 +530,15 @@
     if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
     const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
     const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
+    if (["ru", "uk"].includes(language) && root.includes(" ")) {
+      const roots = root.split(/\s+/u);
+      const terms = term.split(/\s+/u);
+      if (roots.length === terms.length) {
+        const escapeWord = (word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(language === "ru" ? /е/gu : /\uFFFF/gu, "[\u0435\u0451]");
+        const words = roots.map((word, index) => word.length < 4 ? escapeWord(word) : `${escapeWord(word)}(?:${suffixes}){${word === terms[index] ? 0 : 1},1}`);
+        return new RegExp(`(?<![\\p{L}\\p{N}])${words.join("\\s+")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+      }
+    }
     const maxSuffixes = ["az", "mn", "uz", "uzb"].includes(language) ? 3 : 1;
     const continuation = root === term ? `(?:${suffixes}){0,${maxSuffixes}}` : `(?:${suffixes}){1,${maxSuffixes}}`;
     return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${continuation}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
@@ -563,6 +581,11 @@
     return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
   }
   function targetTermMatch(target, entry, language, matchCase) {
+    if (entry.id === 6 && language === "ru" && entry.targetTerm === "\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430 \u043D\u0430 \u044D\u043A\u0441\u043F\u0440\u0435\u0441\u0441") {
+      const form = /(?<![\p{L}\p{N}])Страхов(?:ка|ки|ке|ку|кой|кою|кам|ками|ках|ок)\s+на\s+экспресс(?:а|у|ом|е|ы|ов|ам|ами|ах)?(?![\p{L}\p{N}])/giu;
+      const irregular = [...target.matchAll(new RegExp(form.source, matchCase ? "gu" : "giu"))][0];
+      if (irregular) return irregular;
+    }
     const alternatives = entry.targetTerm.split(/\s*\/\s*/u);
     const terms = alternatives.length > 1 && alternatives.every((part) => /^[\p{L} ]{3,}$/u.test(part)) ? alternatives : [entry.targetTerm];
     const exact = terms.map((term) => [...target.matchAll(phrasePattern(term, matchCase))][0]).find(Boolean);
@@ -643,7 +666,7 @@
         if (!expectedTerms.length) continue;
         if (entries.some((entry) => targetTermMatch(target, entry, to, true))) continue;
         const caseOnlyMatch = entries.map((entry) => targetTermMatch(target, entry, to, false)).find(Boolean);
-        const enforceCase = Boolean(exactEntries.length) && (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
+        const enforceCase = Boolean(exactEntries.length) && !entries.some((entry) => entry.id === 6) && (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
         if (caseOnlyMatch) {
           if (!enforceCase) continue;
           matched.push(createIssue2({
