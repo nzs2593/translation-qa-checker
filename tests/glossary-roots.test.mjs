@@ -28,6 +28,19 @@ assert.equal(deriveGlossaryRoot("FB", "az"), "");
 assert.equal(deriveGlossaryRoot("yer", "az"), "");
 assert.equal(glossaryRootPattern("əmsal", "əmsal", "az").test("qəmsalla"), false);
 assert.equal(glossaryRootPattern("əmsal", "əmsal", "az").test("əmsalx"), false);
+assert.equal(glossaryRootPattern("apuesta combinada", "apuesta combinada", "es").test("apuestas combinadas"), true);
+assert.equal(glossaryRootPattern("aposta combinada", "aposta combinada", "pt-BR").test("apostas combinadas"), true);
+assert.equal(glossaryRootPattern("apuesta combinada", "apuesta combinada", "es").test("desapuestas combinadas"), false);
+assert.equal(glossaryRootPattern("apuesta combinada", "apuesta combinada", "es").test("apuestaes combinadas"), false);
+for (const [language, term, variants] of [
+  ["ru", "угловой", ["углового", "угловым", "угловые"]],
+  ["ru", "количество", ["количества", "количеству"]],
+  ["uk", "гаманець", ["гаманця", "гаманців", "гаманцями"]],
+  ["uk", "переможець", ["переможця", "переможців"]]
+]) {
+  const root = deriveGlossaryRoot(term, language);
+  for (const form of variants) assert.ok(glossaryRootPattern(root, term, language)?.test(form), `${language}: ${term} → ${form}`);
+}
 
 const campaign = [{ id: 378, terms: { "en-GB": "promotion", az: "kampaniya" } }];
 assert.equal(checkGlossary("This promotion", "Bu kampaniyasının", "en", "az", campaign).length, 0);

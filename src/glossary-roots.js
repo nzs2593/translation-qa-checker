@@ -6,10 +6,10 @@ const SUFFIXES = Object.freeze({
   da: ["s", "e", "er", "en", "et", "ene", "erne", "ens", "ets"],
   mn: ["ын", "ийн", "ы", "ий", "д", "т", "аар", "ээр", "аас", "ээс", "ууд", "үүд", "уудын", "үүдийн"],
   "pt-BR": ["s", "es"],
-  ru: ["а", "я", "ы", "и", "е", "у", "ю", "ь", "ью", "ок", "ой", "ей", "ом", "ем", "ов", "ев", "ам", "ям", "ах", "ях", "ами", "ями", "ого", "ому", "ему", "ыми", "ими", "ым", "ый", "ий", "ая", "ое", "ые", "ых", "ую", "ть", "ет", "ют", "ут", "ла", "ли"],
+  ru: ["а", "я", "ы", "и", "е", "у", "ю", "о", "й", "ь", "ью", "ок", "ой", "ей", "ом", "ем", "ов", "ев", "ам", "ям", "ах", "ях", "ами", "ями", "ого", "ому", "ему", "ыми", "ими", "ым", "им", "ый", "ий", "ая", "яя", "ое", "ее", "ые", "ие", "ых", "их", "ую", "юю", "ть", "ет", "ют", "ут", "ла", "ли"],
   es: ["s", "es"],
   "es-AR": ["s", "es"],
-  uk: ["а", "я", "и", "і", "е", "у", "ю", "ою", "ею", "ом", "ем", "ів", "ам", "ям", "ах", "ях", "ами", "ями", "ого", "ому", "ими", "ий", "ій", "ої", "ою", "іше", "ти", "є", "ють"],
+  uk: ["а", "я", "и", "і", "ї", "е", "о", "у", "ю", "й", "ь", "ець", "ця", "цю", "цем", "ців", "цям", "цями", "цях", "ою", "ею", "ом", "ем", "ів", "ам", "ям", "ах", "ях", "ами", "ями", "ого", "ому", "им", "их", "ими", "ий", "ій", "ої", "іше", "ти", "є", "ють"],
   uz: ["lar", "ning", "ga", "da", "dan", "ni", "larining", "larga", "larda", "lardan", "si", "i", "li", "siz"],
   uzb: ["лар", "нинг", "га", "да", "дан", "ни", "ларнинг", "ларга", "ларда", "лардан", "си", "и", "ли", "сиз"]
 });
@@ -32,25 +32,46 @@ export function deriveGlossaryRoot(term, language) {
   const words = term.split(/[ \u00a0-]/u);
   const last = words.at(-1);
   if (last.length < (words.length > 1 ? 4 : 5)) return "";
-  if ((language === "ru" || language === "uk") && last.length >= 6 && CYRILLIC_ENDING.test(last)) {
-    words[words.length - 1] = last.slice(0, -1);
+  if (language === "ru" || language === "uk") {
+    return term.split(/([ \u00a0-]+)/u).map((word) => {
+      if (word.length < 5 || !/^[\p{Ll}]+$/u.test(word)) return word;
+      const ending = language === "uk" && word.endsWith("ець") ? 3
+        : language === "ru" && /(?:ый|ий|ой|ая|яя|ое|ее|ые|ие)$/u.test(word) ? 2
+          : language === "uk" && /(?:ий|ій)$/u.test(word) ? 2
+            : CYRILLIC_ENDING.test(word) || /[ьо]$/u.test(word) ? 1 : 0;
+      return ending ? word.slice(0, -ending) : word;
+    }).join("");
   }
-  return term.slice(0, term.length - last.length) + words.at(-1);
+  return term;
 }
 
 export function glossaryRootPattern(root, term, language, matchCase = false) {
   if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
   const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
   const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
-  if (["ru", "uk"].includes(language) && root.includes(" ")) {
-    const roots = root.split(/\s+/u);
+  if (["es", "es-AR", "pt-BR"].includes(language) && root.includes(" ")) {
+    const words = root.split(/\s+/u);
     const terms = term.split(/\s+/u);
+    if (words.length === terms.length) {
+      const pieces = words.map((word) => {
+        const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const ending = /[aeiouáéíóúãõ]$/iu.test(word) ? "s" : "es";
+        return word.length >= 4 && !/s$/iu.test(word) ? `${escapedWord}(?:${ending})?` : escapedWord;
+      });
+      return new RegExp(`(?<![\\p{L}\\p{N}])${pieces.join("\\s+")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+    }
+  }
+  if (["ru", "uk"].includes(language) && /[ \u00a0-]/u.test(root)) {
+    const roots = root.split(/([ \u00a0-]+)/u);
+    const terms = term.split(/([ \u00a0-]+)/u);
     if (roots.length === terms.length) {
       const escapeWord = (word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
         .replace(language === "ru" ? /е/gu : /\uFFFF/gu, "[её]");
-      const words = roots.map((word, index) => word.length < 4 ? escapeWord(word)
-        : `${escapeWord(word)}(?:${suffixes}){${word === terms[index] ? 0 : 1},1}`);
-      return new RegExp(`(?<![\\p{L}\\p{N}])${words.join("\\s+")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+      const words = roots.map((word, index) => index % 2
+        ? (word.includes("-") ? "-" : "\\s+")
+        : word.length < 4 && word === terms[index] ? escapeWord(word)
+          : `${escapeWord(word)}(?:${suffixes}){${word === terms[index] ? 0 : 1},1}`);
+      return new RegExp(`(?<![\\p{L}\\p{N}])${words.join("")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
     }
   }
   const maxSuffixes = ["az", "mn", "uz", "uzb"].includes(language) ? 3 : 1;

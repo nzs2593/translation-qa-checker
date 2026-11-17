@@ -58,6 +58,9 @@ for (const form of ["учетная запись", "учетной записи"
   "учётная запись", "учётную запись"]) {
   assert.equal(checkGlossary("account", form, "en", "ru", russianForms).length, 0, form);
 }
+for (const form of ["обліковий запис", "облікового запису", "облікові записи", "облікових записів"]) {
+  assert.equal(checkGlossary("учетную запись", form, "ru", "uk", russianForms).length, 0, form);
+}
 assert.equal(checkGlossary("account", "счет", "en", "ru", russianForms)[0].error_type, "GLOSSARY_TRANSLATION_MISSING");
 assert.equal(checkGlossary("Qualifying bets must be placed at minimum odds of 2.00.", "Seçim mərcləri minimum 2.00 əmsalla edilməlidir.", "en", "az", approvedAzeriRows).some((issue) => issue.glossary?.sourceTerm === "odds"), false);
 assert.equal(checkGlossary("Mbet may change the Terms and Conditions", "Mbet Şərtlər və Qaydaları dəyişdirə bilər", "en", "az", approvedAzeriRows).some((issue) => issue.glossary?.sourceTerm === "Terms and Conditions"), false);

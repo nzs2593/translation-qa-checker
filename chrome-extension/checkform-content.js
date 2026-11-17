@@ -498,10 +498,10 @@
     da: ["s", "e", "er", "en", "et", "ene", "erne", "ens", "ets"],
     mn: ["\u044B\u043D", "\u0438\u0439\u043D", "\u044B", "\u0438\u0439", "\u0434", "\u0442", "\u0430\u0430\u0440", "\u044D\u044D\u0440", "\u0430\u0430\u0441", "\u044D\u044D\u0441", "\u0443\u0443\u0434", "\u04AF\u04AF\u0434", "\u0443\u0443\u0434\u044B\u043D", "\u04AF\u04AF\u0434\u0438\u0439\u043D"],
     "pt-BR": ["s", "es"],
-    ru: ["\u0430", "\u044F", "\u044B", "\u0438", "\u0435", "\u0443", "\u044E", "\u044C", "\u044C\u044E", "\u043E\u043A", "\u043E\u0439", "\u0435\u0439", "\u043E\u043C", "\u0435\u043C", "\u043E\u0432", "\u0435\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u043E\u043C\u0443", "\u0435\u043C\u0443", "\u044B\u043C\u0438", "\u0438\u043C\u0438", "\u044B\u043C", "\u044B\u0439", "\u0438\u0439", "\u0430\u044F", "\u043E\u0435", "\u044B\u0435", "\u044B\u0445", "\u0443\u044E", "\u0442\u044C", "\u0435\u0442", "\u044E\u0442", "\u0443\u0442", "\u043B\u0430", "\u043B\u0438"],
+    ru: ["\u0430", "\u044F", "\u044B", "\u0438", "\u0435", "\u0443", "\u044E", "\u043E", "\u0439", "\u044C", "\u044C\u044E", "\u043E\u043A", "\u043E\u0439", "\u0435\u0439", "\u043E\u043C", "\u0435\u043C", "\u043E\u0432", "\u0435\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u043E\u043C\u0443", "\u0435\u043C\u0443", "\u044B\u043C\u0438", "\u0438\u043C\u0438", "\u044B\u043C", "\u0438\u043C", "\u044B\u0439", "\u0438\u0439", "\u0430\u044F", "\u044F\u044F", "\u043E\u0435", "\u0435\u0435", "\u044B\u0435", "\u0438\u0435", "\u044B\u0445", "\u0438\u0445", "\u0443\u044E", "\u044E\u044E", "\u0442\u044C", "\u0435\u0442", "\u044E\u0442", "\u0443\u0442", "\u043B\u0430", "\u043B\u0438"],
     es: ["s", "es"],
     "es-AR": ["s", "es"],
-    uk: ["\u0430", "\u044F", "\u0438", "\u0456", "\u0435", "\u0443", "\u044E", "\u043E\u044E", "\u0435\u044E", "\u043E\u043C", "\u0435\u043C", "\u0456\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u043E\u043C\u0443", "\u0438\u043C\u0438", "\u0438\u0439", "\u0456\u0439", "\u043E\u0457", "\u043E\u044E", "\u0456\u0448\u0435", "\u0442\u0438", "\u0454", "\u044E\u0442\u044C"],
+    uk: ["\u0430", "\u044F", "\u0438", "\u0456", "\u0457", "\u0435", "\u043E", "\u0443", "\u044E", "\u0439", "\u044C", "\u0435\u0446\u044C", "\u0446\u044F", "\u0446\u044E", "\u0446\u0435\u043C", "\u0446\u0456\u0432", "\u0446\u044F\u043C", "\u0446\u044F\u043C\u0438", "\u0446\u044F\u0445", "\u043E\u044E", "\u0435\u044E", "\u043E\u043C", "\u0435\u043C", "\u0456\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u043E\u043C\u0443", "\u0438\u043C", "\u0438\u0445", "\u0438\u043C\u0438", "\u0438\u0439", "\u0456\u0439", "\u043E\u0457", "\u0456\u0448\u0435", "\u0442\u0438", "\u0454", "\u044E\u0442\u044C"],
     uz: ["lar", "ning", "ga", "da", "dan", "ni", "larining", "larga", "larda", "lardan", "si", "i", "li", "siz"],
     uzb: ["\u043B\u0430\u0440", "\u043D\u0438\u043D\u0433", "\u0433\u0430", "\u0434\u0430", "\u0434\u0430\u043D", "\u043D\u0438", "\u043B\u0430\u0440\u043D\u0438\u043D\u0433", "\u043B\u0430\u0440\u0433\u0430", "\u043B\u0430\u0440\u0434\u0430", "\u043B\u0430\u0440\u0434\u0430\u043D", "\u0441\u0438", "\u0438", "\u043B\u0438", "\u0441\u0438\u0437"]
   });
@@ -521,22 +521,38 @@
     const words = term.split(/[ \u00a0-]/u);
     const last = words.at(-1);
     if (last.length < (words.length > 1 ? 4 : 5)) return "";
-    if ((language === "ru" || language === "uk") && last.length >= 6 && CYRILLIC_ENDING.test(last)) {
-      words[words.length - 1] = last.slice(0, -1);
+    if (language === "ru" || language === "uk") {
+      return term.split(/([ \u00a0-]+)/u).map((word) => {
+        if (word.length < 5 || !/^[\p{Ll}]+$/u.test(word)) return word;
+        const ending = language === "uk" && word.endsWith("\u0435\u0446\u044C") ? 3 : language === "ru" && /(?:ый|ий|ой|ая|яя|ое|ее|ые|ие)$/u.test(word) ? 2 : language === "uk" && /(?:ий|ій)$/u.test(word) ? 2 : CYRILLIC_ENDING.test(word) || /[ьо]$/u.test(word) ? 1 : 0;
+        return ending ? word.slice(0, -ending) : word;
+      }).join("");
     }
-    return term.slice(0, term.length - last.length) + words.at(-1);
+    return term;
   }
   function glossaryRootPattern(root, term, language, matchCase = false) {
     if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
     const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
     const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
-    if (["ru", "uk"].includes(language) && root.includes(" ")) {
-      const roots = root.split(/\s+/u);
+    if (["es", "es-AR", "pt-BR"].includes(language) && root.includes(" ")) {
+      const words = root.split(/\s+/u);
       const terms = term.split(/\s+/u);
+      if (words.length === terms.length) {
+        const pieces = words.map((word) => {
+          const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const ending = /[aeiouáéíóúãõ]$/iu.test(word) ? "s" : "es";
+          return word.length >= 4 && !/s$/iu.test(word) ? `${escapedWord}(?:${ending})?` : escapedWord;
+        });
+        return new RegExp(`(?<![\\p{L}\\p{N}])${pieces.join("\\s+")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+      }
+    }
+    if (["ru", "uk"].includes(language) && /[ \u00a0-]/u.test(root)) {
+      const roots = root.split(/([ \u00a0-]+)/u);
+      const terms = term.split(/([ \u00a0-]+)/u);
       if (roots.length === terms.length) {
         const escapeWord = (word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(language === "ru" ? /е/gu : /\uFFFF/gu, "[\u0435\u0451]");
-        const words = roots.map((word, index) => word.length < 4 ? escapeWord(word) : `${escapeWord(word)}(?:${suffixes}){${word === terms[index] ? 0 : 1},1}`);
-        return new RegExp(`(?<![\\p{L}\\p{N}])${words.join("\\s+")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+        const words = roots.map((word, index) => index % 2 ? word.includes("-") ? "-" : "\\s+" : word.length < 4 && word === terms[index] ? escapeWord(word) : `${escapeWord(word)}(?:${suffixes}){${word === terms[index] ? 0 : 1},1}`);
+        return new RegExp(`(?<![\\p{L}\\p{N}])${words.join("")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
       }
     }
     const maxSuffixes = ["az", "mn", "uz", "uzb"].includes(language) ? 3 : 1;
