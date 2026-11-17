@@ -1,0 +1,3 @@
+name = "checkform-glossary-approval"
+main = "index.js"
+compatibility_date = "2026-11-17"

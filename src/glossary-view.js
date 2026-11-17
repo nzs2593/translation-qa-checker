@@ -108,7 +108,7 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
     tableBody.replaceChildren();
     if (!matching.length) {
       const tr = document.createElement("tr");
-      const td = document.createElement("td"); td.colSpan = 4; td.className = "glossary-empty"; td.textContent = t(locale, "glossaryEmpty");
+      const td = document.createElement("td"); td.colSpan = 5; td.className = "glossary-empty"; td.textContent = t(locale, "glossaryEmpty");
       tr.append(td); tableBody.append(tr);
       return;
     }
@@ -120,7 +120,13 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
       const to = makeTermCell(row, target, t(locale, "glossaryMissing"));
       const notes = document.createElement("td"); notes.className = "glossary-note";
       notes.textContent = [row.notes?.[sourceCode], row.notes?.[targetCode]].filter(Boolean).join(" · ");
-      tr.append(number, from, to, notes);
+      const actions = document.createElement("td");
+      const propose = document.createElement("button");
+      propose.type = "button"; propose.className = "glossary-propose-button";
+      propose.dataset.proposeRow = String(row.id);
+      propose.textContent = locale === "ru" ? "Предложить" : "Propose";
+      actions.append(propose);
+      tr.append(number, from, to, notes, actions);
       fragment.append(tr);
     }
     tableBody.append(fragment);

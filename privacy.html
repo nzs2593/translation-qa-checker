@@ -14,25 +14,26 @@
 </head>
 <body>
   <h1>CHECKform for Crowdin — Privacy Policy</h1>
-  <p>Last updated: 13 November 2026</p>
-  <p>CHECKform for Crowdin is a translation quality checker for visible segments in the marathonbetops.crowdin.com editor.</p>
+  <p>Last updated: 17 November 2026</p>
+  <p>CHECKform for Crowdin is a translation quality checker for visible segments in the configured Crowdin editor.</p>
 
   <h2>Data the extension uses</h2>
   <p>The extension reads source and translation text in visible Crowdin editor segments and the source and target locale identifiers in the editor URL. It uses this information to show potential quality findings in the same browser tab. It does not modify or save translations in Crowdin.</p>
 
   <h2>Storage and sharing</h2>
-  <p>Quality checks run locally in the browser. The extension does not send segment text, findings, or browsing activity to the publisher or another server. It does not use analytics or advertising.</p>
-  <p>Check preferences, glossary edits, and time zone rules are stored locally using Chrome extension storage. Users can import glossary and time zone settings from a JSON file they choose. These settings are not automatically synchronized with the CHECKform website.</p>
+  <p>Quality checks run locally in the browser. The extension does not send segment text or findings to the publisher or another server. It does not use analytics or advertising.</p>
+  <p>The extension downloads the published shared glossary JSON from nzs2593.github.io. This request contains no Crowdin segment text or findings. The last downloaded copy, check preferences, personal glossary edits, and time zone rules are stored locally using Chrome extension storage. Users can also import personal settings from a JSON file they choose.</p>
+  <p>On the CHECKform website, a user who chooses to propose a glossary change opens a GitHub Issue containing the selected term, language, proposed translation and optional root. Issues in the public repository are public. This action does not include source or target document contents.</p>
 
   <h2>Permissions</h2>
-  <p>The extension requests access only to marathonbetops.crowdin.com to read and annotate visible editor segments. The storage permission keeps user-selected check settings on the device.</p>
+  <p>The extension requests access to the configured Crowdin host to read and annotate visible editor segments, and to nzs2593.github.io to download the shared glossary. The storage permission keeps user-selected settings and the glossary cache on the device.</p>
 
   <h2>Contact</h2>
   <p>Questions and bug reports: <a href="https://github.com/nzs2593/translation-qa-checker/issues">CHECKform issue tracker</a>.</p>
 
   <hr>
   <h2 lang="ru">Политика конфиденциальности</h2>
-  <p lang="ru">Обновлено 13 ноября 2026 года. CHECKform читает видимые исходные и переведённые сегменты в редакторе marathonbetops.crowdin.com и показывает возможные замечания в той же вкладке. Проверка выполняется локально. Расширение не изменяет перевод, не передаёт текст сегментов или замечания издателю либо на другой сервер и не использует аналитику или рекламу.</p>
-  <p lang="ru">Настройки проверок, изменения глоссария и правила часовых поясов сохраняются локально в хранилище Chrome. Импорт настроек из JSON выполняется только по выбору пользователя; автоматической синхронизации с сайтом CHECKform нет. По вопросам работы расширения используйте <a href="https://github.com/nzs2593/translation-qa-checker/issues">раздел Issues</a>.</p>
+  <p lang="ru">Обновлено 17 ноября 2026 года. CHECKform читает видимые исходные и переведённые сегменты в настроенном редакторе Crowdin и показывает замечания в той же вкладке. Проверка выполняется локально. Расширение не изменяет перевод, не передаёт тексты сегментов или замечания на сервер и не использует аналитику или рекламу.</p>
+  <p lang="ru">Расширение загружает опубликованный общий глоссарий с nzs2593.github.io и сохраняет последнюю копию в хранилище Chrome. Запрос не содержит текстов сегментов или замечаний. Личные настройки, правки словаря и правила GMT также хранятся в Chrome. Предложение по словарю, отправленное через сайт CHECKform, открывает публичный GitHub Issue с термином, языком, переводом и необязательным корнем. По вопросам работы расширения используйте <a href="https://github.com/nzs2593/translation-qa-checker/issues">раздел Issues</a>.</p>
 </body>
 </html>

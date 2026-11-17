@@ -360,9 +360,13 @@
       const gapStart = Math.min(time.index + time[0].length, date.index + date[0].length);
       const gapEnd = Math.max(time.index, date.index);
       const length = Math.max(0, gapEnd - gapStart);
-      if (length > 32 || length >= shortest) continue;
-      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
-      if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd)) continue;
+      if (length > 96 || length >= shortest) continue;
+      const gap = text.slice(gapStart, gapEnd);
+      const parentheticalClock = /\([^()]{0,60}\d{1,2}:\d{2}(?::\d{2})?\s*(?:GMT|UTC|MSK|МСК)(?:[+\-−]\d{1,2})?[^()]{0,30}\)/giu;
+      const explanations = [...gap.matchAll(parentheticalClock)].filter((part) => !/\d{4}/u.test(part[0]));
+      const cleanedGap = explanations.reduce((value, part) => value.replace(part[0], " "), gap).replace(/<\/?\d+>/gu, " ");
+      if (cleanedGap.length > 32 || !/^[\s\u00a0,:]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə|día|dia)\s*|-c[ıiuü]\s*)*$/iu.test(cleanedGap)) continue;
+      if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd && !explanations.some((part) => other.index >= gapStart + part.index && other.index < gapStart + part.index + part[0].length))) continue;
       best = index;
       shortest = length;
     }
@@ -597,6 +601,7 @@
   var overrides = {};
   var rootOverrides = {};
   var customRows = [];
+  var sharedGlossary = { overrides: {}, rootOverrides: {}, customRows: [] };
   var compiledGlossaries = /* @__PURE__ */ new WeakMap();
   function browserStorage2() {
     try {
@@ -622,13 +627,14 @@
     return getGlossaryRows();
   }
   function getGlossaryRows() {
-    return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => {
-      const terms = { ...row.terms, ...overrides[row.id] ?? {} };
+    const sharedRows = Array.isArray(sharedGlossary.customRows) ? sharedGlossary.customRows : [];
+    return [...GLOSSARY_DEFAULTS, ...sharedRows, ...customRows].map((row) => {
+      const terms = { ...row.terms, ...sharedGlossary.overrides?.[row.id] ?? {}, ...overrides[row.id] ?? {} };
       const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
       return {
         ...row,
         terms,
-        roots: { ...suggestedRoots, ...row.roots, ...rootOverrides[row.id] ?? {} }
+        roots: { ...suggestedRoots, ...row.roots, ...sharedGlossary.rootOverrides?.[row.id] ?? {}, ...rootOverrides[row.id] ?? {} }
       };
     });
   }
@@ -636,7 +642,23 @@
     const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
     return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
   }
+  var ACCEPTED_VARIANTS = Object.freeze({
+    199: { "es-AR": ["Apuesta Gratis"], az: ["fribet"] },
+    318: { "es-AR": ["cantidad"] },
+    356: { "es-AR": ["puesto"] },
+    376: { "es-AR": ["pozo de premios"] },
+    425: { "es-AR": ["liquidarse"] },
+    445: { "es-AR": ["importe"] }
+  });
   function targetTermMatch(target, entry, language, matchCase) {
+    for (const variant of ACCEPTED_VARIANTS[entry.id]?.[language] ?? []) {
+      const exact2 = [...target.matchAll(phrasePattern(variant, matchCase))][0];
+      if (exact2) return exact2;
+      const root2 = deriveGlossaryRoot(variant, language);
+      const pattern2 = glossaryRootPattern(root2, variant, language, matchCase);
+      const inflected = pattern2 ? [...target.matchAll(pattern2)][0] : null;
+      if (inflected) return inflected;
+    }
     if (entry.id === 6 && language === "ru" && entry.targetTerm === "\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430 \u043D\u0430 \u044D\u043A\u0441\u043F\u0440\u0435\u0441\u0441") {
       const form = /(?<![\p{L}\p{N}])Страхов(?:ка|ки|ке|ку|кой|кою|кам|ками|ках|ок)\s+на\s+экспресс(?:а|у|ом|е|ы|ов|ам|ами|ах)?(?![\p{L}\p{N}])/giu;
       const irregular = [...target.matchAll(new RegExp(form.source, matchCase ? "gu" : "giu"))][0];
@@ -651,10 +673,15 @@
     return pattern ? [...target.matchAll(pattern)][0] : null;
   }
   function glossarySenseApplies(entry, source, match, targetLanguage2) {
+    const after = source.slice((match.index ?? 0) + match[0].length);
+    if (entry.id === 285 && /^\s+of\b/iu.test(after)) return false;
+    if (entry.id === 190 && /^\s+(?:in|higher\s+on)\b/iu.test(after)) return false;
+    if (entry.id === 382 && /^\s+bets?\b/iu.test(after)) return false;
+    if (entry.id === 172 && !/\b(curling|bowls)\b/iu.test(source)) return false;
     if (entry.id === 406 && !/\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source)) return false;
     if (entry.id === 353 && targetLanguage2 === "az" && /\bpromotional\s+period\b|\bpromotion\s+period\b/iu.test(source)) return false;
     if (entry.id === 177 && /\bin the event of\b/iu.test(source)) return false;
-    if (entry.id === 356 && /^(?:\s+(?:a|an|any|at least|accumulators?|bets?|wagers?))\b/iu.test(source.slice((match.index ?? 0) + match[0].length))) return false;
+    if (entry.id === 356 && /^\s+(?:a|an|any|at least|single|pre-match|live|accumulators?|bets?|wagers?)\b/iu.test(after)) return false;
     return true;
   }
   function glossaryGroups(rows, from, to) {
@@ -751,9 +778,9 @@
   }
 
   // src/segments.js?v=1.1
-  var LABEL_RE = new RegExp("^(\\p{L}[\\p{L} ]{1,28}):[ \\t]*$", "gmu");
+  var LABEL_RE = /^(\p{L}[\p{L} ]{1,28}):[ \t]*$/gmu;
   function normalizeLabel(label) {
-    const plain = label.trim().toLowerCase().normalize("NFD").replace(new RegExp("\\p{M}", "gu"), "");
+    const plain = label.trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
     return { texto: "text", boton: "button", encabezado: "header", preencabezado: "preheader" }[plain] ?? plain;
   }
   function extractLabeledSegments(text) {
@@ -804,7 +831,7 @@
   }
 
   // src/engine.js?v=3.0
-  var NUMBER_RE = /(?<![\w.,])(?:\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(?![\w]|[.,](?=\d))/g;
+  var NUMBER_RE = /(?<![\w.,])(?:\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)[Kk]?(?![\w]|[.,](?=\d))/g;
   var PLACEHOLDER_RE = /\{[^{}]+\}|%\w+|\$\{[^}]+\}/g;
   var MASKED_PLACEHOLDER_RE = /(?:(?:AR|ARS)\$)?[XХ](?:[.,][XХ]{3})+/gu;
   var DATE_WORDS = "january|february|march|april|may|june|july|august|september|october|november|december|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\u044F\u043D\u0432\u0430\u0440\u044F|\u0444\u0435\u0432\u0440\u0430\u043B\u044F|\u043C\u0430\u0440\u0442\u0430|\u0430\u043F\u0440\u0435\u043B\u044F|\u043C\u0430\u044F|\u0438\u044E\u043D\u044F|\u0438\u044E\u043B\u044F|\u0430\u0432\u0433\u0443\u0441\u0442\u0430|\u0441\u0435\u043D\u0442\u044F\u0431\u0440\u044F|\u043E\u043A\u0442\u044F\u0431\u0440\u044F|\u043D\u043E\u044F\u0431\u0440\u044F|\u0434\u0435\u043A\u0430\u0431\u0440\u044F";
@@ -832,25 +859,27 @@
   }
   function normalizeNumber(token, profile) {
     const value = token.replace(/[\s\u00a0]/g, "");
+    const compactThousands = /[Kk]$/u.test(value);
+    const digits = compactThousands ? value.slice(0, -1) : value;
     const decimalSeparator = profile.decimal ?? ".";
     const alternateSeparator = decimalSeparator === "." ? "," : ".";
-    const hasDecimal = value.includes(decimalSeparator);
-    const hasAlternate = value.includes(alternateSeparator);
+    const hasDecimal = digits.includes(decimalSeparator);
+    const hasAlternate = digits.includes(alternateSeparator);
+    let normalized;
     if (hasDecimal && hasAlternate) {
-      const lastSeparator = Math.max(value.lastIndexOf(decimalSeparator), value.lastIndexOf(alternateSeparator));
-      return canonicalNumber(`${value.slice(0, lastSeparator).replace(/[.,]/g, "")}.${value.slice(lastSeparator + 1)}`);
-    }
-    if (hasAlternate) {
-      const parts = value.split(alternateSeparator);
+      const lastSeparator = Math.max(digits.lastIndexOf(decimalSeparator), digits.lastIndexOf(alternateSeparator));
+      normalized = canonicalNumber(`${digits.slice(0, lastSeparator).replace(/[.,]/g, "")}.${digits.slice(lastSeparator + 1)}`);
+    } else if (hasAlternate) {
+      const parts = digits.split(alternateSeparator);
       const isGrouped = parts.length > 1 && parts.slice(1).every((part) => part.length === 3);
-      if (isGrouped) return canonicalNumber(parts.join(""));
-      const [integer, fraction] = parts;
-      return canonicalNumber(`${integer}.${fraction}`);
+      normalized = isGrouped ? canonicalNumber(parts.join("")) : canonicalNumber(`${parts[0]}.${parts[1]}`);
+    } else {
+      normalized = canonicalNumber(hasDecimal ? digits.replace(decimalSeparator, ".") : digits);
     }
-    return canonicalNumber(hasDecimal ? value.replace(decimalSeparator, ".") : value);
+    return compactThousands ? String(Number(normalized) * 1e3) : normalized;
   }
   function numberTokens(text, profile) {
-    const masked = text.replace(TEMPORAL_TOKEN_RE, (token) => " ".repeat(token.length)).replace(SCORE_RE, (token) => " ".repeat(token.length));
+    const masked = text.replace(TEMPORAL_TOKEN_RE, (token) => " ".repeat(token.length)).replace(SCORE_RE, (token) => " ".repeat(token.length)).replace(/(\d+)(st|nd|rd|th)\b/giu, (_, digits, suffix) => digits + " ".repeat(suffix.length)).replace(/(\d+)(\.(?:er|°)|°)/giu, (_, digits, suffix) => digits + " ".repeat(suffix.length));
     return [...masked.matchAll(NUMBER_RE)].map((match) => ({
       raw: match[0],
       normalized: normalizeNumber(match[0], profile),
@@ -1150,6 +1179,7 @@
     return sourceProfile.language === "en" && sourceMarker === "$" && targetMarker === "US$";
   }
   function validCurrencyNumber(raw, profile) {
+    if (["en", "es-AR"].includes(profile.locale) && /^\d+(?:[.,]\d+)?[Kk]$/u.test(raw)) return true;
     const grouping = profile.grouping === "nbsp" ? "\xA0" : profile.grouping;
     const escapedGrouping = grouping.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const escapedDecimal = profile.decimal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1230,8 +1260,8 @@
   }
   function runRuleEngine({ source, target, sourceLanguage: sourceLanguage2 = "en", targetLanguage: targetLanguage2 = "ru", glossaryRows, checkCurrency = true }) {
     if (!source.trim() || !target.trim()) return [];
-    const sourceProfile = { ...getProfile(sourceLanguage2), language: sourceLanguage2.split("-")[0] };
-    const targetProfile = { ...getProfile(targetLanguage2), language: targetLanguage2.split("-")[0] };
+    const sourceProfile = { ...getProfile(sourceLanguage2), language: sourceLanguage2.split("-")[0], locale: sourceLanguage2 };
+    const targetProfile = { ...getProfile(targetLanguage2), language: targetLanguage2.split("-")[0], locale: targetLanguage2 };
     const timezoneRule = getTimezoneRule(targetLanguage2);
     const issues = [];
     const headerBlocks = pairHeaderBlocks(source, target);
@@ -1400,6 +1430,7 @@
   var overrides2 = {};
   var rootOverrides2 = {};
   var customRows2 = [];
+  var sharedGlossary2 = { overrides: {}, rootOverrides: {}, customRows: [] };
   function browserStorage3() {
     try {
       return globalThis.localStorage;
@@ -1411,13 +1442,14 @@
     return targetLanguage2 === "uk" ? "ru" : "en";
   }
   function getGlossaryRows2() {
-    return [...GLOSSARY_DEFAULTS, ...customRows2].map((row) => {
-      const terms = { ...row.terms, ...overrides2[row.id] ?? {} };
+    const sharedRows = Array.isArray(sharedGlossary2.customRows) ? sharedGlossary2.customRows : [];
+    return [...GLOSSARY_DEFAULTS, ...sharedRows, ...customRows2].map((row) => {
+      const terms = { ...row.terms, ...sharedGlossary2.overrides?.[row.id] ?? {}, ...overrides2[row.id] ?? {} };
       const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
       return {
         ...row,
         terms,
-        roots: { ...suggestedRoots, ...row.roots, ...rootOverrides2[row.id] ?? {} }
+        roots: { ...suggestedRoots, ...row.roots, ...sharedGlossary2.rootOverrides?.[row.id] ?? {}, ...rootOverrides2[row.id] ?? {} }
       };
     });
   }
@@ -1481,8 +1513,16 @@
     return row;
   }
   function glossaryEntryCount() {
-    return GLOSSARY_DEFAULTS.length + customRows2.length;
+    return GLOSSARY_DEFAULTS.length + (sharedGlossary2.customRows?.length ?? 0) + customRows2.length;
   }
+  var ACCEPTED_VARIANTS2 = Object.freeze({
+    199: { "es-AR": ["Apuesta Gratis"], az: ["fribet"] },
+    318: { "es-AR": ["cantidad"] },
+    356: { "es-AR": ["puesto"] },
+    376: { "es-AR": ["pozo de premios"] },
+    425: { "es-AR": ["liquidarse"] },
+    445: { "es-AR": ["importe"] }
+  });
 
   // src/i18n.js
   var INTERFACE_LOCALES = Object.freeze(["en", "ru"]);
@@ -1899,7 +1939,7 @@
       if (!matching.length) {
         const tr = document.createElement("tr");
         const td = document.createElement("td");
-        td.colSpan = 4;
+        td.colSpan = 5;
         td.className = "glossary-empty";
         td.textContent = t(locale, "glossaryEmpty");
         tr.append(td);
@@ -1917,7 +1957,14 @@
         const notes = document.createElement("td");
         notes.className = "glossary-note";
         notes.textContent = [row.notes?.[sourceCode], row.notes?.[targetCode]].filter(Boolean).join(" \xB7 ");
-        tr.append(number, from, to, notes);
+        const actions = document.createElement("td");
+        const propose = document.createElement("button");
+        propose.type = "button";
+        propose.className = "glossary-propose-button";
+        propose.dataset.proposeRow = String(row.id);
+        propose.textContent = locale === "ru" ? "\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0438\u0442\u044C" : "Propose";
+        actions.append(propose);
+        tr.append(number, from, to, notes, actions);
         fragment.append(tr);
       }
       tableBody.append(fragment);
@@ -1997,15 +2044,220 @@
     return { refresh, syncLanguage };
   }
 
-  // src/gmt-view.js
+  // src/glossary.js
+  var GLOSSARY_LANGUAGES3 = Object.freeze({
+    en: "en-GB",
+    az: "az",
+    da: "da",
+    mn: "mn",
+    "pt-BR": "pt-BR",
+    ru: "ru",
+    es: "es",
+    "es-AR": "es-AR",
+    uk: "uk",
+    "uz-Latn": "uz",
+    "uz-Cyrl": "uzb"
+  });
+  var STORAGE_KEY4 = "checkform-glossary-edits-v1";
+  var overrides3 = {};
+  var rootOverrides3 = {};
+  var customRows3 = [];
+  var sharedGlossary3 = { overrides: {}, rootOverrides: {}, customRows: [] };
+  function browserStorage4() {
+    try {
+      return globalThis.localStorage;
+    } catch {
+      return null;
+    }
+  }
+  function getGlossaryRows3() {
+    const sharedRows = Array.isArray(sharedGlossary3.customRows) ? sharedGlossary3.customRows : [];
+    return [...GLOSSARY_DEFAULTS, ...sharedRows, ...customRows3].map((row) => {
+      const terms = { ...row.terms, ...sharedGlossary3.overrides?.[row.id] ?? {}, ...overrides3[row.id] ?? {} };
+      const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
+      return {
+        ...row,
+        terms,
+        roots: { ...suggestedRoots, ...row.roots, ...sharedGlossary3.rootOverrides?.[row.id] ?? {}, ...rootOverrides3[row.id] ?? {} }
+      };
+    });
+  }
+  function setSharedGlossary(data, storage = null) {
+    if (!data || data.schema !== "checkform-shared-glossary-v1" || !Number.isInteger(data.version) || !data.overrides || typeof data.overrides !== "object" || Array.isArray(data.overrides) || !data.rootOverrides || typeof data.rootOverrides !== "object" || Array.isArray(data.rootOverrides) || !Array.isArray(data.customRows)) return false;
+    sharedGlossary3 = { overrides: data.overrides, rootOverrides: data.rootOverrides, customRows: data.customRows };
+    for (const [id, languages] of Object.entries(data.overrides)) {
+      for (const language of Object.keys(languages)) delete overrides3[id]?.[language];
+      if (overrides3[id] && !Object.keys(overrides3[id]).length) delete overrides3[id];
+    }
+    for (const [id, languages] of Object.entries(data.rootOverrides)) {
+      for (const language of Object.keys(languages)) delete rootOverrides3[id]?.[language];
+      if (rootOverrides3[id] && !Object.keys(rootOverrides3[id]).length) delete rootOverrides3[id];
+    }
+    if (storage) persist2(storage);
+    return true;
+  }
+  function persist2(storage = browserStorage4()) {
+    try {
+      storage?.setItem(STORAGE_KEY4, JSON.stringify({ overrides: overrides3, rootOverrides: rootOverrides3, customRows: customRows3 }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  var ACCEPTED_VARIANTS3 = Object.freeze({
+    199: { "es-AR": ["Apuesta Gratis"], az: ["fribet"] },
+    318: { "es-AR": ["cantidad"] },
+    356: { "es-AR": ["puesto"] },
+    376: { "es-AR": ["pozo de premios"] },
+    425: { "es-AR": ["liquidarse"] },
+    445: { "es-AR": ["importe"] }
+  });
+
+  // src/glossary-collab.js
   var $2 = (id) => document.getElementById(id);
+  var REPO = "nzs2593/translation-qa-checker";
+  var MARKER = "checkform-glossary-proposal-v1";
+  var DATA_URL = new URL("data/shared-glossary.json", document.baseURI);
+  var sharedVersion = 1;
+  function proposalFromIssue(issue) {
+    const match = issue.body?.match(/```checkform-glossary-proposal-v1\s*([\s\S]*?)```/u);
+    if (!match) return null;
+    try {
+      const data = JSON.parse(match[1]);
+      if (data.schema !== MARKER || !["add", "replace"].includes(data.mode) || !Number.isInteger(data.rowId) || !Number.isInteger(data.baseVersion) || !Object.values(GLOSSARY_LANGUAGES3).includes(data.language) || typeof data.value !== "string" || !data.value.trim()) return null;
+      return data;
+    } catch {
+      return null;
+    }
+  }
+  async function refreshSharedGlossary(onChange = () => {
+  }) {
+    try {
+      const response = await fetch(DATA_URL, { cache: "no-store" });
+      if (!response.ok) return false;
+      const data = await response.json();
+      if (!setSharedGlossary(data, globalThis.localStorage)) return false;
+      sharedVersion = data.version;
+      onChange();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function initGlossaryCollab({ onChange, refreshView }) {
+    const form = $2("glossary-proposal-form");
+    const status = $2("glossary-collab-status");
+    const list = $2("glossary-proposal-list");
+    let approvalApi = "";
+    fetch(new URL("data/collaboration-config.json", document.baseURI)).then((response) => response.ok ? response.json() : {}).then((config) => {
+      approvalApi = /^https:\/\//u.test(config.approvalApi ?? "") ? config.approvalApi : "";
+    }).catch(() => {
+    });
+    $2("glossary-table-body").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-propose-row]");
+      if (!button) return;
+      const row = getGlossaryRows3().find((item) => String(item.id) === button.dataset.proposeRow);
+      const target = $2("glossary-language").value;
+      const source = target === "uk" ? "ru" : "en";
+      if (!row || !GLOSSARY_LANGUAGES3[target]) return;
+      $2("glossary-proposal-row").value = String(row.id);
+      $2("glossary-proposal-language").value = GLOSSARY_LANGUAGES3[target];
+      $2("glossary-proposal-source").value = row.terms[GLOSSARY_LANGUAGES3[source]] ?? "";
+      $2("glossary-proposal-current").value = row.terms[GLOSSARY_LANGUAGES3[target]] ?? "";
+      $2("glossary-proposal-value").value = "";
+      $2("glossary-proposal-root").value = "";
+      $2("glossary-proposal-title").textContent = `${row.terms[GLOSSARY_LANGUAGES3[source]] ?? "\u0422\u0435\u0440\u043C\u0438\u043D"} \xB7 ${target}`;
+      form.hidden = false;
+      form.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      $2("glossary-proposal-value").focus();
+    });
+    $2("glossary-proposal-cancel").addEventListener("click", () => {
+      form.hidden = true;
+    });
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const value = $2("glossary-proposal-value").value.trim();
+      const root = $2("glossary-proposal-root").value.trim();
+      if (!value || root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root)) {
+        status.textContent = "\u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u0438 \u043A\u043E\u0440\u0435\u043D\u044C.";
+        return;
+      }
+      const data = {
+        schema: MARKER,
+        mode: form.elements.namedItem("glossary-proposal-mode").value,
+        rowId: Number($2("glossary-proposal-row").value),
+        language: $2("glossary-proposal-language").value,
+        sourceTerm: $2("glossary-proposal-source").value,
+        previous: $2("glossary-proposal-current").value,
+        value,
+        root: root || null,
+        baseVersion: sharedVersion
+      };
+      const body = `\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0438\u0437 CHECKform.
+
+\`\`\`${MARKER}
+${JSON.stringify(data, null, 2)}
+\`\`\``;
+      const title = `[\u0413\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439] ${data.sourceTerm} \u2192 ${value} (${data.language})`;
+      const url = `https://github.com/${REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+      status.textContent = "\u041E\u0442\u043A\u0440\u044B\u0442\u0430 \u0444\u043E\u0440\u043C\u0430 GitHub. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0442\u0430\u043C; \u043E\u0431\u0449\u0438\u0439 \u0441\u043B\u043E\u0432\u0430\u0440\u044C \u043F\u043E\u043A\u0430 \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0451\u043D.";
+    });
+    async function loadProposals() {
+      status.textContent = "\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u044E \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F\u2026";
+      try {
+        const response = await fetch(`https://api.github.com/repos/${REPO}/issues?state=open&per_page=100`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`GitHub: ${response.status}`);
+        const issues = (await response.json()).filter((issue) => !issue.pull_request).map((issue) => ({ issue, proposal: proposalFromIssue(issue) })).filter((item) => item.proposal);
+        list.replaceChildren();
+        status.textContent = issues.length ? `${issues.length} \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u043D\u0430 \u0440\u0430\u0441\u0441\u043C\u043E\u0442\u0440\u0435\u043D\u0438\u0438` : "\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442.";
+        for (const { issue, proposal } of issues) {
+          const card = document.createElement("article");
+          card.className = "glossary-proposal-card";
+          const summary = document.createElement("p");
+          summary.textContent = `#${issue.number} \xB7 ${proposal.sourceTerm} \xB7 ${proposal.language} \xB7 ${proposal.mode === "add" ? "\u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u0430\u0440\u0438\u0430\u043D\u0442" : "\u0437\u0430\u043C\u0435\u043D\u0438\u0442\u044C"}: ${proposal.previous || "\u2014"} \u2192 ${proposal.value}${proposal.root ? ` \xB7 \u043A\u043E\u0440\u0435\u043D\u044C: ${proposal.root}` : ""}`;
+          const link = document.createElement("a");
+          link.href = issue.html_url;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435";
+          const approval = document.createElement("a");
+          approval.className = "glossary-approve-link";
+          approval.textContent = "\u0421\u043E\u0433\u043B\u0430\u0441\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u043A\u043E\u0434\u0443";
+          approval.href = approvalApi ? `${approvalApi.replace(/\/$/u, "")}/review?issue=${issue.number}` : "#glossary-collab-status";
+          approval.target = approvalApi ? "_blank" : "_self";
+          approval.rel = "noopener noreferrer";
+          if (!approvalApi) approval.addEventListener("click", () => {
+            status.textContent = "\u0421\u0435\u0440\u0432\u0435\u0440 \u0441\u043E\u0433\u043B\u0430\u0441\u043E\u0432\u0430\u043D\u0438\u044F \u0435\u0449\u0451 \u043D\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D. \u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u043C\u043E\u0436\u043D\u043E \u043F\u0440\u043E\u0441\u043C\u0430\u0442\u0440\u0438\u0432\u0430\u0442\u044C, \u043D\u043E \u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u043A\u043E\u0434\u0443 \u043F\u043E\u043A\u0430 \u043D\u0435\u043B\u044C\u0437\u044F.";
+          });
+          card.append(summary, link, approval);
+          list.append(card);
+        }
+        if (issues.length && !approvalApi) status.textContent += " \xB7 \u0423\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435 \u043F\u043E \u043A\u043E\u0434\u0443 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u0441\u0435\u0440\u0432\u0435\u0440\u043D\u043E\u0433\u043E \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430.";
+      } catch (error) {
+        status.textContent = `\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F: ${error.message}`;
+      }
+    }
+    $2("glossary-load-proposals").addEventListener("click", loadProposals);
+    refreshSharedGlossary(() => {
+      onChange();
+      refreshView();
+    });
+    return { refreshSharedGlossary: () => refreshSharedGlossary(() => {
+      onChange();
+      refreshView();
+    }) };
+  }
+
+  // src/gmt-view.js
+  var $3 = (id) => document.getElementById(id);
   function clockAt(offsetMinutes) {
     const total = (20 * 60 + 59 + offsetMinutes + 1440) % 1440;
     return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
   }
   function initGmtView({ getLocale: getLocale2, onChange }) {
-    const body = $2("gmt-table-body");
-    const status = $2("gmt-status");
+    const body = $3("gmt-table-body");
+    const status = $3("gmt-status");
     function refresh() {
       const locale = getLocale2();
       for (const [id, key] of [
@@ -2021,7 +2273,7 @@
         ["gmt-example-heading", "gmtExample"],
         ["gmt-examples-title", "gmtExamplesTitle"],
         ["gmt-examples-copy", "gmtExamplesCopy"]
-      ]) $2(id).textContent = t(locale, key);
+      ]) $3(id).textContent = t(locale, key);
       body.replaceChildren();
       for (const [code, profile] of Object.entries(LANGUAGE_PROFILES)) {
         const rule = getTimezoneRule(code);
@@ -2093,7 +2345,7 @@
   }
 
   // src/language-rules-view.js
-  var $3 = (id) => document.getElementById(id);
+  var $4 = (id) => document.getElementById(id);
   var GUIDE = {
     en: "English Language Style Guide",
     ru: "Russian Language Style Guide",
@@ -2157,8 +2409,8 @@
         ["rules-notes-heading", "rulesNotes"],
         ["language-rules-checks-title", "rulesChecksTitle"],
         ["language-rules-checks-copy", "rulesChecksCopy"]
-      ]) $3(id).textContent = t(locale, key);
-      const body = $3("language-rules-body");
+      ]) $4(id).textContent = t(locale, key);
+      const body = $4("language-rules-body");
       body.replaceChildren();
       for (const [code, profile] of Object.entries(LANGUAGE_PROFILES)) {
         const row = document.createElement("tr");
@@ -2644,17 +2896,17 @@ ${GUIDE[code]}`
   }
 
   // src/main.js
-  var $4 = (id) => document.getElementById(id);
-  var sourceLanguage = $4("source-language");
-  var targetLanguage = $4("target-language");
-  var sourceText = $4("source-text");
-  var targetText = $4("target-text");
-  var issuesList = $4("issues-list");
+  var $5 = (id) => document.getElementById(id);
+  var sourceLanguage = $5("source-language");
+  var targetLanguage = $5("target-language");
+  var sourceText = $5("source-text");
+  var targetText = $5("target-text");
+  var issuesList = $5("issues-list");
   var fileInputs = {
-    source: $4("source-file-input"),
-    target: $4("target-file-input")
+    source: $5("source-file-input"),
+    target: $5("target-file-input")
   };
-  var exportPdfButton = $4("export-pdf");
+  var exportPdfButton = $5("export-pdf");
   var pendingFileTexts = { source: null, target: null };
   var rawFileTexts = { source: null, target: null };
   var issuePreferences = /* @__PURE__ */ new Map();
@@ -2707,48 +2959,48 @@ ${GUIDE[code]}`
   }
   function applyTranslations() {
     document.documentElement.lang = currentLocale;
-    $4("eyebrow").textContent = t2(currentLocale, "eyebrow");
-    $4("app-title").textContent = t2(currentLocale, "title");
-    $4("app-subtitle").textContent = t2(currentLocale, "subtitle");
-    $4("workspace-grid").setAttribute("aria-label", t2(currentLocale, "workspace"));
-    $4("original-label").textContent = t2(currentLocale, "original");
-    $4("source-heading").textContent = t2(currentLocale, "sourceLanguage");
-    $4("target-language-heading").textContent = t2(currentLocale, "goalLanguage");
-    $4("target-heading").textContent = t2(currentLocale, "goalLanguage");
-    $4("source-language-label").textContent = t2(currentLocale, "sourceLanguage");
-    $4("target-language-label").textContent = t2(currentLocale, "goalLanguage");
-    $4("source-language").setAttribute("aria-label", t2(currentLocale, "sourceLanguage"));
-    $4("target-language").setAttribute("aria-label", t2(currentLocale, "goalLanguage"));
-    $4("source-open-file").textContent = t2(currentLocale, "openFile");
-    $4("target-open-file").textContent = t2(currentLocale, "openFile");
-    $4("source-drop-hint").textContent = t2(currentLocale, "dropOriginal");
-    $4("goal-language-label").textContent = t2(currentLocale, "goalLanguage").toUpperCase();
-    $4("target-review-label").textContent = t2(currentLocale, "targetReview");
-    $4("profile-copy").textContent = t2(currentLocale, "chooseProfile");
-    $4("goal-drop-copy").textContent = t2(currentLocale, "dropGoalCopy");
-    $4("goal-drop-hint").textContent = t2(currentLocale, "dropGoal");
-    $4("supported-profiles").textContent = t2(currentLocale, "supportedProfiles");
-    $4("profiles-count").textContent = t2(currentLocale, "profilesCount");
-    $4("issues-label").textContent = t2(currentLocale, "issues");
-    $4("review-findings").textContent = t2(currentLocale, "reviewFindings");
-    $4("export-pdf").textContent = t2(currentLocale, "exportPdf");
-    $4("export-extension-settings").textContent = t2(currentLocale, "exportExtensionSettings");
-    $4("footer-copy").textContent = t2(currentLocale, "footer");
-    $4("error-table-open").textContent = t2(currentLocale, "errorTable");
-    $4("reset-workspace").textContent = t2(currentLocale, "startAgain");
-    $4("check-currency-label").textContent = t2(currentLocale, "checkCurrency");
-    $4("dock-findings").textContent = t2(currentLocale, findingsDocked ? "bottomView" : "sideView");
-    $4("drag-findings").title = t2(currentLocale, "dragFindings");
-    $4("drag-findings").setAttribute("aria-label", t2(currentLocale, "dragFindings"));
-    $4("error-table-kicker").textContent = currentLocale === "ru" ? "\u0421\u041F\u0420\u0410\u0412\u041E\u0427\u041D\u0418\u041A \u041E\u0428\u0418\u0411\u041E\u041A" : "ERROR REFERENCE";
-    $4("error-table-title").textContent = t2(currentLocale, "errorTableTitle");
-    $4("error-table-description").textContent = t2(currentLocale, "errorTableDescription");
-    $4("profile-rules-title").textContent = t2(currentLocale, "profileRulesTitle");
-    $4("error-table-close").setAttribute("aria-label", t2(currentLocale, "close"));
-    $4("error-type-heading").textContent = t2(currentLocale, "errorType");
-    $4("pool-heading").textContent = t2(currentLocale, "pool");
-    $4("severity-heading").textContent = t2(currentLocale, "severity");
-    $4("description-heading").textContent = t2(currentLocale, "description");
+    $5("eyebrow").textContent = t2(currentLocale, "eyebrow");
+    $5("app-title").textContent = t2(currentLocale, "title");
+    $5("app-subtitle").textContent = t2(currentLocale, "subtitle");
+    $5("workspace-grid").setAttribute("aria-label", t2(currentLocale, "workspace"));
+    $5("original-label").textContent = t2(currentLocale, "original");
+    $5("source-heading").textContent = t2(currentLocale, "sourceLanguage");
+    $5("target-language-heading").textContent = t2(currentLocale, "goalLanguage");
+    $5("target-heading").textContent = t2(currentLocale, "goalLanguage");
+    $5("source-language-label").textContent = t2(currentLocale, "sourceLanguage");
+    $5("target-language-label").textContent = t2(currentLocale, "goalLanguage");
+    $5("source-language").setAttribute("aria-label", t2(currentLocale, "sourceLanguage"));
+    $5("target-language").setAttribute("aria-label", t2(currentLocale, "goalLanguage"));
+    $5("source-open-file").textContent = t2(currentLocale, "openFile");
+    $5("target-open-file").textContent = t2(currentLocale, "openFile");
+    $5("source-drop-hint").textContent = t2(currentLocale, "dropOriginal");
+    $5("goal-language-label").textContent = t2(currentLocale, "goalLanguage").toUpperCase();
+    $5("target-review-label").textContent = t2(currentLocale, "targetReview");
+    $5("profile-copy").textContent = t2(currentLocale, "chooseProfile");
+    $5("goal-drop-copy").textContent = t2(currentLocale, "dropGoalCopy");
+    $5("goal-drop-hint").textContent = t2(currentLocale, "dropGoal");
+    $5("supported-profiles").textContent = t2(currentLocale, "supportedProfiles");
+    $5("profiles-count").textContent = t2(currentLocale, "profilesCount");
+    $5("issues-label").textContent = t2(currentLocale, "issues");
+    $5("review-findings").textContent = t2(currentLocale, "reviewFindings");
+    $5("export-pdf").textContent = t2(currentLocale, "exportPdf");
+    $5("export-extension-settings").textContent = t2(currentLocale, "exportExtensionSettings");
+    $5("footer-copy").textContent = t2(currentLocale, "footer");
+    $5("error-table-open").textContent = t2(currentLocale, "errorTable");
+    $5("reset-workspace").textContent = t2(currentLocale, "startAgain");
+    $5("check-currency-label").textContent = t2(currentLocale, "checkCurrency");
+    $5("dock-findings").textContent = t2(currentLocale, findingsDocked ? "bottomView" : "sideView");
+    $5("drag-findings").title = t2(currentLocale, "dragFindings");
+    $5("drag-findings").setAttribute("aria-label", t2(currentLocale, "dragFindings"));
+    $5("error-table-kicker").textContent = currentLocale === "ru" ? "\u0421\u041F\u0420\u0410\u0412\u041E\u0427\u041D\u0418\u041A \u041E\u0428\u0418\u0411\u041E\u041A" : "ERROR REFERENCE";
+    $5("error-table-title").textContent = t2(currentLocale, "errorTableTitle");
+    $5("error-table-description").textContent = t2(currentLocale, "errorTableDescription");
+    $5("profile-rules-title").textContent = t2(currentLocale, "profileRulesTitle");
+    $5("error-table-close").setAttribute("aria-label", t2(currentLocale, "close"));
+    $5("error-type-heading").textContent = t2(currentLocale, "errorType");
+    $5("pool-heading").textContent = t2(currentLocale, "pool");
+    $5("severity-heading").textContent = t2(currentLocale, "severity");
+    $5("description-heading").textContent = t2(currentLocale, "description");
     sourceText.placeholder = t2(currentLocale, "sourcePlaceholder");
     targetText.placeholder = t2(currentLocale, "targetPlaceholder");
     for (const button of document.querySelectorAll(".locale-button")) {
@@ -2763,7 +3015,7 @@ ${GUIDE[code]}`
     renderErrorTable();
   }
   function renderErrorTable() {
-    const body = $4("error-table-body");
+    const body = $5("error-table-body");
     if (!body) return;
     body.replaceChildren();
     for (const entry of ISSUE_CATALOG2) {
@@ -2787,16 +3039,16 @@ ${GUIDE[code]}`
     const rules = document.querySelector(".profile-rules");
     const hasBothTexts = Boolean(sourceText.value.trim() && targetText.value.trim());
     if (rules) rules.hidden = !hasBothTexts;
-    $4("header-main")?.classList.toggle("has-profile-rules", hasBothTexts);
+    $5("header-main")?.classList.toggle("has-profile-rules", hasBothTexts);
   }
   function syncWorkspaceLayout() {
     const hasBothTexts = Boolean(sourceText.value.trim() && targetText.value.trim());
-    const tools = hasBothTexts ? $4("target-review-tools") : document.querySelector(".language-card .card-tools");
-    for (const id of ["target-language-label", "target-language", "target-open-file", "target-file-input"]) tools.append($4(id));
-    $4("workspace-grid").classList.toggle("both-loaded", hasBothTexts);
+    const tools = hasBothTexts ? $5("target-review-tools") : document.querySelector(".language-card .card-tools");
+    for (const id of ["target-language-label", "target-language", "target-open-file", "target-file-input"]) tools.append($5(id));
+    $5("workspace-grid").classList.toggle("both-loaded", hasBothTexts);
   }
   function renderProfileRules(code) {
-    const body = $4("profile-rules-body");
+    const body = $5("profile-rules-body");
     if (!body) return;
     updateProfileRulesVisibility();
     const profile = LANGUAGE_PROFILES[code] ?? LANGUAGE_PROFILES.en;
@@ -2876,14 +3128,14 @@ ${range.hint}`;
     return html + appendText(cursor, text.length);
   }
   function renderTargetHighlights(text, issues) {
-    const layer = $4("target-highlight-layer");
+    const layer = $5("target-highlight-layer");
     layer.style.setProperty("--paragraph-rule-width", `${Math.max(80, layer.clientWidth - 48)}px`);
     layer.innerHTML = highlightedTextHtml(text, issues);
     layer.scrollTop = targetText.scrollTop;
     layer.scrollLeft = targetText.scrollLeft;
   }
   function renderSourceHighlights(text, issues) {
-    const layer = $4("source-highlight-layer");
+    const layer = $5("source-highlight-layer");
     layer.style.setProperty("--paragraph-rule-width", `${Math.max(80, layer.clientWidth - 48)}px`);
     layer.innerHTML = highlightedTextHtml(text, issues, "location_in_source");
     layer.scrollTop = sourceText.scrollTop;
@@ -2902,10 +3154,10 @@ ${range.hint}`;
     targetText.focus();
     targetText.setSelectionRange(start, end > start ? end : Math.min(start + 1, targetText.value.length));
     requestAnimationFrame(() => {
-      const sourceLayer = $4("source-highlight-layer");
+      const sourceLayer = $5("source-highlight-layer");
       sourceLayer.scrollTop = sourceText.scrollTop;
       sourceLayer.scrollLeft = sourceText.scrollLeft;
-      const layer = $4("target-highlight-layer");
+      const layer = $5("target-highlight-layer");
       layer.scrollTop = targetText.scrollTop;
       layer.scrollLeft = targetText.scrollLeft;
     });
@@ -2920,20 +3172,20 @@ ${range.hint}`;
     const targetLabel = LANGUAGE_PROFILES[targetCode].label;
     glossaryView?.syncLanguage(targetCode);
     renderProfileRules(targetCode);
-    $4("source-heading").textContent = t2(currentLocale, "sourceLanguage");
-    $4("target-language-heading").textContent = t2(currentLocale, "goalLanguage");
-    $4("target-heading").textContent = t2(currentLocale, "goalLanguage");
-    $4("language-state").textContent = targetLanguage.value === "auto" ? targetText.value.trim() ? `${t2(currentLocale, "detected")} \xB7 ${detectionReason(targetDetection.reason)}` : t2(currentLocale, "waitingForGoal") : t2(currentLocale, "manualProfile");
-    $4("source-count").textContent = `${sourceText.value.length} characters`;
-    $4("target-count").textContent = `${targetText.value.length} characters`;
-    const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows(), checkCurrency: $4("check-currency").checked });
+    $5("source-heading").textContent = t2(currentLocale, "sourceLanguage");
+    $5("target-language-heading").textContent = t2(currentLocale, "goalLanguage");
+    $5("target-heading").textContent = t2(currentLocale, "goalLanguage");
+    $5("language-state").textContent = targetLanguage.value === "auto" ? targetText.value.trim() ? `${t2(currentLocale, "detected")} \xB7 ${detectionReason(targetDetection.reason)}` : t2(currentLocale, "waitingForGoal") : t2(currentLocale, "manualProfile");
+    $5("source-count").textContent = `${sourceText.value.length} characters`;
+    $5("target-count").textContent = `${targetText.value.length} characters`;
+    const issues = runRuleEngine({ source: sourceText.value, target: targetText.value, sourceLanguage: sourceCode, targetLanguage: targetCode, glossaryRows: getGlossaryRows(), checkCurrency: $5("check-currency").checked });
     currentIssues = issues;
     const includedIssues = issues.filter((issue) => getIssuePreference(issue).included);
     renderTargetHighlights(targetText.value, includedIssues);
     renderSourceHighlights(sourceText.value, includedIssues);
-    $4("issue-summary").textContent = includedIssues.length ? `${findingCount(includedIssues.length)}${includedIssues.length !== issues.length ? ` \xB7 ${issues.length - includedIssues.length} ${t2(currentLocale, "excluded")}` : ""}` : issues.length ? `${issues.length} ${t2(currentLocale, "excluded")}` : t2(currentLocale, "noFindings");
+    $5("issue-summary").textContent = includedIssues.length ? `${findingCount(includedIssues.length)}${includedIssues.length !== issues.length ? ` \xB7 ${issues.length - includedIssues.length} ${t2(currentLocale, "excluded")}` : ""}` : issues.length ? `${issues.length} ${t2(currentLocale, "excluded")}` : t2(currentLocale, "noFindings");
     exportPdfButton.disabled = includedIssues.length === 0;
-    $4("checked-at").textContent = t2(currentLocale, "checked", { time: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) });
+    $5("checked-at").textContent = t2(currentLocale, "checked", { time: (/* @__PURE__ */ new Date()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) });
     issuesList.replaceChildren();
     if (!issues.length) {
       const empty = document.createElement("div");
@@ -3034,7 +3286,7 @@ ${range.hint}`;
   </style></head><body><h1>${escapeHtml(currentLocale === "ru" ? "\u041E\u0442\u0447\u0451\u0442 CHECKform" : "CHECKform Report")}</h1><p class="meta">${escapeHtml(sourceLabel)} \u2192 ${escapeHtml(targetLabel)} \xB7 ${escapeHtml(findingCount(includedIssues.length))}</p><h2>${escapeHtml(currentLocale === "ru" ? "\u0422\u0435\u043A\u0441\u0442 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430 \u0441 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u043C\u0438 \u043E\u0448\u0438\u0431\u043A\u0430\u043C\u0438" : "Target text with marked findings")}</h2><div class="text">${highlightedTextHtml(targetText.value, includedIssues)}</div><h2>${escapeHtml(currentLocale === "ru" ? "\u041E\u0448\u0438\u0431\u043A\u0438" : "Findings")}</h2><ol>${issueItems}</ol><footer>${escapeHtml(currentLocale === "ru" ? "\u0421\u043E\u0437\u0434\u0430\u043D\u043E CHECKform \xB7 \u041E\u0448\u0438\u0431\u043A\u0438 \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B, \u0442\u0435\u043A\u0441\u0442 \u043D\u0435 \u0438\u0441\u043F\u0440\u0430\u0432\u043B\u044F\u043B\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438." : "Generated by CHECKform \xB7 Findings are reported only; target text was not auto-corrected.")}</footer></body></html>`;
     const reportWindow = window.open("", "_blank");
     if (!reportWindow) {
-      $4("issue-summary").textContent = t2(currentLocale, "noPopup");
+      $5("issue-summary").textContent = t2(currentLocale, "noPopup");
       return;
     }
     reportWindow.document.open();
@@ -3062,13 +3314,13 @@ ${range.hint}`;
   }
   async function loadFile(kind, file) {
     if (!file) return;
-    const dropZone = $4(`${kind}-drop-zone`);
+    const dropZone = $5(`${kind}-drop-zone`);
     try {
       rawFileTexts[kind] = await readFile(file);
       pendingFileTexts[kind] = kind === "source" ? selectPrimaryLanguageBlock(rawFileTexts[kind], sourceLanguage.value) : rawFileTexts[kind];
       dropZone.dataset.fileName = file.name;
       const otherKind = kind === "source" ? "target" : "source";
-      const otherDropZone = $4(`${otherKind}-drop-zone`);
+      const otherDropZone = $5(`${otherKind}-drop-zone`);
       if (!filesCommitted && pendingFileTexts.source !== null && pendingFileTexts.target !== null) {
         setTextAreaValue("source", pendingFileTexts.source);
         setTextAreaValue("target", pendingFileTexts.target);
@@ -3091,7 +3343,7 @@ ${range.hint}`;
   }
   for (const kind of ["source", "target"]) {
     const input = fileInputs[kind];
-    const zone = $4(`${kind}-drop-zone`);
+    const zone = $5(`${kind}-drop-zone`);
     input.addEventListener("change", () => loadFile(kind, input.files[0]));
     zone.addEventListener("dragenter", (event) => {
       if (!event.dataTransfer?.types?.includes("Files")) return;
@@ -3136,15 +3388,15 @@ ${range.hint}`;
     setTextAreaValue("source", pendingFileTexts.source);
   });
   targetText.addEventListener("scroll", () => {
-    $4("target-highlight-layer").scrollTop = targetText.scrollTop;
-    $4("target-highlight-layer").scrollLeft = targetText.scrollLeft;
+    $5("target-highlight-layer").scrollTop = targetText.scrollTop;
+    $5("target-highlight-layer").scrollLeft = targetText.scrollLeft;
   });
   sourceText.addEventListener("scroll", () => {
-    $4("source-highlight-layer").scrollTop = sourceText.scrollTop;
-    $4("source-highlight-layer").scrollLeft = sourceText.scrollLeft;
+    $5("source-highlight-layer").scrollTop = sourceText.scrollTop;
+    $5("source-highlight-layer").scrollLeft = sourceText.scrollLeft;
   });
   exportPdfButton.addEventListener("click", () => exportPdf(currentIssues));
-  $4("export-extension-settings").addEventListener("click", () => {
+  $5("export-extension-settings").addEventListener("click", () => {
     const read = (key) => {
       try {
         return JSON.parse(localStorage.getItem(key) ?? "{}");
@@ -3164,57 +3416,57 @@ ${range.hint}`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1e3);
   });
-  $4("check-currency").addEventListener("change", render);
-  $4("reset-workspace").addEventListener("click", () => {
+  $5("check-currency").addEventListener("change", render);
+  $5("reset-workspace").addEventListener("click", () => {
     clearTimeout(timer);
     for (const kind of ["source", "target"]) {
       fileInputs[kind].value = "";
       pendingFileTexts[kind] = null;
       rawFileTexts[kind] = null;
-      const zone = $4(`${kind}-drop-zone`);
+      const zone = $5(`${kind}-drop-zone`);
       delete zone.dataset.fileName;
       delete zone.dataset.fileStatus;
       delete zone.dataset.fileError;
     }
     filesCommitted = false;
     issuePreferences.clear();
-    $4("check-currency").checked = true;
+    $5("check-currency").checked = true;
     setFindingsDocked(false);
-    $4("qa-view").style.removeProperty("--findings-width");
+    $5("qa-view").style.removeProperty("--findings-width");
     sourceLanguage.value = "auto";
     targetLanguage.value = "auto";
     sourceText.value = "";
     targetText.value = "";
     sourceText.scrollTop = targetText.scrollTop = 0;
-    $4("check-tab").click();
+    $5("check-tab").click();
     render();
   });
   function setFindingsDocked(docked) {
     findingsDocked = docked;
-    $4("qa-view").classList.toggle("findings-docked", findingsDocked);
-    $4("dock-resizer").hidden = !findingsDocked;
-    $4("dock-findings").setAttribute("aria-pressed", String(findingsDocked));
-    $4("dock-findings").textContent = t2(currentLocale, findingsDocked ? "bottomView" : "sideView");
+    $5("qa-view").classList.toggle("findings-docked", findingsDocked);
+    $5("dock-resizer").hidden = !findingsDocked;
+    $5("dock-findings").setAttribute("aria-pressed", String(findingsDocked));
+    $5("dock-findings").textContent = t2(currentLocale, findingsDocked ? "bottomView" : "sideView");
   }
-  $4("dock-findings").addEventListener("click", () => setFindingsDocked(!findingsDocked));
-  $4("drag-findings").addEventListener("pointerdown", (event) => {
+  $5("dock-findings").addEventListener("click", () => setFindingsDocked(!findingsDocked));
+  $5("drag-findings").addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
-    const handle = $4("drag-findings");
+    const handle = $5("drag-findings");
     handle.setPointerCapture(event.pointerId);
     const origin = { x: event.clientX, y: event.clientY };
     let moved = false;
     const move = (pointer) => {
       moved ||= Math.hypot(pointer.clientX - origin.x, pointer.clientY - origin.y) > 8;
-      $4("qa-view").classList.toggle("dragging-findings", moved);
+      $5("qa-view").classList.toggle("dragging-findings", moved);
     };
     const stop = (pointer) => {
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", stop);
       handle.removeEventListener("pointercancel", stop);
-      $4("qa-view").classList.remove("dragging-findings");
+      $5("qa-view").classList.remove("dragging-findings");
       if (!moved || pointer.type === "pointercancel") return;
-      const bounds = $4("qa-view").getBoundingClientRect();
-      const editors = $4("workspace-grid").getBoundingClientRect();
+      const bounds = $5("qa-view").getBoundingClientRect();
+      const editors = $5("workspace-grid").getBoundingClientRect();
       const toSide = pointer.clientX > bounds.left + bounds.width * 0.58 && pointer.clientY < editors.bottom;
       setFindingsDocked(toSide);
     };
@@ -3222,20 +3474,20 @@ ${range.hint}`;
     handle.addEventListener("pointerup", stop);
     handle.addEventListener("pointercancel", stop);
   });
-  $4("drag-findings").addEventListener("keydown", (event) => {
+  $5("drag-findings").addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       setFindingsDocked(!findingsDocked);
     }
   });
-  var dockResizer = $4("dock-resizer");
+  var dockResizer = $5("dock-resizer");
   dockResizer.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     dockResizer.setPointerCapture(event.pointerId);
     const move = (pointer) => {
-      const bounds = $4("qa-view").getBoundingClientRect();
+      const bounds = $5("qa-view").getBoundingClientRect();
       const width = Math.max(260, Math.min(bounds.width * 0.42, bounds.right - pointer.clientX));
-      $4("qa-view").style.setProperty("--findings-width", `${width}px`);
+      $5("qa-view").style.setProperty("--findings-width", `${width}px`);
     };
     const stop = () => {
       dockResizer.removeEventListener("pointermove", move);
@@ -3246,7 +3498,7 @@ ${range.hint}`;
     dockResizer.addEventListener("pointerup", stop);
     dockResizer.addEventListener("pointercancel", stop);
   });
-  for (const [layer, textarea] of [[$4("target-highlight-layer"), targetText], [$4("source-highlight-layer"), sourceText]]) {
+  for (const [layer, textarea] of [[$5("target-highlight-layer"), targetText], [$5("source-highlight-layer"), sourceText]]) {
     layer.addEventListener("pointerdown", (event) => {
       const mark = event.target.closest("mark[data-start]");
       if (!mark) return;
@@ -3263,12 +3515,12 @@ ${range.hint}`;
       render();
     });
   }
-  var errorTableDialog = $4("error-table-dialog");
-  $4("error-table-open").addEventListener("click", () => {
+  var errorTableDialog = $5("error-table-dialog");
+  $5("error-table-open").addEventListener("click", () => {
     renderErrorTable();
     errorTableDialog.showModal();
   });
-  $4("error-table-close").addEventListener("click", () => errorTableDialog.close());
+  $5("error-table-close").addEventListener("click", () => errorTableDialog.close());
   errorTableDialog.addEventListener("click", (event) => {
     if (event.target === errorTableDialog) errorTableDialog.close();
   });
@@ -3277,15 +3529,16 @@ ${range.hint}`;
     getGoalLanguage: () => targetLanguage.value === "auto" ? detectLanguage(targetText.value).code : targetLanguage.value,
     onChange: render
   });
+  initGlossaryCollab({ onChange: render, refreshView: () => glossaryView.refresh() });
   gmtView = initGmtView({ getLocale: () => currentLocale, onChange: render });
   languageRulesView = initLanguageRulesView({ getLocale: () => currentLocale });
   for (const tab of document.querySelectorAll(".workspace-tab")) {
     tab.addEventListener("click", () => {
       const view = tab.dataset.view;
-      $4("qa-view").hidden = view !== "check";
-      $4("glossary-view").hidden = view !== "glossary";
-      $4("gmt-view").hidden = view !== "gmt";
-      $4("language-rules-view").hidden = view !== "rules";
+      $5("qa-view").hidden = view !== "check";
+      $5("glossary-view").hidden = view !== "glossary";
+      $5("gmt-view").hidden = view !== "gmt";
+      $5("language-rules-view").hidden = view !== "rules";
       for (const button of document.querySelectorAll(".workspace-tab")) {
         const active = button === tab;
         button.classList.toggle("active", active);

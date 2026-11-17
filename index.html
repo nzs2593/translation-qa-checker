@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHECKform</title>
-    <link rel="stylesheet" href="styles.css?v=2.13" />
+    <link rel="stylesheet" href="styles.css?v=2.14" />
   </head>
   <body>
     <main class="app-shell">
@@ -155,11 +155,27 @@
         </form>
         <div class="glossary-table-scroll">
           <table class="glossary-table">
-            <thead><tr><th>#</th><th id="glossary-from-heading">Source term</th><th id="glossary-to-heading">Goal term</th><th id="glossary-notes-heading">Notes</th></tr></thead>
+            <thead><tr><th>#</th><th id="glossary-from-heading">Source term</th><th id="glossary-to-heading">Goal term</th><th id="glossary-notes-heading">Notes</th><th>Правка</th></tr></thead>
             <tbody id="glossary-table-body"></tbody>
           </table>
         </div>
         <div class="glossary-footer"><span id="glossary-status" role="status"></span><button type="button" id="glossary-show-more" hidden>Show more</button></div>
+        <section class="glossary-collab" aria-label="Совместная работа со словарём">
+          <div class="glossary-collab-head"><div><h3>Предложения по словарю</h3><p>Коллега предлагает изменение. Общий словарь меняется только после согласования. Предложения в публичном GitHub видны всем.</p></div><button type="button" id="glossary-load-proposals">Показать предложения</button></div>
+          <form id="glossary-proposal-form" hidden>
+            <h4 id="glossary-proposal-title">Предложить правку</h4>
+            <input id="glossary-proposal-row" type="hidden" />
+            <input id="glossary-proposal-language" type="hidden" />
+            <input id="glossary-proposal-source" type="hidden" />
+            <div class="glossary-proposal-mode"><label><input type="radio" name="glossary-proposal-mode" value="add" checked /> Добавить допустимый перевод</label><label><input type="radio" name="glossary-proposal-mode" value="replace" /> Заменить перевод</label></div>
+            <label>Текущий перевод<input id="glossary-proposal-current" readonly /></label>
+            <label>Новый перевод<input id="glossary-proposal-value" required maxlength="200" /></label>
+            <label>Корень нового перевода<input id="glossary-proposal-root" maxlength="100" placeholder="Пусто — определить автоматически" /></label>
+            <div class="glossary-collab-actions"><button type="submit">Продолжить в GitHub</button><button type="button" id="glossary-proposal-cancel">Отмена</button></div>
+          </form>
+          <p id="glossary-collab-status" role="status"></p>
+          <div id="glossary-proposal-list"></div>
+        </section>
       </section>
 
       <section id="gmt-view" class="gmt-view" hidden aria-labelledby="gmt-title">
@@ -226,6 +242,6 @@
         </table>
       </div>
     </dialog>
-    <script defer src="checkform.bundle.js?v=2.15"></script>
+    <script defer src="checkform.bundle.js?v=2.16"></script>
   </body>
 </html>

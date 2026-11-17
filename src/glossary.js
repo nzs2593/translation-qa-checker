@@ -12,6 +12,7 @@ const STORAGE_KEY = "checkform-glossary-edits-v1";
 let overrides = {};
 let rootOverrides = {};
 let customRows = [];
+let sharedGlossary = { overrides: {}, rootOverrides: {}, customRows: [] };
 const compiledGlossaries = new WeakMap();
 
 function browserStorage() {
@@ -37,16 +38,36 @@ export function loadGlossaryEdits(storage = browserStorage()) {
 }
 
 export function getGlossaryRows() {
-  return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => {
-    const terms = { ...row.terms, ...(overrides[row.id] ?? {}) };
+  const sharedRows = Array.isArray(sharedGlossary.customRows) ? sharedGlossary.customRows : [];
+  return [...GLOSSARY_DEFAULTS, ...sharedRows, ...customRows].map((row) => {
+    const terms = { ...row.terms, ...(sharedGlossary.overrides?.[row.id] ?? {}), ...(overrides[row.id] ?? {}) };
     const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) =>
       [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language]
         ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
     return {
       ...row, terms,
-      roots: { ...suggestedRoots, ...row.roots, ...(rootOverrides[row.id] ?? {}) }
+      roots: { ...suggestedRoots, ...row.roots, ...(sharedGlossary.rootOverrides?.[row.id] ?? {}), ...(rootOverrides[row.id] ?? {}) }
     };
   });
+}
+
+export function setSharedGlossary(data, storage = null) {
+  if (!data || data.schema !== "checkform-shared-glossary-v1" || !Number.isInteger(data.version) ||
+      !data.overrides || typeof data.overrides !== "object" || Array.isArray(data.overrides) ||
+      !data.rootOverrides || typeof data.rootOverrides !== "object" || Array.isArray(data.rootOverrides) ||
+      !Array.isArray(data.customRows)) return false;
+  sharedGlossary = { overrides: data.overrides, rootOverrides: data.rootOverrides, customRows: data.customRows };
+  // Published decisions take precedence over older edits stored in one browser.
+  for (const [id, languages] of Object.entries(data.overrides)) {
+    for (const language of Object.keys(languages)) delete overrides[id]?.[language];
+    if (overrides[id] && !Object.keys(overrides[id]).length) delete overrides[id];
+  }
+  for (const [id, languages] of Object.entries(data.rootOverrides)) {
+    for (const language of Object.keys(languages)) delete rootOverrides[id]?.[language];
+    if (rootOverrides[id] && !Object.keys(rootOverrides[id]).length) delete rootOverrides[id];
+  }
+  if (storage) persist(storage);
+  return true;
 }
 
 function persist(storage = browserStorage()) {
@@ -115,7 +136,7 @@ export function addGlossaryRow(sourceLanguage, targetLanguage, sourceTerm, targe
 }
 
 export function glossaryEntryCount() {
-  return GLOSSARY_DEFAULTS.length + customRows.length;
+  return GLOSSARY_DEFAULTS.length + (sharedGlossary.customRows?.length ?? 0) + customRows.length;
 }
 
 function phrasePattern(term, matchCase = false) {

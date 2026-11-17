@@ -341,12 +341,13 @@
       const gapStart = Math.min(time.index + time[0].length, date.index + date[0].length);
       const gapEnd = Math.max(time.index, date.index);
       const length = Math.max(0, gapEnd - gapStart);
-      if (length > 32 || length >= shortest) continue;
+      if (length > 96 || length >= shortest) continue;
       const gap = text.slice(gapStart, gapEnd);
-      const parentheticalClock = /\(\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:GMT|UTC|MSK|МСК)(?:[+\-−]\d{1,2})?\s*\)/giu;
-      const cleanedGap = gap.replace(parentheticalClock, " ");
-      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(cleanedGap)) continue;
-      if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd && ![...gap.matchAll(parentheticalClock)].some((part) => other.index >= gapStart + part.index && other.index < gapStart + part.index + part[0].length))) continue;
+      const parentheticalClock = /\([^()]{0,60}\d{1,2}:\d{2}(?::\d{2})?\s*(?:GMT|UTC|MSK|МСК)(?:[+\-−]\d{1,2})?[^()]{0,30}\)/giu;
+      const explanations = [...gap.matchAll(parentheticalClock)].filter((part) => !/\d{4}/u.test(part[0]));
+      const cleanedGap = explanations.reduce((value, part) => value.replace(part[0], " "), gap).replace(/<\/?\d+>/gu, " ");
+      if (cleanedGap.length > 32 || !/^[\s\u00a0,:]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə|día|dia)\s*|-c[ıiuü]\s*)*$/iu.test(cleanedGap)) continue;
+      if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd && !explanations.some((part) => other.index >= gapStart + part.index && other.index < gapStart + part.index + part[0].length))) continue;
       best = index;
       shortest = length;
     }
@@ -580,18 +581,20 @@
   var overrides = {};
   var rootOverrides = {};
   var customRows = [];
+  var sharedGlossary = { overrides: {}, rootOverrides: {}, customRows: [] };
   var compiledGlossaries = /* @__PURE__ */ new WeakMap();
   function glossarySourceLanguage(targetLanguage) {
     return targetLanguage === "uk" ? "ru" : "en";
   }
   function getGlossaryRows() {
-    return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => {
-      const terms = { ...row.terms, ...overrides[row.id] ?? {} };
+    const sharedRows = Array.isArray(sharedGlossary.customRows) ? sharedGlossary.customRows : [];
+    return [...GLOSSARY_DEFAULTS, ...sharedRows, ...customRows].map((row) => {
+      const terms = { ...row.terms, ...sharedGlossary.overrides?.[row.id] ?? {}, ...overrides[row.id] ?? {} };
       const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
       return {
         ...row,
         terms,
-        roots: { ...suggestedRoots, ...row.roots, ...rootOverrides[row.id] ?? {} }
+        roots: { ...suggestedRoots, ...row.roots, ...sharedGlossary.rootOverrides?.[row.id] ?? {}, ...rootOverrides[row.id] ?? {} }
       };
     });
   }
@@ -1270,6 +1273,7 @@
   var overrides2 = {};
   var rootOverrides2 = {};
   var customRows2 = [];
+  var sharedGlossary2 = { overrides: {}, rootOverrides: {}, customRows: [] };
   function browserStorage2() {
     try {
       return globalThis.localStorage;
@@ -1291,15 +1295,38 @@
     return getGlossaryRows2();
   }
   function getGlossaryRows2() {
-    return [...GLOSSARY_DEFAULTS, ...customRows2].map((row) => {
-      const terms = { ...row.terms, ...overrides2[row.id] ?? {} };
+    const sharedRows = Array.isArray(sharedGlossary2.customRows) ? sharedGlossary2.customRows : [];
+    return [...GLOSSARY_DEFAULTS, ...sharedRows, ...customRows2].map((row) => {
+      const terms = { ...row.terms, ...sharedGlossary2.overrides?.[row.id] ?? {}, ...overrides2[row.id] ?? {} };
       const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
       return {
         ...row,
         terms,
-        roots: { ...suggestedRoots, ...row.roots, ...rootOverrides2[row.id] ?? {} }
+        roots: { ...suggestedRoots, ...row.roots, ...sharedGlossary2.rootOverrides?.[row.id] ?? {}, ...rootOverrides2[row.id] ?? {} }
       };
     });
+  }
+  function setSharedGlossary(data, storage = null) {
+    if (!data || data.schema !== "checkform-shared-glossary-v1" || !Number.isInteger(data.version) || !data.overrides || typeof data.overrides !== "object" || Array.isArray(data.overrides) || !data.rootOverrides || typeof data.rootOverrides !== "object" || Array.isArray(data.rootOverrides) || !Array.isArray(data.customRows)) return false;
+    sharedGlossary2 = { overrides: data.overrides, rootOverrides: data.rootOverrides, customRows: data.customRows };
+    for (const [id, languages2] of Object.entries(data.overrides)) {
+      for (const language of Object.keys(languages2)) delete overrides2[id]?.[language];
+      if (overrides2[id] && !Object.keys(overrides2[id]).length) delete overrides2[id];
+    }
+    for (const [id, languages2] of Object.entries(data.rootOverrides)) {
+      for (const language of Object.keys(languages2)) delete rootOverrides2[id]?.[language];
+      if (rootOverrides2[id] && !Object.keys(rootOverrides2[id]).length) delete rootOverrides2[id];
+    }
+    if (storage) persist(storage);
+    return true;
+  }
+  function persist(storage = browserStorage2()) {
+    try {
+      storage?.setItem(STORAGE_KEY2, JSON.stringify({ overrides: overrides2, rootOverrides: rootOverrides2, customRows: customRows2 }));
+      return true;
+    } catch {
+      return false;
+    }
   }
   var ACCEPTED_VARIANTS2 = Object.freeze({
     199: { "es-AR": ["Apuesta Gratis"], az: ["fribet"] },
@@ -1806,6 +1833,13 @@
       syncCheckControls();
       scan();
     });
+    const syncSharedGlossary = () => chrome.runtime.sendMessage({ type: "checkform-shared-glossary" }, (response) => {
+      if (chrome.runtime.lastError || !response?.data || !setSharedGlossary(response.data)) return;
+      state.signatures.clear();
+      scan();
+    });
+    syncSharedGlossary();
+    setInterval(syncSharedGlossary, 5 * 60 * 1e3);
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== "local" || !changes.glossarySettings && !changes.timezoneSettings && !changes.checks) return;
       chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {

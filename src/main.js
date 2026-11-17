@@ -4,6 +4,7 @@ import { LANGUAGE_PROFILES } from "./profiles.js";
 import { readDocxText } from "./docx.js";
 import { getGlossaryRows, loadGlossaryEdits } from "./glossary.js?v=2.2";
 import { initGlossaryView } from "./glossary-view.js";
+import { initGlossaryCollab } from "./glossary-collab.js";
 import { initGmtView } from "./gmt-view.js";
 import { initLanguageRulesView } from "./language-rules-view.js";
 import { formatTimezone, getTimezoneRule, loadTimezoneRules } from "./timezone-rules.js";
@@ -583,6 +584,7 @@ glossaryView = initGlossaryView({
   getGoalLanguage: () => targetLanguage.value === "auto" ? detectLanguage(targetText.value).code : targetLanguage.value,
   onChange: render
 });
+initGlossaryCollab({ onChange: render, refreshView: () => glossaryView.refresh() });
 gmtView = initGmtView({ getLocale: () => currentLocale, onChange: render });
 languageRulesView = initLanguageRulesView({ getLocale: () => currentLocale });
 

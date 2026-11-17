@@ -1,5 +1,5 @@
 import { runRuleEngine } from "../engine.js";
-import { getGlossaryRows, loadGlossaryEdits } from "../glossary.js";
+import { getGlossaryRows, loadGlossaryEdits, setSharedGlossary } from "../glossary.js";
 import { loadTimezoneRules } from "../timezone-rules.js";
 import { issueDescription, severityLabel } from "../i18n.js";
 import { editorLanguages, readCrowdinRows } from "./crowdin-adapter.js";
@@ -211,6 +211,13 @@ function start() {
     syncCheckControls();
     scan();
   });
+  const syncSharedGlossary = () => chrome.runtime.sendMessage({ type: "checkform-shared-glossary" }, (response) => {
+    if (chrome.runtime.lastError || !response?.data || !setSharedGlossary(response.data)) return;
+    state.signatures.clear();
+    scan();
+  });
+  syncSharedGlossary();
+  setInterval(syncSharedGlossary, 5 * 60 * 1000);
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || (!changes.glossarySettings && !changes.timezoneSettings && !changes.checks)) return;
     chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {

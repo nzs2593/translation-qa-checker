@@ -1,5 +1,11 @@
 # CHECKform — v2.10
 
+## Shared glossary proposals
+
+The Glossary tab now offers **Propose** for an existing term. A teammate chooses **add an accepted translation** or **replace a translation**, enters the new value and optionally a root, then submits the prefilled GitHub Issue. Approved shared data lives in `data/shared-glossary.json`; the original workbook remains intact. The site reads that JSON at startup. Chrome extension 0.2.12 fetches the same published data and caches it locally. No source or target document contents are sent with proposals or synchronization.
+
+Approval by code is prepared in `approval-worker/`. It requires Cloudflare Access, a server-side code secret, a GitHub token and a KV attempt counter. The code is never stored in this repository or sent to GitHub. Until the Worker is deployed and `data/collaboration-config.json` contains its URL, approving from the site is disabled. See `approval-worker/README.md` for setup.
+
 The currency checkbox now controls source-to-target comparison of currency identity and amount values. Target money formatting is checked even when comparison is off. Per-symbol placement and spacing follows the supplied currency matrix for supported language profiles; monetary decimal and thousands separators are checked separately. The Chrome preview in [`chrome-extension`](chrome-extension) reads mounted Crowdin source/translation pairs by segment ID, runs the same rule engine, and shows a collapsible finding panel. See [`CHROME_EXTENSION.md`](CHROME_EXTENSION.md) for local testing and the publication route.
 
 The first live Crowdin segment check confirmed that source and target can be read by matching segment ID without changing translations. In an English-to-Argentine-Spanish segment, `$20` and `US$20` are treated as the same currency amount; `US$21` produces a major amount mismatch, while `AR$20` remains a currency conversion review. The `21:00 GMT` to `18:00 GMT-3` example passes calendar and time conversion checks.

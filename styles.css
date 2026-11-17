@@ -509,3 +509,18 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
   .qa-view.findings-docked .issue-controls { grid-column: 2 / -1; }
 }
 @media (max-width: 1100px) { #dock-findings, .dock-resizer { display: none !important; } }
+.glossary-collab { margin-top: 20px; padding: 18px; border: 1px solid #d5e2f4; border-radius: 12px; background: #f8fbff; }
+.glossary-collab-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.glossary-collab h3, .glossary-collab h4 { margin: 0 0 6px; }
+.glossary-collab p { margin: 0 0 12px; }
+.glossary-propose-button { white-space: nowrap; }
+#glossary-proposal-form { max-width: 640px; display: grid; gap: 12px; padding: 16px; background: white; border: 1px solid #d5e2f4; border-radius: 10px; }
+#glossary-proposal-form[hidden] { display: none; }
+#glossary-proposal-form > label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+#glossary-proposal-form input:not([type="radio"]), .glossary-approve-form input { min-height: 36px; padding: 6px 9px; border: 1px solid #b9cce3; border-radius: 6px; font: inherit; }
+.glossary-proposal-mode, .glossary-collab-actions, .glossary-approve-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.glossary-proposal-mode label { display: flex; gap: 5px; align-items: center; }
+.glossary-proposal-card { margin-top: 10px; padding: 12px; background: white; border: 1px solid #d5e2f4; border-radius: 8px; }
+.glossary-proposal-card p { overflow-wrap: anywhere; }
+.glossary-proposal-card a { display: inline-block; margin-bottom: 10px; }
+@media (max-width: 700px) { .glossary-collab-head { flex-direction: column; } }

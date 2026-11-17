@@ -75,6 +75,22 @@ assert.deepEqual(checkDatesAndTime("00:01 GMT on 01/05/2023", "21:01 GMT-3 de 30
 assert.equal(parseTemporal("1st July 2026", english).date.month, 7);
 assert.equal(parseTemporal("30 de junio de 2027", spanish).date.day, 30);
 const argentine = { ...getProfile("es-AR"), language: "es" };
+const parentheticalSource = "Qualifying bets must be settled before <0>20:59 GMT on 25/10/2026<1></0>.";
+const parentheticalTarget = "Las apuestas válidas deben liquidarse antes de las <0>17:59 GMT-3 (20:59 GMT) del 25/10/2026<1></0>.";
+assert.deepEqual(checkDatesAndTime(parentheticalSource, parentheticalTarget, {
+  sourceProfile: english, targetProfile: argentine, targetTimezoneRule: arRule
+}), []);
+assert.deepEqual(checkDatesAndTime(parentheticalSource,
+  parentheticalTarget.replace("(20:59 GMT) del", "(es decir, 20:59 GMT) del día"), {
+    sourceProfile: english, targetProfile: argentine, targetTimezoneRule: arRule
+  }), []);
+assert.equal(checkDatesAndTime(parentheticalSource,
+  parentheticalTarget.replace("(20:59 GMT) del 25/10/2026", "(es decir, 20:59 GMT) del día 26/10/2026"), {
+    sourceProfile: english, targetProfile: argentine, targetTimezoneRule: arRule
+  })[0].error_type, "DATE_MISMATCH");
+assert.equal(checkDatesAndTime(parentheticalSource, parentheticalTarget.replace("25/10/2026", "26/10/2026"), {
+  sourceProfile: english, targetProfile: argentine, targetTimezoneRule: arRule
+})[0].error_type, "DATE_MISMATCH");
 assert.deepEqual(checkDatesAndTime(sourceRange, targetRange, { sourceProfile: english, targetProfile: argentine }), []);
 assert.equal(checkDatesAndTime("00:01 GMT on 01/07/2026", "22:01 GMT-2 del 30/06/2026", { sourceProfile: english, targetProfile: argentine })[0].error_type, "TIMEZONE_MISMATCH");
 
