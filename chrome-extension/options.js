@@ -3,6 +3,7 @@ const status = document.getElementById("status");
 
 chrome.storage.local.get(["glossarySettings", "timezoneSettings"], (saved) => {
   const glossaryCount = Object.keys(saved.glossarySettings?.overrides ?? {}).length
+    + Object.keys(saved.glossarySettings?.rootOverrides ?? {}).length
     + (saved.glossarySettings?.customRows?.length ?? 0);
   const timezoneCount = Object.keys(saved.timezoneSettings ?? {}).length;
   status.textContent = `Сохранено: ${glossaryCount} правок словаря, ${timezoneCount} правил GMT.`;
@@ -19,7 +20,8 @@ input.addEventListener("change", async () => {
       throw new Error("Неверный формат файла настроек.");
     }
     await chrome.storage.local.set({ glossarySettings: parsed.glossary, timezoneSettings: parsed.timezone });
-    const count = Object.keys(parsed.glossary.overrides ?? {}).length + (parsed.glossary.customRows?.length ?? 0);
+    const count = Object.keys(parsed.glossary.overrides ?? {}).length
+      + Object.keys(parsed.glossary.rootOverrides ?? {}).length + (parsed.glossary.customRows?.length ?? 0);
     status.textContent = `Импортировано: ${count} правок словаря и ${Object.keys(parsed.timezone).length} правил GMT.`;
   } catch (error) {
     status.textContent = `Не удалось импортировать: ${error.message}`;

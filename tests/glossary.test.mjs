@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { checkGlossary, getGlossaryRows, loadGlossaryEdits, updateGlossaryTerm } from "../src/glossary.js";
+import { checkGlossary, getGlossaryRows, loadGlossaryEdits, updateGlossaryRoot, updateGlossaryTerm } from "../src/glossary.js";
 import { runRuleEngine } from "../src/engine.js";
 
 const rows = [
@@ -34,6 +34,22 @@ assert.equal(checkGlossary("minimum odds of 1.50", "minimum 1.50 əmsallı", "en
 assert.equal(checkGlossary("minimum odds of 1.50", "minimum 1.50 əmsal", "en", "az", azeriRows).length, 0);
 assert.equal(checkGlossary("minimum odds of 1.50", "minimum 1.50 qəmsallı", "en", "az", azeriRows)[0].error_type, "GLOSSARY_TRANSLATION_MISSING");
 assert.equal(checkGlossary("This promotion will run", "Bu kampaniya davam edəcək", "en", "az", azeriRows).length, 0);
+const senseRows = [
+  { id: 356, terms: { "en-GB": "place", az: "yer" } },
+  { id: 177, terms: { "en-GB": "event", az: "tədbir" } },
+  { id: 353, terms: { "en-GB": "period", az: "period" } },
+  { id: 518, terms: { "en-GB": "void", az: "ləğv/etibarsız" } }
+];
+assert.equal(checkGlossary("Place accumulators", "Ekspres mərclər edin", "en", "az", senseRows).length, 0);
+assert.equal(checkGlossary("place a $10 bet", "10 $ məbləğində mərc edin", "en", "az", senseRows).length, 0);
+assert.equal(checkGlossary("1st place", "1-ci yer", "en", "az", senseRows).length, 0);
+assert.equal(checkGlossary("In the event of any discrepancy", "Uyğunsuzluq yarandıqda", "en", "az", senseRows).length, 0);
+assert.equal(checkGlossary("promotional period", "kampaniya müddəti", "en", "az", senseRows).length, 0);
+assert.equal(checkGlossary("void bets", "etibarsız mərclər", "en", "az", senseRows).length, 0);
+const approvedAzeriRows = getGlossaryRows();
+assert.equal(checkGlossary("Qualifying bets must be placed at minimum odds of 2.00.", "Seçim mərcləri minimum 2.00 əmsalla edilməlidir.", "en", "az", approvedAzeriRows).some((issue) => issue.glossary?.sourceTerm === "odds"), false);
+assert.equal(checkGlossary("Mbet may change the Terms and Conditions", "Mbet Şərtlər və Qaydaları dəyişdirə bilər", "en", "az", approvedAzeriRows).some((issue) => issue.glossary?.sourceTerm === "Terms and Conditions"), false);
+assert.equal(checkGlossary("banned from the Loyalty Program", "Loyallıq proqramından kənarlaşdırılmasına", "en", "az", approvedAzeriRows).some((issue) => issue.glossary?.sourceTerm === "Loyalty Program"), false);
 
 const segmentIssues = runRuleEngine({
   source: "Account balance\n\nCashback",
@@ -50,5 +66,21 @@ loadGlossaryEdits(storage);
 assert.equal(updateGlossaryTerm(7, "es", "perfil", storage), true);
 loadGlossaryEdits(storage);
 assert.equal(getGlossaryRows().find((row) => row.id === 7).terms.es, "perfil");
+assert.equal(getGlossaryRows().find((row) => row.id === 320).roots.az, "əmsal");
+assert.equal(updateGlossaryRoot(320, "az", "", storage), true);
+loadGlossaryEdits(storage);
+const exactOnly = getGlossaryRows().find((row) => row.id === 320);
+assert.equal(exactOnly.roots.az, "");
+assert.equal(checkGlossary("odds", "əmsallı", "en", "az", [exactOnly]).length, 1);
+assert.equal(updateGlossaryRoot(320, "az", null, storage), true);
+loadGlossaryEdits(storage);
+assert.equal(checkGlossary("odds", "əmsallı", "en", "az", [getGlossaryRows().find((row) => row.id === 320)]).length, 0);
+assert.equal(updateGlossaryTerm(320, "az", "əmsallar", storage), true);
+loadGlossaryEdits(storage);
+assert.equal(getGlossaryRows().find((row) => row.id === 320).roots.az, "əmsallar");
+assert.equal(getGlossaryRows().find((row) => row.id === 461).roots.az, "Şərtlər və Qaydalar");
+assert.equal(updateGlossaryTerm(461, "az", "Yeni termin", storage), true);
+loadGlossaryEdits(storage);
+assert.equal(getGlossaryRows().find((row) => row.id === 461).roots.az, "");
 
 console.log("Glossary tests passed");

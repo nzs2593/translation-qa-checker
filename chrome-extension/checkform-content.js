@@ -484,6 +484,48 @@
     return { start: start2, end };
   }
 
+  // src/glossary-roots.js
+  var SUFFIXES = Object.freeze({
+    "en-GB": ["s", "es"],
+    az: ["\u0131", "i", "u", "\xFC", "\u0131n", "in", "un", "\xFCn", "a", "\u0259", "da", "d\u0259", "dan", "d\u0259n", "la", "l\u0259", "l\u0131", "li", "lu", "l\xFC", "lar", "l\u0259r", "lar\u0131", "l\u0259ri", "n\u0131n", "nin", "nun", "n\xFCn", "s\u0131", "si", "su", "s\xFC", "ya", "y\u0259", "nda", "nd\u0259", "ndan", "nd\u0259n"],
+    da: ["s", "e", "er", "en", "et", "ene", "erne", "ens", "ets"],
+    mn: ["\u044B\u043D", "\u0438\u0439\u043D", "\u044B", "\u0438\u0439", "\u0434", "\u0442", "\u0430\u0430\u0440", "\u044D\u044D\u0440", "\u0430\u0430\u0441", "\u044D\u044D\u0441", "\u0443\u0443\u0434", "\u04AF\u04AF\u0434", "\u0443\u0443\u0434\u044B\u043D", "\u04AF\u04AF\u0434\u0438\u0439\u043D"],
+    "pt-BR": ["s", "es"],
+    ru: ["\u0430", "\u044F", "\u044B", "\u0438", "\u0435", "\u0443", "\u044E", "\u043E\u0439", "\u0435\u0439", "\u043E\u043C", "\u0435\u043C", "\u043E\u0432", "\u0435\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u0435\u043C\u0443", "\u044B\u043C\u0438", "\u0438\u043C\u0438", "\u044B\u0439", "\u0438\u0439", "\u0430\u044F", "\u043E\u0435", "\u044B\u0435", "\u044B\u0445", "\u0443\u044E", "\u0442\u044C", "\u0435\u0442", "\u044E\u0442", "\u0443\u0442", "\u043B\u0430", "\u043B\u0438"],
+    es: ["s", "es"],
+    "es-AR": ["s", "es"],
+    uk: ["\u0430", "\u044F", "\u0438", "\u0456", "\u0435", "\u0443", "\u044E", "\u043E\u044E", "\u0435\u044E", "\u043E\u043C", "\u0435\u043C", "\u0456\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u043E\u043C\u0443", "\u0438\u043C\u0438", "\u0438\u0439", "\u0456\u0439", "\u043E\u0457", "\u043E\u044E", "\u0456\u0448\u0435", "\u0442\u0438", "\u0454", "\u044E\u0442\u044C"],
+    uz: ["lar", "ning", "ga", "da", "dan", "ni", "larining", "larga", "larda", "lardan", "si", "i", "li", "siz"],
+    uzb: ["\u043B\u0430\u0440", "\u043D\u0438\u043D\u0433", "\u0433\u0430", "\u0434\u0430", "\u0434\u0430\u043D", "\u043D\u0438", "\u043B\u0430\u0440\u043D\u0438\u043D\u0433", "\u043B\u0430\u0440\u0433\u0430", "\u043B\u0430\u0440\u0434\u0430", "\u043B\u0430\u0440\u0434\u0430\u043D", "\u0441\u0438", "\u0438", "\u043B\u0438", "\u0441\u0438\u0437"]
+  });
+  var LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,2}$/u;
+  var ROOT_PHRASE = /^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u;
+  var CYRILLIC_ENDING = /[аяоеыийьії]$/u;
+  var CURATED_GLOSSARY_ROOTS = Object.freeze({
+    279: { az: "Loyall\u0131q proqram" },
+    318: { az: "say" },
+    356: { az: "yer" },
+    461: { az: "\u015E\u0259rtl\u0259r v\u0259 Qaydalar" }
+  });
+  function deriveGlossaryRoot(term, language) {
+    if (!SUFFIXES[language] || !LOWERCASE_PHRASE.test(String(term ?? ""))) return "";
+    const words = term.split(/[ \u00a0-]/u);
+    const last = words.at(-1);
+    if (last.length < (words.length > 1 ? 4 : 5)) return "";
+    if ((language === "ru" || language === "uk") && last.length >= 6 && CYRILLIC_ENDING.test(last)) {
+      words[words.length - 1] = last.slice(0, -1);
+    }
+    return term.slice(0, term.length - last.length) + words.at(-1);
+  }
+  function glossaryRootPattern(root, term, language, matchCase = false) {
+    if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
+    const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
+    const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
+    const maxSuffixes = ["az", "mn", "uz", "uzb"].includes(language) ? 3 : 1;
+    const continuation = root === term ? `(?:${suffixes}){0,${maxSuffixes}}` : `(?:${suffixes}){1,${maxSuffixes}}`;
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${continuation}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+  }
+
   // src/glossary.js?v=2.2
   var GLOSSARY_LANGUAGES = Object.freeze({
     en: "en-GB",
@@ -499,20 +541,77 @@
     "uz-Cyrl": "uzb"
   });
   var overrides = {};
+  var rootOverrides = {};
   var customRows = [];
+  var compiledGlossaries = /* @__PURE__ */ new WeakMap();
   function glossarySourceLanguage(targetLanguage) {
     return targetLanguage === "uk" ? "ru" : "en";
   }
   function getGlossaryRows() {
-    return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => ({
-      ...row,
-      terms: { ...row.terms, ...overrides[row.id] ?? {} }
-    }));
+    return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => {
+      const terms = { ...row.terms, ...overrides[row.id] ?? {} };
+      const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
+      return {
+        ...row,
+        terms,
+        roots: { ...suggestedRoots, ...row.roots, ...rootOverrides[row.id] ?? {} }
+      };
+    });
   }
-  function phrasePattern(term, matchCase = false, allowAzeriSuffix = false) {
+  function phrasePattern(term, matchCase = false) {
     const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-    const suffix = allowAzeriSuffix && /^[\p{L}]{5,}$/u.test(term.trim()) ? "[\\p{L}]{0,8}" : "";
-    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${suffix}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+  }
+  function targetTermMatch(target, entry, language, matchCase) {
+    const alternatives = entry.targetTerm.split(/\s*\/\s*/u);
+    const terms = alternatives.length > 1 && alternatives.every((part) => /^[\p{L} ]{3,}$/u.test(part)) ? alternatives : [entry.targetTerm];
+    const exact = terms.map((term) => [...target.matchAll(phrasePattern(term, matchCase))][0]).find(Boolean);
+    if (exact) return exact;
+    const root = entry.targetRoot === void 0 ? deriveGlossaryRoot(entry.targetTerm, language) : entry.targetRoot;
+    const pattern = glossaryRootPattern(root, entry.targetTerm, language, matchCase);
+    return pattern ? [...target.matchAll(pattern)][0] : null;
+  }
+  function glossarySenseApplies(entry, source, match, targetLanguage) {
+    if (entry.id === 406 && !/\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source)) return false;
+    if (entry.id === 353 && targetLanguage === "az" && /\bpromotional\s+period\b|\bpromotion\s+period\b/iu.test(source)) return false;
+    if (entry.id === 177 && /\bin the event of\b/iu.test(source)) return false;
+    if (entry.id === 356 && /^(?:\s+(?:a|an|any|at least|accumulators?|bets?|wagers?))\b/iu.test(source.slice((match.index ?? 0) + match[0].length))) return false;
+    return true;
+  }
+  function glossaryGroups(rows, from, to) {
+    let languages2 = compiledGlossaries.get(rows);
+    if (!languages2) {
+      languages2 = /* @__PURE__ */ new Map();
+      compiledGlossaries.set(rows, languages2);
+    }
+    const key = `${from}:${to}`;
+    if (languages2.has(key)) return languages2.get(key);
+    const groups = /* @__PURE__ */ new Map();
+    for (const row of rows) {
+      const sourceTerm = row.terms?.[from]?.trim();
+      const targetTerm = row.terms?.[to]?.trim();
+      if (!sourceTerm) continue;
+      const termKey = sourceTerm.toLocaleLowerCase();
+      if (!groups.has(termKey)) groups.set(termKey, { sourceTerm, entries: [] });
+      groups.get(termKey).entries.push({
+        id: row.id,
+        sourceTerm,
+        targetTerm,
+        sourceRoot: row.roots?.[from],
+        targetRoot: row.roots?.[to]
+      });
+    }
+    const prepared = [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length).map((group) => ({
+      ...group,
+      needles: [...new Set([group.sourceTerm, ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from))].filter(Boolean).map((term) => term.split(/[ \u00a0-]/u)[0].toLocaleLowerCase()))],
+      patterns: [phrasePattern(group.sourceTerm), ...group.entries.map((entry) => glossaryRootPattern(
+        entry.sourceRoot === void 0 ? deriveGlossaryRoot(entry.sourceTerm, from) : entry.sourceRoot,
+        entry.sourceTerm,
+        from
+      )).filter(Boolean)]
+    }));
+    languages2.set(key, prepared);
+    return prepared;
   }
   function targetAnchor(target, sourcePosition, sourceLength) {
     if (!target.length) return location3(0, 0);
@@ -527,30 +626,23 @@
     if (sourceLanguage !== glossarySourceLanguage(targetLanguage) || !GLOSSARY_LANGUAGES[targetLanguage]) return [];
     const from = GLOSSARY_LANGUAGES[sourceLanguage];
     const to = GLOSSARY_LANGUAGES[targetLanguage];
-    const groups = /* @__PURE__ */ new Map();
-    for (const row of rows) {
-      const sourceTerm = row.terms?.[from]?.trim();
-      const targetTerm = row.terms?.[to]?.trim();
-      if (!sourceTerm) continue;
-      const key = sourceTerm.toLocaleLowerCase();
-      if (!groups.has(key)) groups.set(key, { sourceTerm, entries: [] });
-      groups.get(key).entries.push({ id: row.id, sourceTerm, targetTerm });
-    }
     const matched = [];
     const occupied = [];
-    for (const group of [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length)) {
-      for (const match of source.matchAll(phrasePattern(group.sourceTerm))) {
+    const foldedSource = source.toLocaleLowerCase();
+    for (const group of glossaryGroups(rows, from, to)) {
+      if (!group.needles.some((needle) => foldedSource.includes(needle))) continue;
+      const sourceMatches = group.patterns.flatMap((pattern) => [...source.matchAll(pattern)]).sort((a, b) => a.index - b.index || b[0].length - a[0].length);
+      for (const match of sourceMatches) {
         const start2 = match.index ?? 0;
         const end = start2 + match[0].length;
         if (occupied.some((range) => start2 < range.end && end > range.start)) continue;
         occupied.push({ start: start2, end });
         const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);
-        const entries = (exactEntries.length ? exactEntries : group.entries).filter((entry) => entry.id !== 406 || /\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source));
+        const entries = (exactEntries.length ? exactEntries : group.entries).filter((entry) => entry.targetTerm && glossarySenseApplies(entry, source, match, to));
         const expectedTerms = [...new Set(entries.map((entry) => entry.targetTerm).filter(Boolean))];
         if (!expectedTerms.length) continue;
-        const allowSuffix = targetLanguage === "az";
-        if (expectedTerms.some((term) => phrasePattern(term, true, allowSuffix).test(target))) continue;
-        const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term, false, allowSuffix))][0]).find(Boolean);
+        if (entries.some((entry) => targetTermMatch(target, entry, to, true))) continue;
+        const caseOnlyMatch = entries.map((entry) => targetTermMatch(target, entry, to, false)).find(Boolean);
         const enforceCase = Boolean(exactEntries.length) && (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
         if (caseOnlyMatch) {
           if (!enforceCase) continue;
@@ -1110,6 +1202,7 @@
   });
   var STORAGE_KEY2 = "checkform-glossary-edits-v1";
   var overrides2 = {};
+  var rootOverrides2 = {};
   var customRows2 = [];
   function browserStorage2() {
     try {
@@ -1122,18 +1215,25 @@
     try {
       const saved = JSON.parse(storage?.getItem(STORAGE_KEY2) ?? "{}");
       overrides2 = saved.overrides && typeof saved.overrides === "object" ? saved.overrides : {};
+      rootOverrides2 = saved.rootOverrides && typeof saved.rootOverrides === "object" ? saved.rootOverrides : {};
       customRows2 = Array.isArray(saved.customRows) ? saved.customRows : [];
     } catch {
       overrides2 = {};
+      rootOverrides2 = {};
       customRows2 = [];
     }
     return getGlossaryRows2();
   }
   function getGlossaryRows2() {
-    return [...GLOSSARY_DEFAULTS, ...customRows2].map((row) => ({
-      ...row,
-      terms: { ...row.terms, ...overrides2[row.id] ?? {} }
-    }));
+    return [...GLOSSARY_DEFAULTS, ...customRows2].map((row) => {
+      const terms = { ...row.terms, ...overrides2[row.id] ?? {} };
+      const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
+      return {
+        ...row,
+        terms,
+        roots: { ...suggestedRoots, ...row.roots, ...rootOverrides2[row.id] ?? {} }
+      };
+    });
   }
 
   // src/i18n.js

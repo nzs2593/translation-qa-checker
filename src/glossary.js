@@ -1,5 +1,6 @@
 import { GLOSSARY_DEFAULTS } from "./glossary-data.js";
 import { createIssue, location } from "./domain.js";
+import { CURATED_GLOSSARY_ROOTS, deriveGlossaryRoot, glossaryRootPattern } from "./glossary-roots.js";
 
 export const GLOSSARY_LANGUAGES = Object.freeze({
   en: "en-GB", az: "az", da: "da", mn: "mn", "pt-BR": "pt-BR",
@@ -9,7 +10,9 @@ export const GLOSSARY_LANGUAGES = Object.freeze({
 
 const STORAGE_KEY = "checkform-glossary-edits-v1";
 let overrides = {};
+let rootOverrides = {};
 let customRows = [];
+const compiledGlossaries = new WeakMap();
 
 function browserStorage() {
   try { return globalThis.localStorage; } catch { return null; }
@@ -23,24 +26,32 @@ export function loadGlossaryEdits(storage = browserStorage()) {
   try {
     const saved = JSON.parse(storage?.getItem(STORAGE_KEY) ?? "{}");
     overrides = saved.overrides && typeof saved.overrides === "object" ? saved.overrides : {};
+    rootOverrides = saved.rootOverrides && typeof saved.rootOverrides === "object" ? saved.rootOverrides : {};
     customRows = Array.isArray(saved.customRows) ? saved.customRows : [];
   } catch {
     overrides = {};
+    rootOverrides = {};
     customRows = [];
   }
   return getGlossaryRows();
 }
 
 export function getGlossaryRows() {
-  return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => ({
-    ...row,
-    terms: { ...row.terms, ...(overrides[row.id] ?? {}) }
-  }));
+  return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => {
+    const terms = { ...row.terms, ...(overrides[row.id] ?? {}) };
+    const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) =>
+      [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language]
+        ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
+    return {
+      ...row, terms,
+      roots: { ...suggestedRoots, ...row.roots, ...(rootOverrides[row.id] ?? {}) }
+    };
+  });
 }
 
 function persist(storage = browserStorage()) {
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify({ overrides, customRows }));
+    storage?.setItem(STORAGE_KEY, JSON.stringify({ overrides, rootOverrides, customRows }));
     return true;
   } catch {
     return false;
@@ -51,7 +62,10 @@ export function updateGlossaryTerm(rowId, language, value, storage = browserStor
   if (!Object.values(GLOSSARY_LANGUAGES).includes(language)) return false;
   const clean = String(value ?? "").trim();
   const custom = customRows.find((row) => String(row.id) === String(rowId));
-  if (custom) custom.terms[language] = clean;
+  if (custom) {
+    custom.terms[language] = clean;
+    delete custom.roots?.[language];
+  }
   else {
     const original = GLOSSARY_DEFAULTS.find((row) => String(row.id) === String(rowId));
     if (!original) return false;
@@ -59,6 +73,33 @@ export function updateGlossaryTerm(rowId, language, value, storage = browserStor
     if ((original.terms[language] ?? "") === clean) delete overrides[rowId][language];
     else overrides[rowId][language] = clean;
     if (!Object.keys(overrides[rowId]).length) delete overrides[rowId];
+  }
+  if (rootOverrides[rowId]) {
+    delete rootOverrides[rowId][language];
+    if (!Object.keys(rootOverrides[rowId]).length) delete rootOverrides[rowId];
+  }
+  return persist(storage);
+}
+
+export function updateGlossaryRoot(rowId, language, value, storage = browserStorage()) {
+  if (!Object.values(GLOSSARY_LANGUAGES).includes(language)) return false;
+  const row = getGlossaryRows().find((item) => String(item.id) === String(rowId));
+  if (!row || !row.terms[language]) return false;
+  const root = value == null ? null : String(value).trim();
+  if (root != null && root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root)) return false;
+  const custom = customRows.find((item) => String(item.id) === String(rowId));
+  if (custom) {
+    custom.roots ??= {};
+    if (root == null) delete custom.roots[language];
+    else custom.roots[language] = root;
+  } else {
+    rootOverrides[rowId] ??= {};
+    const original = GLOSSARY_DEFAULTS.find((item) => String(item.id) === String(rowId));
+    const suggested = original?.terms[language] === row.terms[language] && CURATED_GLOSSARY_ROOTS[rowId]?.[language]
+      ? CURATED_GLOSSARY_ROOTS[rowId][language] : deriveGlossaryRoot(row.terms[language], language);
+    if (root == null || root === suggested) delete rootOverrides[rowId][language];
+    else rootOverrides[rowId][language] = root;
+    if (!Object.keys(rootOverrides[rowId]).length) delete rootOverrides[rowId];
   }
   return persist(storage);
 }
@@ -77,10 +118,55 @@ export function glossaryEntryCount() {
   return GLOSSARY_DEFAULTS.length + customRows.length;
 }
 
-function phrasePattern(term, matchCase = false, allowAzeriSuffix = false) {
+function phrasePattern(term, matchCase = false) {
   const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  const suffix = allowAzeriSuffix && /^[\p{L}]{5,}$/u.test(term.trim()) ? "[\\p{L}]{0,8}" : "";
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${suffix}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+}
+
+function targetTermMatch(target, entry, language, matchCase) {
+  const alternatives = entry.targetTerm.split(/\s*\/\s*/u);
+  const terms = alternatives.length > 1 && alternatives.every((part) => /^[\p{L} ]{3,}$/u.test(part))
+    ? alternatives : [entry.targetTerm];
+  const exact = terms.map((term) => [...target.matchAll(phrasePattern(term, matchCase))][0]).find(Boolean);
+  if (exact) return exact;
+  const root = entry.targetRoot === undefined ? deriveGlossaryRoot(entry.targetTerm, language) : entry.targetRoot;
+  const pattern = glossaryRootPattern(root, entry.targetTerm, language, matchCase);
+  return pattern ? [...target.matchAll(pattern)][0] : null;
+}
+
+function glossarySenseApplies(entry, source, match, targetLanguage) {
+  if (entry.id === 406 && !/\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source)) return false;
+  if (entry.id === 353 && targetLanguage === "az" && /\bpromotional\s+period\b|\bpromotion\s+period\b/iu.test(source)) return false;
+  if (entry.id === 177 && /\bin the event of\b/iu.test(source)) return false;
+  if (entry.id === 356 && /^(?:\s+(?:a|an|any|at least|accumulators?|bets?|wagers?))\b/iu.test(source.slice((match.index ?? 0) + match[0].length))) return false;
+  return true;
+}
+
+function glossaryGroups(rows, from, to) {
+  let languages = compiledGlossaries.get(rows);
+  if (!languages) { languages = new Map(); compiledGlossaries.set(rows, languages); }
+  const key = `${from}:${to}`;
+  if (languages.has(key)) return languages.get(key);
+  const groups = new Map();
+  for (const row of rows) {
+    const sourceTerm = row.terms?.[from]?.trim();
+    const targetTerm = row.terms?.[to]?.trim();
+    if (!sourceTerm) continue;
+    const termKey = sourceTerm.toLocaleLowerCase();
+    if (!groups.has(termKey)) groups.set(termKey, { sourceTerm, entries: [] });
+    groups.get(termKey).entries.push({ id: row.id, sourceTerm, targetTerm,
+      sourceRoot: row.roots?.[from], targetRoot: row.roots?.[to] });
+  }
+  const prepared = [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length).map((group) => ({
+    ...group,
+    needles: [...new Set([group.sourceTerm, ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from))]
+      .filter(Boolean).map((term) => term.split(/[ \u00a0-]/u)[0].toLocaleLowerCase()))],
+    patterns: [phrasePattern(group.sourceTerm), ...group.entries.map((entry) =>
+      glossaryRootPattern(entry.sourceRoot === undefined ? deriveGlossaryRoot(entry.sourceTerm, from) : entry.sourceRoot,
+        entry.sourceTerm, from)).filter(Boolean)]
+  }));
+  languages.set(key, prepared);
+  return prepared;
 }
 
 function targetAnchor(target, sourcePosition, sourceLength) {
@@ -97,31 +183,25 @@ export function checkGlossary(source, target, sourceLanguage, targetLanguage, ro
   if (sourceLanguage !== glossarySourceLanguage(targetLanguage) || !GLOSSARY_LANGUAGES[targetLanguage]) return [];
   const from = GLOSSARY_LANGUAGES[sourceLanguage];
   const to = GLOSSARY_LANGUAGES[targetLanguage];
-  const groups = new Map();
-  for (const row of rows) {
-    const sourceTerm = row.terms?.[from]?.trim();
-    const targetTerm = row.terms?.[to]?.trim();
-    if (!sourceTerm) continue;
-    const key = sourceTerm.toLocaleLowerCase();
-    if (!groups.has(key)) groups.set(key, { sourceTerm, entries: [] });
-    groups.get(key).entries.push({ id: row.id, sourceTerm, targetTerm });
-  }
   const matched = [];
   const occupied = [];
-  for (const group of [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length)) {
-    for (const match of source.matchAll(phrasePattern(group.sourceTerm))) {
+  const foldedSource = source.toLocaleLowerCase();
+  for (const group of glossaryGroups(rows, from, to)) {
+    if (!group.needles.some((needle) => foldedSource.includes(needle))) continue;
+    const sourceMatches = group.patterns.flatMap((pattern) => [...source.matchAll(pattern)])
+      .sort((a, b) => a.index - b.index || b[0].length - a[0].length);
+    for (const match of sourceMatches) {
       const start = match.index ?? 0;
       const end = start + match[0].length;
       if (occupied.some((range) => start < range.end && end > range.start)) continue;
       occupied.push({ start, end });
       const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);
       const entries = (exactEntries.length ? exactEntries : group.entries)
-        .filter((entry) => entry.id !== 406 || /\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source));
+        .filter((entry) => entry.targetTerm && glossarySenseApplies(entry, source, match, to));
       const expectedTerms = [...new Set(entries.map((entry) => entry.targetTerm).filter(Boolean))];
       if (!expectedTerms.length) continue;
-      const allowSuffix = targetLanguage === "az";
-      if (expectedTerms.some((term) => phrasePattern(term, true, allowSuffix).test(target))) continue;
-      const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term, false, allowSuffix))][0]).find(Boolean);
+      if (entries.some((entry) => targetTermMatch(target, entry, to, true))) continue;
+      const caseOnlyMatch = entries.map((entry) => targetTermMatch(target, entry, to, false)).find(Boolean);
       const enforceCase = Boolean(exactEntries.length) &&
         (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
       if (caseOnlyMatch) {

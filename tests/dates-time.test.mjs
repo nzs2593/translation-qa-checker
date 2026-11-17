@@ -59,6 +59,10 @@ assert.deepEqual(checkDatesAndTime(azPromotionSource, azPromotionTarget, azOptio
 assert.equal(checkDatesAndTime(azPromotionSource, azPromotionTarget.replace("26.10.2026 tarixində", "25.10.2026 tarixində"), azOptions)[0].error_type, "DATE_MISMATCH");
 assert.equal(checkDatesAndTime(azPromotionSource, azPromotionTarget.replace("13:00 GMT+4", "14:00 GMT+4"), azOptions)[0].error_type, "TIME_MISMATCH");
 assert.equal(checkDatesAndTime(azPromotionSource, azPromotionTarget.replace("GMT+4-dən", "GMT +4-dən"), azOptions)[0].error_type, "TIMEZONE_FORMAT");
+const accasSource = "This promotion will run from 09:00 GMT on 02/10/2026 until 20:59 GMT on 25/10/2026.";
+const accasTarget = "Bu kampaniya 02.10.2026 tarixində saat 13:00 GMT+4-dən 26.10.2026 tarixində saat 00:59 GMT+4-dək (02.10.2026 tarixində saat 09:00 GMT-dən 25.10.2026 tarixində saat 20:59 GMT-dək) davam edəcək.";
+assert.deepEqual(checkDatesAndTime(accasSource, accasTarget, azOptions), []);
+assert.deepEqual(checkDatesAndTime("20:59 GMT 25/10/2026", "26.10.2026 tarixində saat 00:59 GMT+4-dən sonra (25.10.2026 tarixində saat 20:59 GMT-dən sonra)", azOptions), []);
 assert.deepEqual(checkDatesAndTime(azSource, azCorrect, azOptions), []);
 const azWrongDate = azCorrect.replace("26.11.2026", "25.11.2026");
 const azDateIssue = checkDatesAndTime(azSource, azWrongDate, azOptions)[0];

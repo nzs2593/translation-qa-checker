@@ -377,6 +377,11 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
 .glossary-term-input { width: 100%; border-color: transparent; background: transparent; }
 .glossary-term-input:hover, .glossary-term-input:focus { border-color: #a9c5ef; background: #fff; outline: none; }
 .glossary-term-input::placeholder { color: #a7b1bd; }
+.glossary-root-line { display: flex; align-items: center; gap: 6px; padding: 0 8px 3px; }
+.glossary-root-line span { flex: none; color: var(--muted); font-size: 11px; }
+.glossary-root-input { width: 100%; min-width: 0; padding: 3px 5px; border: 1px solid transparent; border-radius: 4px; background: #edf4ff; color: #164d9d; font: 12px Consolas, monospace; }
+.glossary-root-input:hover, .glossary-root-input:focus { border-color: #a9c5ef; background: #fff; outline: none; }
+.glossary-root-reset { flex: none; padding: 1px 4px; color: var(--muted); font-size: 14px; }
 .glossary-note { color: var(--muted); font-size: 11px; line-height: 1.35; }
 .glossary-empty { padding: 28px !important; color: var(--muted); text-align: center; }
 .glossary-footer { display: flex; justify-content: space-between; align-items: center; min-height: 50px; padding: 8px 22px; color: var(--green-dark); font-size: 12px; }

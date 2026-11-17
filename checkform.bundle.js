@@ -498,6 +498,48 @@
     return { start, end };
   }
 
+  // src/glossary-roots.js
+  var SUFFIXES = Object.freeze({
+    "en-GB": ["s", "es"],
+    az: ["\u0131", "i", "u", "\xFC", "\u0131n", "in", "un", "\xFCn", "a", "\u0259", "da", "d\u0259", "dan", "d\u0259n", "la", "l\u0259", "l\u0131", "li", "lu", "l\xFC", "lar", "l\u0259r", "lar\u0131", "l\u0259ri", "n\u0131n", "nin", "nun", "n\xFCn", "s\u0131", "si", "su", "s\xFC", "ya", "y\u0259", "nda", "nd\u0259", "ndan", "nd\u0259n"],
+    da: ["s", "e", "er", "en", "et", "ene", "erne", "ens", "ets"],
+    mn: ["\u044B\u043D", "\u0438\u0439\u043D", "\u044B", "\u0438\u0439", "\u0434", "\u0442", "\u0430\u0430\u0440", "\u044D\u044D\u0440", "\u0430\u0430\u0441", "\u044D\u044D\u0441", "\u0443\u0443\u0434", "\u04AF\u04AF\u0434", "\u0443\u0443\u0434\u044B\u043D", "\u04AF\u04AF\u0434\u0438\u0439\u043D"],
+    "pt-BR": ["s", "es"],
+    ru: ["\u0430", "\u044F", "\u044B", "\u0438", "\u0435", "\u0443", "\u044E", "\u043E\u0439", "\u0435\u0439", "\u043E\u043C", "\u0435\u043C", "\u043E\u0432", "\u0435\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u0435\u043C\u0443", "\u044B\u043C\u0438", "\u0438\u043C\u0438", "\u044B\u0439", "\u0438\u0439", "\u0430\u044F", "\u043E\u0435", "\u044B\u0435", "\u044B\u0445", "\u0443\u044E", "\u0442\u044C", "\u0435\u0442", "\u044E\u0442", "\u0443\u0442", "\u043B\u0430", "\u043B\u0438"],
+    es: ["s", "es"],
+    "es-AR": ["s", "es"],
+    uk: ["\u0430", "\u044F", "\u0438", "\u0456", "\u0435", "\u0443", "\u044E", "\u043E\u044E", "\u0435\u044E", "\u043E\u043C", "\u0435\u043C", "\u0456\u0432", "\u0430\u043C", "\u044F\u043C", "\u0430\u0445", "\u044F\u0445", "\u0430\u043C\u0438", "\u044F\u043C\u0438", "\u043E\u0433\u043E", "\u043E\u043C\u0443", "\u0438\u043C\u0438", "\u0438\u0439", "\u0456\u0439", "\u043E\u0457", "\u043E\u044E", "\u0456\u0448\u0435", "\u0442\u0438", "\u0454", "\u044E\u0442\u044C"],
+    uz: ["lar", "ning", "ga", "da", "dan", "ni", "larining", "larga", "larda", "lardan", "si", "i", "li", "siz"],
+    uzb: ["\u043B\u0430\u0440", "\u043D\u0438\u043D\u0433", "\u0433\u0430", "\u0434\u0430", "\u0434\u0430\u043D", "\u043D\u0438", "\u043B\u0430\u0440\u043D\u0438\u043D\u0433", "\u043B\u0430\u0440\u0433\u0430", "\u043B\u0430\u0440\u0434\u0430", "\u043B\u0430\u0440\u0434\u0430\u043D", "\u0441\u0438", "\u0438", "\u043B\u0438", "\u0441\u0438\u0437"]
+  });
+  var LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,2}$/u;
+  var ROOT_PHRASE = /^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u;
+  var CYRILLIC_ENDING = /[аяоеыийьії]$/u;
+  var CURATED_GLOSSARY_ROOTS = Object.freeze({
+    279: { az: "Loyall\u0131q proqram" },
+    318: { az: "say" },
+    356: { az: "yer" },
+    461: { az: "\u015E\u0259rtl\u0259r v\u0259 Qaydalar" }
+  });
+  function deriveGlossaryRoot(term, language) {
+    if (!SUFFIXES[language] || !LOWERCASE_PHRASE.test(String(term ?? ""))) return "";
+    const words = term.split(/[ \u00a0-]/u);
+    const last = words.at(-1);
+    if (last.length < (words.length > 1 ? 4 : 5)) return "";
+    if ((language === "ru" || language === "uk") && last.length >= 6 && CYRILLIC_ENDING.test(last)) {
+      words[words.length - 1] = last.slice(0, -1);
+    }
+    return term.slice(0, term.length - last.length) + words.at(-1);
+  }
+  function glossaryRootPattern(root, term, language, matchCase = false) {
+    if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
+    const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
+    const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
+    const maxSuffixes = ["az", "mn", "uz", "uzb"].includes(language) ? 3 : 1;
+    const continuation = root === term ? `(?:${suffixes}){0,${maxSuffixes}}` : `(?:${suffixes}){1,${maxSuffixes}}`;
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${continuation}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+  }
+
   // src/glossary.js?v=2.2
   var GLOSSARY_LANGUAGES = Object.freeze({
     en: "en-GB",
@@ -514,7 +556,9 @@
   });
   var STORAGE_KEY2 = "checkform-glossary-edits-v1";
   var overrides = {};
+  var rootOverrides = {};
   var customRows = [];
+  var compiledGlossaries = /* @__PURE__ */ new WeakMap();
   function browserStorage2() {
     try {
       return globalThis.localStorage;
@@ -529,58 +573,80 @@
     try {
       const saved = JSON.parse(storage?.getItem(STORAGE_KEY2) ?? "{}");
       overrides = saved.overrides && typeof saved.overrides === "object" ? saved.overrides : {};
+      rootOverrides = saved.rootOverrides && typeof saved.rootOverrides === "object" ? saved.rootOverrides : {};
       customRows = Array.isArray(saved.customRows) ? saved.customRows : [];
     } catch {
       overrides = {};
+      rootOverrides = {};
       customRows = [];
     }
     return getGlossaryRows();
   }
   function getGlossaryRows() {
-    return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => ({
-      ...row,
-      terms: { ...row.terms, ...overrides[row.id] ?? {} }
-    }));
+    return [...GLOSSARY_DEFAULTS, ...customRows].map((row) => {
+      const terms = { ...row.terms, ...overrides[row.id] ?? {} };
+      const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
+      return {
+        ...row,
+        terms,
+        roots: { ...suggestedRoots, ...row.roots, ...rootOverrides[row.id] ?? {} }
+      };
+    });
   }
-  function persist(storage = browserStorage2()) {
-    try {
-      storage?.setItem(STORAGE_KEY2, JSON.stringify({ overrides, customRows }));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function updateGlossaryTerm(rowId, language, value, storage = browserStorage2()) {
-    if (!Object.values(GLOSSARY_LANGUAGES).includes(language)) return false;
-    const clean = String(value ?? "").trim();
-    const custom = customRows.find((row) => String(row.id) === String(rowId));
-    if (custom) custom.terms[language] = clean;
-    else {
-      const original = GLOSSARY_DEFAULTS.find((row) => String(row.id) === String(rowId));
-      if (!original) return false;
-      overrides[rowId] ??= {};
-      if ((original.terms[language] ?? "") === clean) delete overrides[rowId][language];
-      else overrides[rowId][language] = clean;
-      if (!Object.keys(overrides[rowId]).length) delete overrides[rowId];
-    }
-    return persist(storage);
-  }
-  function addGlossaryRow(sourceLanguage2, targetLanguage2, sourceTerm, targetTerm, storage = browserStorage2()) {
-    const from = GLOSSARY_LANGUAGES[sourceLanguage2];
-    const to = GLOSSARY_LANGUAGES[targetLanguage2];
-    if (!from || !to || !String(sourceTerm).trim()) return null;
-    const row = { id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, terms: { [from]: String(sourceTerm).trim(), [to]: String(targetTerm).trim() } };
-    customRows.push(row);
-    persist(storage);
-    return row;
-  }
-  function glossaryEntryCount() {
-    return GLOSSARY_DEFAULTS.length + customRows.length;
-  }
-  function phrasePattern(term, matchCase = false, allowAzeriSuffix = false) {
+  function phrasePattern(term, matchCase = false) {
     const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-    const suffix = allowAzeriSuffix && /^[\p{L}]{5,}$/u.test(term.trim()) ? "[\\p{L}]{0,8}" : "";
-    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}${suffix}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+  }
+  function targetTermMatch(target, entry, language, matchCase) {
+    const alternatives = entry.targetTerm.split(/\s*\/\s*/u);
+    const terms = alternatives.length > 1 && alternatives.every((part) => /^[\p{L} ]{3,}$/u.test(part)) ? alternatives : [entry.targetTerm];
+    const exact = terms.map((term) => [...target.matchAll(phrasePattern(term, matchCase))][0]).find(Boolean);
+    if (exact) return exact;
+    const root = entry.targetRoot === void 0 ? deriveGlossaryRoot(entry.targetTerm, language) : entry.targetRoot;
+    const pattern = glossaryRootPattern(root, entry.targetTerm, language, matchCase);
+    return pattern ? [...target.matchAll(pattern)][0] : null;
+  }
+  function glossarySenseApplies(entry, source, match, targetLanguage2) {
+    if (entry.id === 406 && !/\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source)) return false;
+    if (entry.id === 353 && targetLanguage2 === "az" && /\bpromotional\s+period\b|\bpromotion\s+period\b/iu.test(source)) return false;
+    if (entry.id === 177 && /\bin the event of\b/iu.test(source)) return false;
+    if (entry.id === 356 && /^(?:\s+(?:a|an|any|at least|accumulators?|bets?|wagers?))\b/iu.test(source.slice((match.index ?? 0) + match[0].length))) return false;
+    return true;
+  }
+  function glossaryGroups(rows, from, to) {
+    let languages = compiledGlossaries.get(rows);
+    if (!languages) {
+      languages = /* @__PURE__ */ new Map();
+      compiledGlossaries.set(rows, languages);
+    }
+    const key = `${from}:${to}`;
+    if (languages.has(key)) return languages.get(key);
+    const groups = /* @__PURE__ */ new Map();
+    for (const row of rows) {
+      const sourceTerm = row.terms?.[from]?.trim();
+      const targetTerm = row.terms?.[to]?.trim();
+      if (!sourceTerm) continue;
+      const termKey = sourceTerm.toLocaleLowerCase();
+      if (!groups.has(termKey)) groups.set(termKey, { sourceTerm, entries: [] });
+      groups.get(termKey).entries.push({
+        id: row.id,
+        sourceTerm,
+        targetTerm,
+        sourceRoot: row.roots?.[from],
+        targetRoot: row.roots?.[to]
+      });
+    }
+    const prepared = [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length).map((group) => ({
+      ...group,
+      needles: [...new Set([group.sourceTerm, ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from))].filter(Boolean).map((term) => term.split(/[ \u00a0-]/u)[0].toLocaleLowerCase()))],
+      patterns: [phrasePattern(group.sourceTerm), ...group.entries.map((entry) => glossaryRootPattern(
+        entry.sourceRoot === void 0 ? deriveGlossaryRoot(entry.sourceTerm, from) : entry.sourceRoot,
+        entry.sourceTerm,
+        from
+      )).filter(Boolean)]
+    }));
+    languages.set(key, prepared);
+    return prepared;
   }
   function targetAnchor(target, sourcePosition, sourceLength) {
     if (!target.length) return location2(0, 0);
@@ -595,30 +661,23 @@
     if (sourceLanguage2 !== glossarySourceLanguage(targetLanguage2) || !GLOSSARY_LANGUAGES[targetLanguage2]) return [];
     const from = GLOSSARY_LANGUAGES[sourceLanguage2];
     const to = GLOSSARY_LANGUAGES[targetLanguage2];
-    const groups = /* @__PURE__ */ new Map();
-    for (const row of rows) {
-      const sourceTerm = row.terms?.[from]?.trim();
-      const targetTerm = row.terms?.[to]?.trim();
-      if (!sourceTerm) continue;
-      const key = sourceTerm.toLocaleLowerCase();
-      if (!groups.has(key)) groups.set(key, { sourceTerm, entries: [] });
-      groups.get(key).entries.push({ id: row.id, sourceTerm, targetTerm });
-    }
     const matched = [];
     const occupied = [];
-    for (const group of [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length)) {
-      for (const match of source.matchAll(phrasePattern(group.sourceTerm))) {
+    const foldedSource = source.toLocaleLowerCase();
+    for (const group of glossaryGroups(rows, from, to)) {
+      if (!group.needles.some((needle) => foldedSource.includes(needle))) continue;
+      const sourceMatches = group.patterns.flatMap((pattern) => [...source.matchAll(pattern)]).sort((a, b) => a.index - b.index || b[0].length - a[0].length);
+      for (const match of sourceMatches) {
         const start = match.index ?? 0;
         const end = start + match[0].length;
         if (occupied.some((range) => start < range.end && end > range.start)) continue;
         occupied.push({ start, end });
         const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);
-        const entries = (exactEntries.length ? exactEntries : group.entries).filter((entry) => entry.id !== 406 || /\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source));
+        const entries = (exactEntries.length ? exactEntries : group.entries).filter((entry) => entry.targetTerm && glossarySenseApplies(entry, source, match, to));
         const expectedTerms = [...new Set(entries.map((entry) => entry.targetTerm).filter(Boolean))];
         if (!expectedTerms.length) continue;
-        const allowSuffix = targetLanguage2 === "az";
-        if (expectedTerms.some((term) => phrasePattern(term, true, allowSuffix).test(target))) continue;
-        const caseOnlyMatch = expectedTerms.map((term) => [...target.matchAll(phrasePattern(term, false, allowSuffix))][0]).find(Boolean);
+        if (entries.some((entry) => targetTermMatch(target, entry, to, true))) continue;
+        const caseOnlyMatch = entries.map((entry) => targetTermMatch(target, entry, to, false)).find(Boolean);
         const enforceCase = Boolean(exactEntries.length) && (/[\p{Lu}]/u.test(match[0]) || expectedTerms.some((term) => /[\p{Lu}]/u.test(term)));
         if (caseOnlyMatch) {
           if (!enforceCase) continue;
@@ -1279,6 +1338,108 @@
     return paragraphs.map((paragraph) => Array.from(paragraph.getElementsByTagNameNS("*", "t")).map((node) => node.textContent).join("")).filter((paragraph) => paragraph.length > 0).join("\n\n");
   }
 
+  // src/glossary.js?v=2.3
+  var GLOSSARY_LANGUAGES2 = Object.freeze({
+    en: "en-GB",
+    az: "az",
+    da: "da",
+    mn: "mn",
+    "pt-BR": "pt-BR",
+    ru: "ru",
+    es: "es",
+    "es-AR": "es-AR",
+    uk: "uk",
+    "uz-Latn": "uz",
+    "uz-Cyrl": "uzb"
+  });
+  var STORAGE_KEY3 = "checkform-glossary-edits-v1";
+  var overrides2 = {};
+  var rootOverrides2 = {};
+  var customRows2 = [];
+  function browserStorage3() {
+    try {
+      return globalThis.localStorage;
+    } catch {
+      return null;
+    }
+  }
+  function glossarySourceLanguage2(targetLanguage2) {
+    return targetLanguage2 === "uk" ? "ru" : "en";
+  }
+  function getGlossaryRows2() {
+    return [...GLOSSARY_DEFAULTS, ...customRows2].map((row) => {
+      const terms = { ...row.terms, ...overrides2[row.id] ?? {} };
+      const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
+      return {
+        ...row,
+        terms,
+        roots: { ...suggestedRoots, ...row.roots, ...rootOverrides2[row.id] ?? {} }
+      };
+    });
+  }
+  function persist(storage = browserStorage3()) {
+    try {
+      storage?.setItem(STORAGE_KEY3, JSON.stringify({ overrides: overrides2, rootOverrides: rootOverrides2, customRows: customRows2 }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function updateGlossaryTerm(rowId, language, value, storage = browserStorage3()) {
+    if (!Object.values(GLOSSARY_LANGUAGES2).includes(language)) return false;
+    const clean = String(value ?? "").trim();
+    const custom = customRows2.find((row) => String(row.id) === String(rowId));
+    if (custom) {
+      custom.terms[language] = clean;
+      delete custom.roots?.[language];
+    } else {
+      const original = GLOSSARY_DEFAULTS.find((row) => String(row.id) === String(rowId));
+      if (!original) return false;
+      overrides2[rowId] ??= {};
+      if ((original.terms[language] ?? "") === clean) delete overrides2[rowId][language];
+      else overrides2[rowId][language] = clean;
+      if (!Object.keys(overrides2[rowId]).length) delete overrides2[rowId];
+    }
+    if (rootOverrides2[rowId]) {
+      delete rootOverrides2[rowId][language];
+      if (!Object.keys(rootOverrides2[rowId]).length) delete rootOverrides2[rowId];
+    }
+    return persist(storage);
+  }
+  function updateGlossaryRoot(rowId, language, value, storage = browserStorage3()) {
+    if (!Object.values(GLOSSARY_LANGUAGES2).includes(language)) return false;
+    const row = getGlossaryRows2().find((item) => String(item.id) === String(rowId));
+    if (!row || !row.terms[language]) return false;
+    const root = value == null ? null : String(value).trim();
+    if (root != null && root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root)) return false;
+    const custom = customRows2.find((item) => String(item.id) === String(rowId));
+    if (custom) {
+      custom.roots ??= {};
+      if (root == null) delete custom.roots[language];
+      else custom.roots[language] = root;
+    } else {
+      rootOverrides2[rowId] ??= {};
+      const original = GLOSSARY_DEFAULTS.find((item) => String(item.id) === String(rowId));
+      const suggested = original?.terms[language] === row.terms[language] && CURATED_GLOSSARY_ROOTS[rowId]?.[language] ? CURATED_GLOSSARY_ROOTS[rowId][language] : deriveGlossaryRoot(row.terms[language], language);
+      if (root == null || root === suggested) delete rootOverrides2[rowId][language];
+      else rootOverrides2[rowId][language] = root;
+      if (!Object.keys(rootOverrides2[rowId]).length) delete rootOverrides2[rowId];
+    }
+    return persist(storage);
+  }
+  function addGlossaryRow(sourceLanguage2, targetLanguage2, sourceTerm, targetTerm, storage = browserStorage3()) {
+    const from = GLOSSARY_LANGUAGES2[sourceLanguage2];
+    const to = GLOSSARY_LANGUAGES2[targetLanguage2];
+    if (!from || !to || !String(sourceTerm).trim()) return null;
+    const row = { id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, terms: { [from]: String(sourceTerm).trim(), [to]: String(targetTerm).trim() } };
+    customRows2.push(row);
+    persist(storage);
+    return row;
+  }
+  function glossaryEntryCount() {
+    return GLOSSARY_DEFAULTS.length + customRows2.length;
+  }
+
   // src/i18n.js
   var INTERFACE_LOCALES = Object.freeze(["en", "ru"]);
   var UI = {
@@ -1360,7 +1521,10 @@
       rulesChecksTitle: "Automated checks",
       rulesChecksCopy: "CHECKform checks comparable numeric values, dates, currency markers and placement, percent spacing, quotation style, and extra spaces. Ambiguous formats require review.",
       glossaryTitle: "Glossary",
-      glossaryIntro: "Edit a term here and CHECKform will use the new translation in the next check. Changes are saved in this browser.",
+      glossaryIntro: "Edit a term or its inflection root here. Both are saved in this browser and used in the next check.",
+      glossaryRoot: "Root",
+      glossaryRootNone: "Exact term only",
+      glossaryRootReset: "Restore suggested root",
       glossarySearch: "Search terms or translations\u2026",
       glossaryFrom: "Source term",
       glossaryTo: "Goal term",
@@ -1482,7 +1646,10 @@
       rulesChecksTitle: "\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438",
       rulesChecksCopy: "CHECKform \u0441\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u0435\u0442 \u0447\u0438\u0441\u043B\u043E\u0432\u044B\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u0434\u0430\u0442\u044B, \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043E\u0431\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442, \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043F\u0435\u0440\u0435\u0434 %, \u043A\u0430\u0432\u044B\u0447\u043A\u0438 \u0438 \u043B\u0438\u0448\u043D\u0438\u0435 \u043F\u0440\u043E\u0431\u0435\u043B\u044B. \u041D\u0435\u043E\u0434\u043D\u043E\u0437\u043D\u0430\u0447\u043D\u044B\u0435 \u0444\u043E\u0440\u043C\u0430\u0442\u044B \u0442\u0440\u0435\u0431\u0443\u044E\u0442 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430.",
       glossaryTitle: "\u0421\u043B\u043E\u0432\u0430\u0440\u044C",
-      glossaryIntro: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u0435 \u0442\u0435\u0440\u043C\u0438\u043D \u0437\u0434\u0435\u0441\u044C \u2014 CHECKform \u0443\u0447\u0442\u0451\u0442 \u043D\u043E\u0432\u044B\u0439 \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435. \u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u044D\u0442\u043E\u043C \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435.",
+      glossaryIntro: "\u0417\u0434\u0435\u0441\u044C \u043C\u043E\u0436\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u0438 \u0435\u0433\u043E \u043A\u043E\u0440\u0435\u043D\u044C \u0434\u043B\u044F \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C. \u041E\u0431\u0430 \u043F\u043E\u043B\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 \u0438 \u0443\u0447\u0438\u0442\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435.",
+      glossaryRoot: "\u041A\u043E\u0440\u0435\u043D\u044C",
+      glossaryRootNone: "\u0422\u043E\u043B\u044C\u043A\u043E \u0442\u043E\u0447\u043D\u044B\u0439 \u0442\u0435\u0440\u043C\u0438\u043D",
+      glossaryRootReset: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0439 \u043A\u043E\u0440\u0435\u043D\u044C",
       glossarySearch: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u043C \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430\u043C\u2026",
       glossaryFrom: "\u0422\u0435\u0440\u043C\u0438\u043D \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0430",
       glossaryTo: "\u0422\u0435\u0440\u043C\u0438\u043D \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430",
@@ -1599,7 +1766,7 @@
     let saveTimer;
     function currentLanguages() {
       const target = languageSelect.value || "ru";
-      return { source: glossarySourceLanguage(target), target };
+      return { source: glossarySourceLanguage2(target), target };
     }
     function populateLanguages() {
       const previous = languageSelect.value || (getGoalLanguage() === "en" ? "ru" : getGoalLanguage());
@@ -1632,23 +1799,53 @@
     function makeInput(row, language, placeholder) {
       const input = document.createElement("input");
       input.className = "glossary-term-input";
-      input.value = row.terms[GLOSSARY_LANGUAGES[language]] ?? "";
+      input.value = row.terms[GLOSSARY_LANGUAGES2[language]] ?? "";
       input.placeholder = placeholder;
       input.dataset.rowId = String(row.id);
-      input.dataset.language = GLOSSARY_LANGUAGES[language];
+      input.dataset.language = GLOSSARY_LANGUAGES2[language];
+      input.dataset.kind = "term";
       input.setAttribute("aria-label", `${language} \xB7 ${row.id}`);
       return input;
+    }
+    function makeTermCell(row, language, placeholder) {
+      const code = GLOSSARY_LANGUAGES2[language];
+      const cell = document.createElement("td");
+      cell.append(makeInput(row, language, placeholder));
+      if (!row.terms[code]) return cell;
+      const rootLine = document.createElement("div");
+      rootLine.className = "glossary-root-line";
+      const label = document.createElement("span");
+      label.textContent = t(getLocale2(), "glossaryRoot");
+      const root = document.createElement("input");
+      root.className = "glossary-root-input";
+      root.value = row.roots?.[code] ?? "";
+      root.placeholder = t(getLocale2(), "glossaryRootNone");
+      root.dataset.rowId = String(row.id);
+      root.dataset.language = code;
+      root.dataset.kind = "root";
+      root.setAttribute("aria-label", `${t(getLocale2(), "glossaryRoot")} \xB7 ${language} \xB7 ${row.id}`);
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.className = "glossary-root-reset";
+      reset.textContent = "\u21BA";
+      reset.title = t(getLocale2(), "glossaryRootReset");
+      reset.setAttribute("aria-label", `${t(getLocale2(), "glossaryRootReset")} \xB7 ${language} \xB7 ${row.id}`);
+      reset.dataset.rowId = String(row.id);
+      reset.dataset.language = code;
+      rootLine.append(label, root, reset);
+      cell.append(rootLine);
+      return cell;
     }
     function renderRows() {
       const locale = getLocale2();
       const { source, target } = currentLanguages();
       const query = search.value.trim().toLocaleLowerCase();
-      const sourceCode = GLOSSARY_LANGUAGES[source];
-      const targetCode = GLOSSARY_LANGUAGES[target];
-      const matching = getGlossaryRows().filter((row) => {
+      const sourceCode = GLOSSARY_LANGUAGES2[source];
+      const targetCode = GLOSSARY_LANGUAGES2[target];
+      const matching = getGlossaryRows2().filter((row) => {
         const sourceTerm = row.terms[sourceCode] ?? "";
         const targetTerm = row.terms[targetCode] ?? "";
-        return (sourceTerm || targetTerm) && (!query || `${sourceTerm} ${targetTerm}`.toLocaleLowerCase().includes(query));
+        return (sourceTerm || targetTerm) && (!query || `${sourceTerm} ${targetTerm} ${row.roots?.[sourceCode] ?? ""} ${row.roots?.[targetCode] ?? ""}`.toLocaleLowerCase().includes(query));
       });
       $("glossary-count").textContent = t(locale, "glossaryRows", { count: String(matching.length) });
       more.hidden = matching.length <= visibleCount;
@@ -1669,10 +1866,8 @@
         const number = document.createElement("td");
         number.className = "glossary-row-number";
         number.textContent = String(row.id);
-        const from = document.createElement("td");
-        from.append(makeInput(row, source, t(locale, "glossaryMissing")));
-        const to = document.createElement("td");
-        to.append(makeInput(row, target, t(locale, "glossaryMissing")));
+        const from = makeTermCell(row, source, t(locale, "glossaryMissing"));
+        const to = makeTermCell(row, target, t(locale, "glossaryMissing"));
         const notes = document.createElement("td");
         notes.className = "glossary-note";
         notes.textContent = [row.notes?.[sourceCode], row.notes?.[targetCode]].filter(Boolean).join(" \xB7 ");
@@ -1687,7 +1882,7 @@
       renderRows();
     }
     function syncLanguage(code) {
-      if (manuallySelected || !code || code === "en" || !GLOSSARY_LANGUAGES[code]) return;
+      if (manuallySelected || !code || code === "en" || !GLOSSARY_LANGUAGES2[code]) return;
       if (languageSelect.value !== code) {
         languageSelect.value = code;
         visibleCount = PAGE_SIZE;
@@ -1714,7 +1909,7 @@
       if (!input) return;
       clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        const saved = updateGlossaryTerm(input.dataset.rowId, input.dataset.language, input.value);
+        const saved = input.dataset.kind === "root" ? updateGlossaryRoot(input.dataset.rowId, input.dataset.language, input.value) : updateGlossaryTerm(input.dataset.rowId, input.dataset.language, input.value);
         status.textContent = t(getLocale2(), saved ? "glossarySaved" : "glossarySaveError");
         onChange();
       }, 250);
@@ -1723,9 +1918,20 @@
       const input = event.target.closest("input[data-row-id]");
       if (!input) return;
       clearTimeout(saveTimer);
-      const saved = updateGlossaryTerm(input.dataset.rowId, input.dataset.language, input.value);
+      const saved = input.dataset.kind === "root" ? updateGlossaryRoot(input.dataset.rowId, input.dataset.language, input.value) : updateGlossaryTerm(input.dataset.rowId, input.dataset.language, input.value);
       status.textContent = t(getLocale2(), saved ? "glossarySaved" : "glossarySaveError");
+      if (saved && input.dataset.kind === "term") renderRows();
       onChange();
+    });
+    tableBody.addEventListener("click", (event) => {
+      const button = event.target.closest("button.glossary-root-reset");
+      if (!button) return;
+      const saved = updateGlossaryRoot(button.dataset.rowId, button.dataset.language, null);
+      status.textContent = t(getLocale2(), saved ? "glossarySaved" : "glossarySaveError");
+      if (saved) {
+        renderRows();
+        onChange();
+      }
     });
     $("glossary-add-form").addEventListener("submit", (event) => {
       event.preventDefault();
@@ -2096,7 +2302,10 @@ ${GUIDE[code]}`
       rulesChecksTitle: "Automated checks",
       rulesChecksCopy: "CHECKform checks comparable numeric values, dates, currency markers and placement, percent spacing, quotation style, and extra spaces. Ambiguous formats require review.",
       glossaryTitle: "Glossary",
-      glossaryIntro: "Edit a term here and CHECKform will use the new translation in the next check. Changes are saved in this browser.",
+      glossaryIntro: "Edit a term or its inflection root here. Both are saved in this browser and used in the next check.",
+      glossaryRoot: "Root",
+      glossaryRootNone: "Exact term only",
+      glossaryRootReset: "Restore suggested root",
       glossarySearch: "Search terms or translations\u2026",
       glossaryFrom: "Source term",
       glossaryTo: "Goal term",
@@ -2218,7 +2427,10 @@ ${GUIDE[code]}`
       rulesChecksTitle: "\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438",
       rulesChecksCopy: "CHECKform \u0441\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u0435\u0442 \u0447\u0438\u0441\u043B\u043E\u0432\u044B\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u0434\u0430\u0442\u044B, \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043E\u0431\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442, \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043F\u0435\u0440\u0435\u0434 %, \u043A\u0430\u0432\u044B\u0447\u043A\u0438 \u0438 \u043B\u0438\u0448\u043D\u0438\u0435 \u043F\u0440\u043E\u0431\u0435\u043B\u044B. \u041D\u0435\u043E\u0434\u043D\u043E\u0437\u043D\u0430\u0447\u043D\u044B\u0435 \u0444\u043E\u0440\u043C\u0430\u0442\u044B \u0442\u0440\u0435\u0431\u0443\u044E\u0442 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430.",
       glossaryTitle: "\u0421\u043B\u043E\u0432\u0430\u0440\u044C",
-      glossaryIntro: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u0435 \u0442\u0435\u0440\u043C\u0438\u043D \u0437\u0434\u0435\u0441\u044C \u2014 CHECKform \u0443\u0447\u0442\u0451\u0442 \u043D\u043E\u0432\u044B\u0439 \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435. \u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u044D\u0442\u043E\u043C \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435.",
+      glossaryIntro: "\u0417\u0434\u0435\u0441\u044C \u043C\u043E\u0436\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u0438 \u0435\u0433\u043E \u043A\u043E\u0440\u0435\u043D\u044C \u0434\u043B\u044F \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C. \u041E\u0431\u0430 \u043F\u043E\u043B\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 \u0438 \u0443\u0447\u0438\u0442\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435.",
+      glossaryRoot: "\u041A\u043E\u0440\u0435\u043D\u044C",
+      glossaryRootNone: "\u0422\u043E\u043B\u044C\u043A\u043E \u0442\u043E\u0447\u043D\u044B\u0439 \u0442\u0435\u0440\u043C\u0438\u043D",
+      glossaryRootReset: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0439 \u043A\u043E\u0440\u0435\u043D\u044C",
       glossarySearch: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u043C \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430\u043C\u2026",
       glossaryFrom: "\u0422\u0435\u0440\u043C\u0438\u043D \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0430",
       glossaryTo: "\u0422\u0435\u0440\u043C\u0438\u043D \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430",

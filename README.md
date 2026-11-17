@@ -30,6 +30,7 @@ Issue[]
 - `src/profiles.js` contains language-profile defaults for the first supported languages.
 - `src/language-detection.js` provides deterministic script/marker-based language detection with confidence; manual Source/Goal profile selection can override it.
 - `src/dates-time.js` pairs every date and clock time in a passage, validates calendar dates (including leap years), and compares instants after GMT/UTC normalization. The `es-AR` profile expects converted target times at GMT−3; parenthetical repetitions of the original GMT values do not hide an incorrect primary conversion.
+- Glossary roots are shown alongside terms for every language in the Glossary tab. Conservative roots are suggested for lowercase inflectable terms; ambiguous names and short terms stay exact unless edited. Root edits are saved in browser storage and included in the Chrome settings export.
 - The GMT tab stores a per-language timezone rule in the browser. Argentine Spanish defaults to `GMT-3`; Russian to Cyrillic `МСК` (GMT+3). Ukrainian accepts an equivalent instant from a Russian source; other unconfirmed markets inherit the source timezone until a project-specific rule is entered. Exact marker spelling and spacing are checked.
 - The Language rules tab shows short dates, number separators, currency examples, percent spacing, quotation marks and guide-specific exceptions for all 11 profiles. The table is a quick reference to the profile values used by the checker.
 - `CHECKform-presentation-brief.md` is a Russian product description and presentation outline.

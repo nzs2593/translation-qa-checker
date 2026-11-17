@@ -1,4 +1,4 @@
-import { GLOSSARY_LANGUAGES, addGlossaryRow, getGlossaryRows, glossaryEntryCount, glossarySourceLanguage, updateGlossaryTerm } from "./glossary.js?v=2.2";
+import { GLOSSARY_LANGUAGES, addGlossaryRow, getGlossaryRows, glossaryEntryCount, glossarySourceLanguage, updateGlossaryRoot, updateGlossaryTerm } from "./glossary.js?v=2.3";
 import { LANGUAGE_PROFILES } from "./profiles.js";
 import { profileLabel, t } from "./i18n.js";
 
@@ -57,8 +57,39 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
     input.placeholder = placeholder;
     input.dataset.rowId = String(row.id);
     input.dataset.language = GLOSSARY_LANGUAGES[language];
+    input.dataset.kind = "term";
     input.setAttribute("aria-label", `${language} · ${row.id}`);
     return input;
+  }
+
+  function makeTermCell(row, language, placeholder) {
+    const code = GLOSSARY_LANGUAGES[language];
+    const cell = document.createElement("td");
+    cell.append(makeInput(row, language, placeholder));
+    if (!row.terms[code]) return cell;
+    const rootLine = document.createElement("div");
+    rootLine.className = "glossary-root-line";
+    const label = document.createElement("span");
+    label.textContent = t(getLocale(), "glossaryRoot");
+    const root = document.createElement("input");
+    root.className = "glossary-root-input";
+    root.value = row.roots?.[code] ?? "";
+    root.placeholder = t(getLocale(), "glossaryRootNone");
+    root.dataset.rowId = String(row.id);
+    root.dataset.language = code;
+    root.dataset.kind = "root";
+    root.setAttribute("aria-label", `${t(getLocale(), "glossaryRoot")} · ${language} · ${row.id}`);
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "glossary-root-reset";
+    reset.textContent = "↺";
+    reset.title = t(getLocale(), "glossaryRootReset");
+    reset.setAttribute("aria-label", `${t(getLocale(), "glossaryRootReset")} · ${language} · ${row.id}`);
+    reset.dataset.rowId = String(row.id);
+    reset.dataset.language = code;
+    rootLine.append(label, root, reset);
+    cell.append(rootLine);
+    return cell;
   }
 
   function renderRows() {
@@ -70,7 +101,7 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
     const matching = getGlossaryRows().filter((row) => {
       const sourceTerm = row.terms[sourceCode] ?? "";
       const targetTerm = row.terms[targetCode] ?? "";
-      return (sourceTerm || targetTerm) && (!query || `${sourceTerm} ${targetTerm}`.toLocaleLowerCase().includes(query));
+      return (sourceTerm || targetTerm) && (!query || `${sourceTerm} ${targetTerm} ${row.roots?.[sourceCode] ?? ""} ${row.roots?.[targetCode] ?? ""}`.toLocaleLowerCase().includes(query));
     });
     $("glossary-count").textContent = t(locale, "glossaryRows", { count: String(matching.length) });
     more.hidden = matching.length <= visibleCount;
@@ -85,8 +116,8 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
     for (const row of matching.slice(0, visibleCount)) {
       const tr = document.createElement("tr");
       const number = document.createElement("td"); number.className = "glossary-row-number"; number.textContent = String(row.id);
-      const from = document.createElement("td"); from.append(makeInput(row, source, t(locale, "glossaryMissing")));
-      const to = document.createElement("td"); to.append(makeInput(row, target, t(locale, "glossaryMissing")));
+      const from = makeTermCell(row, source, t(locale, "glossaryMissing"));
+      const to = makeTermCell(row, target, t(locale, "glossaryMissing"));
       const notes = document.createElement("td"); notes.className = "glossary-note";
       notes.textContent = [row.notes?.[sourceCode], row.notes?.[targetCode]].filter(Boolean).join(" · ");
       tr.append(number, from, to, notes);
@@ -124,7 +155,9 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
     if (!input) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      const saved = updateGlossaryTerm(input.dataset.rowId, input.dataset.language, input.value);
+      const saved = input.dataset.kind === "root"
+        ? updateGlossaryRoot(input.dataset.rowId, input.dataset.language, input.value)
+        : updateGlossaryTerm(input.dataset.rowId, input.dataset.language, input.value);
       status.textContent = t(getLocale(), saved ? "glossarySaved" : "glossarySaveError");
       onChange();
     }, 250);
@@ -133,9 +166,19 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
     const input = event.target.closest("input[data-row-id]");
     if (!input) return;
     clearTimeout(saveTimer);
-    const saved = updateGlossaryTerm(input.dataset.rowId, input.dataset.language, input.value);
+    const saved = input.dataset.kind === "root"
+      ? updateGlossaryRoot(input.dataset.rowId, input.dataset.language, input.value)
+      : updateGlossaryTerm(input.dataset.rowId, input.dataset.language, input.value);
     status.textContent = t(getLocale(), saved ? "glossarySaved" : "glossarySaveError");
+    if (saved && input.dataset.kind === "term") renderRows();
     onChange();
+  });
+  tableBody.addEventListener("click", (event) => {
+    const button = event.target.closest("button.glossary-root-reset");
+    if (!button) return;
+    const saved = updateGlossaryRoot(button.dataset.rowId, button.dataset.language, null);
+    status.textContent = t(getLocale(), saved ? "glossarySaved" : "glossarySaveError");
+    if (saved) { renderRows(); onChange(); }
   });
   $("glossary-add-form").addEventListener("submit", (event) => {
     event.preventDefault();
