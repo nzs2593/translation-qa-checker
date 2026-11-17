@@ -1743,13 +1743,18 @@
       scope: state.characterScope
     } });
     limitPreset.addEventListener("change", () => {
-      state.characterLimit = limitPreset.value === "custom" ? Number(limitCustom.value) || 1 : limitPreset.value ? Number(limitPreset.value) : null;
+      if (limitPreset.value === "custom") {
+        limitCustom.value = String(state.characterLimit ?? 1);
+        limitCustom.hidden = false;
+        limitCustom.focus();
+        return;
+      }
+      state.characterLimit = limitPreset.value ? Number(limitPreset.value) : null;
       syncLimitControls();
       persistLimit();
       renderCounter();
-      if (limitPreset.value === "custom") limitCustom.focus();
     });
-    limitCustom.addEventListener("change", () => {
+    limitCustom.addEventListener("input", () => {
       const value = Number(limitCustom.value);
       state.characterLimit = Number.isInteger(value) && value > 0 ? value : null;
       persistLimit();
