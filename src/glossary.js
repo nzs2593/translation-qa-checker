@@ -123,7 +123,26 @@ function phrasePattern(term, matchCase = false) {
   return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
 }
 
+// Attested alternatives in approved translations. Keep the workbook term as
+// the primary display value, but do not flag an accepted full form as missing.
+const ACCEPTED_VARIANTS = Object.freeze({
+  199: { "es-AR": ["Apuesta Gratis"], az: ["fribet"] },
+  318: { "es-AR": ["cantidad"] },
+  356: { "es-AR": ["puesto"] },
+  376: { "es-AR": ["pozo de premios"] },
+  425: { "es-AR": ["liquidarse"] },
+  445: { "es-AR": ["importe"] }
+});
+
 function targetTermMatch(target, entry, language, matchCase) {
+  for (const variant of ACCEPTED_VARIANTS[entry.id]?.[language] ?? []) {
+    const exact = [...target.matchAll(phrasePattern(variant, matchCase))][0];
+    if (exact) return exact;
+    const root = deriveGlossaryRoot(variant, language);
+    const pattern = glossaryRootPattern(root, variant, language, matchCase);
+    const inflected = pattern ? [...target.matchAll(pattern)][0] : null;
+    if (inflected) return inflected;
+  }
   if (entry.id === 6 && language === "ru" && entry.targetTerm === "Страховка на экспресс") {
     const form = /(?<![\p{L}\p{N}])Страхов(?:ка|ки|ке|ку|кой|кою|кам|ками|ках|ок)\s+на\s+экспресс(?:а|у|ом|е|ы|ов|ам|ами|ах)?(?![\p{L}\p{N}])/giu;
     const irregular = [...target.matchAll(new RegExp(form.source, matchCase ? "gu" : "giu"))][0];
@@ -140,10 +159,15 @@ function targetTermMatch(target, entry, language, matchCase) {
 }
 
 function glossarySenseApplies(entry, source, match, targetLanguage) {
+  const after = source.slice((match.index ?? 0) + match[0].length);
+  if (entry.id === 285 && /^\s+of\b/iu.test(after)) return false;
+  if (entry.id === 190 && /^\s+(?:in|higher\s+on)\b/iu.test(after)) return false;
+  if (entry.id === 382 && /^\s+bets?\b/iu.test(after)) return false;
+  if (entry.id === 172 && !/\b(curling|bowls)\b/iu.test(source)) return false;
   if (entry.id === 406 && !/\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source)) return false;
   if (entry.id === 353 && targetLanguage === "az" && /\bpromotional\s+period\b|\bpromotion\s+period\b/iu.test(source)) return false;
   if (entry.id === 177 && /\bin the event of\b/iu.test(source)) return false;
-  if (entry.id === 356 && /^(?:\s+(?:a|an|any|at least|accumulators?|bets?|wagers?))\b/iu.test(source.slice((match.index ?? 0) + match[0].length))) return false;
+  if (entry.id === 356 && /^\s+(?:a|an|any|at least|single|pre-match|live|accumulators?|bets?|wagers?)\b/iu.test(after)) return false;
   return true;
 }
 

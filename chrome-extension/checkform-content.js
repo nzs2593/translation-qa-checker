@@ -342,8 +342,11 @@
       const gapEnd = Math.max(time.index, date.index);
       const length = Math.max(0, gapEnd - gapStart);
       if (length > 32 || length >= shortest) continue;
-      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
-      if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd)) continue;
+      const gap = text.slice(gapStart, gapEnd);
+      const parentheticalClock = /\(\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:GMT|UTC|MSK|МСК)(?:[+\-−]\d{1,2})?\s*\)/giu;
+      const cleanedGap = gap.replace(parentheticalClock, " ");
+      if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(cleanedGap)) continue;
+      if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd && ![...gap.matchAll(parentheticalClock)].some((part) => other.index >= gapStart + part.index && other.index < gapStart + part.index + part[0].length))) continue;
       best = index;
       shortest = length;
     }
@@ -596,7 +599,23 @@
     const escaped = term.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
     return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
   }
+  var ACCEPTED_VARIANTS = Object.freeze({
+    199: { "es-AR": ["Apuesta Gratis"], az: ["fribet"] },
+    318: { "es-AR": ["cantidad"] },
+    356: { "es-AR": ["puesto"] },
+    376: { "es-AR": ["pozo de premios"] },
+    425: { "es-AR": ["liquidarse"] },
+    445: { "es-AR": ["importe"] }
+  });
   function targetTermMatch(target, entry, language, matchCase) {
+    for (const variant of ACCEPTED_VARIANTS[entry.id]?.[language] ?? []) {
+      const exact2 = [...target.matchAll(phrasePattern(variant, matchCase))][0];
+      if (exact2) return exact2;
+      const root2 = deriveGlossaryRoot(variant, language);
+      const pattern2 = glossaryRootPattern(root2, variant, language, matchCase);
+      const inflected = pattern2 ? [...target.matchAll(pattern2)][0] : null;
+      if (inflected) return inflected;
+    }
     if (entry.id === 6 && language === "ru" && entry.targetTerm === "\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430 \u043D\u0430 \u044D\u043A\u0441\u043F\u0440\u0435\u0441\u0441") {
       const form = /(?<![\p{L}\p{N}])Страхов(?:ка|ки|ке|ку|кой|кою|кам|ками|ках|ок)\s+на\s+экспресс(?:а|у|ом|е|ы|ов|ам|ами|ах)?(?![\p{L}\p{N}])/giu;
       const irregular = [...target.matchAll(new RegExp(form.source, matchCase ? "gu" : "giu"))][0];
@@ -611,10 +630,15 @@
     return pattern ? [...target.matchAll(pattern)][0] : null;
   }
   function glossarySenseApplies(entry, source, match, targetLanguage) {
+    const after = source.slice((match.index ?? 0) + match[0].length);
+    if (entry.id === 285 && /^\s+of\b/iu.test(after)) return false;
+    if (entry.id === 190 && /^\s+(?:in|higher\s+on)\b/iu.test(after)) return false;
+    if (entry.id === 382 && /^\s+bets?\b/iu.test(after)) return false;
+    if (entry.id === 172 && !/\b(curling|bowls)\b/iu.test(source)) return false;
     if (entry.id === 406 && !/\b(cricket|baseball|innings|batsman|bowler)\b/iu.test(source)) return false;
     if (entry.id === 353 && targetLanguage === "az" && /\bpromotional\s+period\b|\bpromotion\s+period\b/iu.test(source)) return false;
     if (entry.id === 177 && /\bin the event of\b/iu.test(source)) return false;
-    if (entry.id === 356 && /^(?:\s+(?:a|an|any|at least|accumulators?|bets?|wagers?))\b/iu.test(source.slice((match.index ?? 0) + match[0].length))) return false;
+    if (entry.id === 356 && /^\s+(?:a|an|any|at least|single|pre-match|live|accumulators?|bets?|wagers?)\b/iu.test(after)) return false;
     return true;
   }
   function glossaryGroups(rows, from, to) {
@@ -764,7 +788,7 @@
   }
 
   // src/engine.js
-  var NUMBER_RE = /(?<![\w.,])(?:\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(?![\w]|[.,](?=\d))/g;
+  var NUMBER_RE = /(?<![\w.,])(?:\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)[Kk]?(?![\w]|[.,](?=\d))/g;
   var PLACEHOLDER_RE = /\{[^{}]+\}|%\w+|\$\{[^}]+\}/g;
   var MASKED_PLACEHOLDER_RE = /(?:(?:AR|ARS)\$)?[XХ](?:[.,][XХ]{3})+/gu;
   var DATE_WORDS = "january|february|march|april|may|june|july|august|september|october|november|december|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|\u044F\u043D\u0432\u0430\u0440\u044F|\u0444\u0435\u0432\u0440\u0430\u043B\u044F|\u043C\u0430\u0440\u0442\u0430|\u0430\u043F\u0440\u0435\u043B\u044F|\u043C\u0430\u044F|\u0438\u044E\u043D\u044F|\u0438\u044E\u043B\u044F|\u0430\u0432\u0433\u0443\u0441\u0442\u0430|\u0441\u0435\u043D\u0442\u044F\u0431\u0440\u044F|\u043E\u043A\u0442\u044F\u0431\u0440\u044F|\u043D\u043E\u044F\u0431\u0440\u044F|\u0434\u0435\u043A\u0430\u0431\u0440\u044F";
@@ -792,25 +816,27 @@
   }
   function normalizeNumber(token, profile) {
     const value = token.replace(/[\s\u00a0]/g, "");
+    const compactThousands = /[Kk]$/u.test(value);
+    const digits = compactThousands ? value.slice(0, -1) : value;
     const decimalSeparator = profile.decimal ?? ".";
     const alternateSeparator = decimalSeparator === "." ? "," : ".";
-    const hasDecimal = value.includes(decimalSeparator);
-    const hasAlternate = value.includes(alternateSeparator);
+    const hasDecimal = digits.includes(decimalSeparator);
+    const hasAlternate = digits.includes(alternateSeparator);
+    let normalized;
     if (hasDecimal && hasAlternate) {
-      const lastSeparator = Math.max(value.lastIndexOf(decimalSeparator), value.lastIndexOf(alternateSeparator));
-      return canonicalNumber(`${value.slice(0, lastSeparator).replace(/[.,]/g, "")}.${value.slice(lastSeparator + 1)}`);
-    }
-    if (hasAlternate) {
-      const parts = value.split(alternateSeparator);
+      const lastSeparator = Math.max(digits.lastIndexOf(decimalSeparator), digits.lastIndexOf(alternateSeparator));
+      normalized = canonicalNumber(`${digits.slice(0, lastSeparator).replace(/[.,]/g, "")}.${digits.slice(lastSeparator + 1)}`);
+    } else if (hasAlternate) {
+      const parts = digits.split(alternateSeparator);
       const isGrouped = parts.length > 1 && parts.slice(1).every((part) => part.length === 3);
-      if (isGrouped) return canonicalNumber(parts.join(""));
-      const [integer, fraction] = parts;
-      return canonicalNumber(`${integer}.${fraction}`);
+      normalized = isGrouped ? canonicalNumber(parts.join("")) : canonicalNumber(`${parts[0]}.${parts[1]}`);
+    } else {
+      normalized = canonicalNumber(hasDecimal ? digits.replace(decimalSeparator, ".") : digits);
     }
-    return canonicalNumber(hasDecimal ? value.replace(decimalSeparator, ".") : value);
+    return compactThousands ? String(Number(normalized) * 1e3) : normalized;
   }
   function numberTokens(text, profile) {
-    const masked = text.replace(TEMPORAL_TOKEN_RE, (token) => " ".repeat(token.length)).replace(SCORE_RE, (token) => " ".repeat(token.length));
+    const masked = text.replace(TEMPORAL_TOKEN_RE, (token) => " ".repeat(token.length)).replace(SCORE_RE, (token) => " ".repeat(token.length)).replace(/(\d+)(st|nd|rd|th)\b/giu, (_, digits, suffix) => digits + " ".repeat(suffix.length)).replace(/(\d+)(\.(?:er|°)|°)/giu, (_, digits, suffix) => digits + " ".repeat(suffix.length));
     return [...masked.matchAll(NUMBER_RE)].map((match) => ({
       raw: match[0],
       normalized: normalizeNumber(match[0], profile),
@@ -1110,6 +1136,7 @@
     return sourceProfile.language === "en" && sourceMarker === "$" && targetMarker === "US$";
   }
   function validCurrencyNumber(raw, profile) {
+    if (["en", "es-AR"].includes(profile.locale) && /^\d+(?:[.,]\d+)?[Kk]$/u.test(raw)) return true;
     const grouping = profile.grouping === "nbsp" ? "\xA0" : profile.grouping;
     const escapedGrouping = grouping.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const escapedDecimal = profile.decimal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1190,8 +1217,8 @@
   }
   function runRuleEngine({ source, target, sourceLanguage = "en", targetLanguage = "ru", glossaryRows, checkCurrency = true }) {
     if (!source.trim() || !target.trim()) return [];
-    const sourceProfile = { ...getProfile(sourceLanguage), language: sourceLanguage.split("-")[0] };
-    const targetProfile = { ...getProfile(targetLanguage), language: targetLanguage.split("-")[0] };
+    const sourceProfile = { ...getProfile(sourceLanguage), language: sourceLanguage.split("-")[0], locale: sourceLanguage };
+    const targetProfile = { ...getProfile(targetLanguage), language: targetLanguage.split("-")[0], locale: targetLanguage };
     const timezoneRule = getTimezoneRule(targetLanguage);
     const issues = [];
     const headerBlocks = pairHeaderBlocks(source, target);
@@ -1274,6 +1301,14 @@
       };
     });
   }
+  var ACCEPTED_VARIANTS2 = Object.freeze({
+    199: { "es-AR": ["Apuesta Gratis"], az: ["fribet"] },
+    318: { "es-AR": ["cantidad"] },
+    356: { "es-AR": ["puesto"] },
+    376: { "es-AR": ["pozo de premios"] },
+    425: { "es-AR": ["liquidarse"] },
+    445: { "es-AR": ["importe"] }
+  });
 
   // src/i18n.js
   var INTERFACE_LOCALES = Object.freeze(["en", "ru"]);

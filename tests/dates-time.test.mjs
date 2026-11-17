@@ -31,6 +31,12 @@ assert.equal(checkDatesAndTime("00:30 GMT on 01/01/2027", "21:30 GMT-3 del 31/12
 assert.equal(checkDatesAndTime("00:30 GMT on 01/03/2028", "21:30 GMT-3 del 29/02/2028", { sourceProfile: english, targetProfile: spanish }).length, 0);
 assert.equal(checkDatesAndTime("00:30 GMT on 01/03/2027", "21:30 GMT-3 del 29/02/2027", { sourceProfile: english, targetProfile: spanish })[0].error_type, "INVALID_DATE");
 const arRule = getTimezoneRule("es-AR");
+const arSingleDateSource = "Qualifying bets must be settled before 20:59 GMT on 25/10/2026.";
+const arSingleDateTarget = "Las apuestas válidas deben liquidarse antes de las 17:59 GMT-3 (20:59 GMT) del 25/10/2026.";
+const arSingleDateOptions = { sourceProfile: english, targetProfile: getProfile("es-AR"), targetTimezoneRule: arRule };
+assert.deepEqual(checkDatesAndTime(arSingleDateSource, arSingleDateTarget, arSingleDateOptions), []);
+assert.equal(checkDatesAndTime(arSingleDateSource, arSingleDateTarget.replace("25/10/2026", "24/10/2026"), arSingleDateOptions)[0].error_type, "DATE_MISMATCH");
+assert.equal(checkDatesAndTime(arSingleDateSource, arSingleDateTarget.replace("17:59 GMT-3", "18:59 GMT-3"), arSingleDateOptions)[0].error_type, "TIME_MISMATCH");
 const ruRule = getTimezoneRule("ru");
 const ukRule = getTimezoneRule("uk");
 const brazilRule = getTimezoneRule("pt-BR");

@@ -33,6 +33,24 @@ const argentineEuro = runRuleEngine({
   sourceLanguage: "en", targetLanguage: "es-AR"
 });
 assert.equal(argentineEuro.some((issue) => issue.error_type === "CURRENCY_FORMAT"), false);
+for (const [source, target] of [
+  ["11th–20th place: $80", "11.°–20.° puestos: US$80"],
+  ["31st–40th place: $40", "31.er–40° puestos: US$40"],
+  ["Place single bets and you could share $9,000", "Hacé apuestas simples y podés llevarte parte de US$9.000"],
+  ["Qualifying bets must be settled before 20:59 GMT on 25/10/2026.",
+    "Las apuestas válidas deben liquidarse antes de las 17:59 GMT-3 (20:59 GMT) del 25/10/2026."],
+  ["Get a Free Bet of up to $1,000", "Llevate una Apuesta Gratis de hasta US$1.000"]
+]) {
+  assert.deepEqual(runRuleEngine({ source, target, sourceLanguage: "en", targetLanguage: "es-AR" }), [], source);
+}
+assert.equal(runRuleEngine({ source: "11th–20th place: $80", target: "11.°–21.° puestos: US$80",
+  sourceLanguage: "en", targetLanguage: "es-AR" }).some((issue) => issue.error_type === "NUMBER_MISMATCH"), true);
+const compactMoneySource = "Earn points for your $5+ single bets, finish in the top 300, and share $9,000";
+const compactMoneyTarget = "Ganá puntos con tus apuestas simples de US$5+, entrá al top 300 y compartí US$9K";
+assert.equal(runRuleEngine({ source: compactMoneySource, target: compactMoneyTarget,
+  sourceLanguage: "en", targetLanguage: "es-AR" }).some((issue) => issue.pool === "Currency" || issue.error_type === "NUMBER_MISMATCH"), false);
+assert.equal(runRuleEngine({ source: compactMoneySource, target: compactMoneyTarget.replace("US$9K", "US$8K"),
+  sourceLanguage: "en", targetLanguage: "es-AR" }).some((issue) => issue.error_type === "CURRENCY_AMOUNT_MISMATCH"), true);
 assert.equal(runRuleEngine({ source: "Win!", target: "¡Ganaste!", sourceLanguage: "en", targetLanguage: "es-AR" }).some((issue) => issue.error_type === "SPANISH_EXCLAMATION_MARKS"), false);
 assert.equal(runRuleEngine({ source: "Win!", target: "Ganaste!", sourceLanguage: "en", targetLanguage: "es-AR" }).some((issue) => issue.error_type === "SPANISH_EXCLAMATION_MARKS"), true);
 assert.equal(runRuleEngine({ source: "Offer", target: " Oferta", sourceLanguage: "en", targetLanguage: "es" }).some((issue) => issue.error_type === "LEADING_SPACE"), true);

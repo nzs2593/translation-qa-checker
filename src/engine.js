@@ -5,7 +5,7 @@ import { getProfile } from "./profiles.js";
 import { checkGlossary } from "./glossary.js?v=2.2";
 import { pairHeaderBlocks, pairLabeledSegments } from "./segments.js?v=1.1";
 
-const NUMBER_RE = /(?<![\w.,])(?:\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)(?![\w]|[.,](?=\d))/g;
+const NUMBER_RE = /(?<![\w.,])(?:\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?)[Kk]?(?![\w]|[.,](?=\d))/g;
 const PLACEHOLDER_RE = /\{[^{}]+\}|%\w+|\$\{[^}]+\}/g;
 const MASKED_PLACEHOLDER_RE = /(?:(?:AR|ARS)\$)?[XХ](?:[.,][XХ]{3})+/gu;
 const DATE_WORDS = "january|february|march|april|may|june|july|august|september|october|november|december|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря";
@@ -36,28 +36,33 @@ function canonicalNumber(value) {
 
 function normalizeNumber(token, profile) {
   const value = token.replace(/[\s\u00a0]/g, "");
+  const compactThousands = /[Kk]$/u.test(value);
+  const digits = compactThousands ? value.slice(0, -1) : value;
   const decimalSeparator = profile.decimal ?? ".";
   const alternateSeparator = decimalSeparator === "." ? "," : ".";
-  const hasDecimal = value.includes(decimalSeparator);
-  const hasAlternate = value.includes(alternateSeparator);
+  const hasDecimal = digits.includes(decimalSeparator);
+  const hasAlternate = digits.includes(alternateSeparator);
+  let normalized;
   if (hasDecimal && hasAlternate) {
-    const lastSeparator = Math.max(value.lastIndexOf(decimalSeparator), value.lastIndexOf(alternateSeparator));
-    return canonicalNumber(`${value.slice(0, lastSeparator).replace(/[.,]/g, "")}.${value.slice(lastSeparator + 1)}`);
-  }
-  if (hasAlternate) {
-    const parts = value.split(alternateSeparator);
+    const lastSeparator = Math.max(digits.lastIndexOf(decimalSeparator), digits.lastIndexOf(alternateSeparator));
+    normalized = canonicalNumber(`${digits.slice(0, lastSeparator).replace(/[.,]/g, "")}.${digits.slice(lastSeparator + 1)}`);
+  } else if (hasAlternate) {
+    const parts = digits.split(alternateSeparator);
     const isGrouped = parts.length > 1 && parts.slice(1).every((part) => part.length === 3);
-    if (isGrouped) return canonicalNumber(parts.join(""));
-    const [integer, fraction] = parts;
-    return canonicalNumber(`${integer}.${fraction}`);
+    normalized = isGrouped ? canonicalNumber(parts.join("")) : canonicalNumber(`${parts[0]}.${parts[1]}`);
+  } else {
+    normalized = canonicalNumber(hasDecimal ? digits.replace(decimalSeparator, ".") : digits);
   }
-  return canonicalNumber(hasDecimal ? value.replace(decimalSeparator, ".") : value);
+  return compactThousands ? String(Number(normalized) * 1000) : normalized;
 }
 
 function numberTokens(text, profile) {
   const masked = text
     .replace(TEMPORAL_TOKEN_RE, (token) => " ".repeat(token.length))
-    .replace(SCORE_RE, (token) => " ".repeat(token.length));
+    .replace(SCORE_RE, (token) => " ".repeat(token.length))
+    // Keep the numeric rank while removing locale-specific ordinal endings.
+    .replace(/(\d+)(st|nd|rd|th)\b/giu, (_, digits, suffix) => digits + " ".repeat(suffix.length))
+    .replace(/(\d+)(\.(?:er|°)|°)/giu, (_, digits, suffix) => digits + " ".repeat(suffix.length));
   return [...masked.matchAll(NUMBER_RE)].map((match) => ({
     raw: match[0], normalized: normalizeNumber(match[0], profile), index: match.index ?? 0
   }));
@@ -371,6 +376,7 @@ function sameCurrency(sourceMarker, targetMarker, sourceProfile) {
 }
 
 function validCurrencyNumber(raw, profile) {
+  if (["en", "es-AR"].includes(profile.locale) && /^\d+(?:[.,]\d+)?[Kk]$/u.test(raw)) return true;
   const grouping = profile.grouping === "nbsp" ? "\u00a0" : profile.grouping;
   const escapedGrouping = grouping.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const escapedDecimal = profile.decimal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -458,8 +464,8 @@ function addLightChecks(source, target, sourceProfile, targetProfile, issues, ch
 
 export function runRuleEngine({ source, target, sourceLanguage = "en", targetLanguage = "ru", glossaryRows, checkCurrency = true }) {
   if (!source.trim() || !target.trim()) return [];
-  const sourceProfile = { ...getProfile(sourceLanguage), language: sourceLanguage.split("-")[0] };
-  const targetProfile = { ...getProfile(targetLanguage), language: targetLanguage.split("-")[0] };
+  const sourceProfile = { ...getProfile(sourceLanguage), language: sourceLanguage.split("-")[0], locale: sourceLanguage };
+  const targetProfile = { ...getProfile(targetLanguage), language: targetLanguage.split("-")[0], locale: targetLanguage };
   const timezoneRule = getTimezoneRule(targetLanguage);
   const issues = [];
   const headerBlocks = pairHeaderBlocks(source, target);

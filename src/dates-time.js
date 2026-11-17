@@ -83,8 +83,14 @@ function nearbyDate(text, time, dates, used, times) {
     const gapEnd = Math.max(time.index, date.index);
     const length = Math.max(0, gapEnd - gapStart);
     if (length > 32 || length >= shortest) continue;
-    if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(text.slice(gapStart, gapEnd))) continue;
-    if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd)) continue;
+    const gap = text.slice(gapStart, gapEnd);
+    // A translated local time can be followed by the source GMT time in
+    // parentheses before their shared date: 17:59 GMT-3 (20:59 GMT) del 25/10.
+    const parentheticalClock = /\(\s*\d{1,2}:\d{2}(?::\d{2})?\s*(?:GMT|UTC|MSK|МСК)(?:[+\-−]\d{1,2})?\s*\)/giu;
+    const cleanedGap = gap.replace(parentheticalClock, " ");
+    if (!/^[\s\u00a0,]*(?:(?:on|at|the|del|de|las?|el|a|às?|em|saat|il|tarixində|tarixdə)\s*|-c[ıiuü]\s*)*$/iu.test(cleanedGap)) continue;
+    if (times.some((other) => other !== time && other.index >= gapStart && other.index < gapEnd &&
+      ![...gap.matchAll(parentheticalClock)].some((part) => other.index >= gapStart + part.index && other.index < gapStart + part.index + part[0].length))) continue;
     best = index; shortest = length;
   }
   return best;
