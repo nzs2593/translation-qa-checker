@@ -528,8 +528,10 @@
     uz: ["lar", "ning", "ga", "da", "dan", "ni", "larining", "larga", "larda", "lardan", "si", "i", "li", "siz"],
     uzb: ["\u043B\u0430\u0440", "\u043D\u0438\u043D\u0433", "\u0433\u0430", "\u0434\u0430", "\u0434\u0430\u043D", "\u043D\u0438", "\u043B\u0430\u0440\u043D\u0438\u043D\u0433", "\u043B\u0430\u0440\u0433\u0430", "\u043B\u0430\u0440\u0434\u0430", "\u043B\u0430\u0440\u0434\u0430\u043D", "\u0441\u0438", "\u0438", "\u043B\u0438", "\u0441\u0438\u0437"]
   });
-  var LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,2}$/u;
+  var LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,3}$/u;
   var ROOT_PHRASE = /^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u;
+  var UZBEK_LOWERCASE_PHRASE = /^[\p{Ll}]+(?:['’ʻʼ‘][\p{Ll}]+)*(?:[ \u00a0-][\p{Ll}]+(?:['’ʻʼ‘][\p{Ll}]+)*){0,3}$/u;
+  var UZBEK_ROOT_PHRASE = /^[\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*(?:[ \u00a0-][\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*){0,3}$/u;
   var CYRILLIC_ENDING = /[аяоеыийьії]$/u;
   var CURATED_GLOSSARY_ROOTS = Object.freeze({
     6: { ru: "\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A \u043D\u0430 \u044D\u043A\u0441\u043F\u0440\u0435\u0441\u0441" },
@@ -540,7 +542,8 @@
     461: { az: "\u015E\u0259rtl\u0259r v\u0259 Qaydalar" }
   });
   function deriveGlossaryRoot(term, language) {
-    if (!SUFFIXES[language] || !LOWERCASE_PHRASE.test(String(term ?? ""))) return "";
+    const uzbek = language === "uz" || language === "uzb";
+    if (!SUFFIXES[language] || !(uzbek ? UZBEK_LOWERCASE_PHRASE : LOWERCASE_PHRASE).test(String(term ?? ""))) return "";
     const words = term.split(/[ \u00a0-]/u);
     const last = words.at(-1);
     if (last.length < (words.length > 1 ? 4 : 5)) return "";
@@ -554,19 +557,38 @@
     return term;
   }
   function glossaryRootPattern(root, term, language, matchCase = false) {
-    if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
-    const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
+    const uzbek = language === "uz" || language === "uzb";
+    if (!root || !SUFFIXES[language] || !(uzbek ? UZBEK_ROOT_PHRASE : ROOT_PHRASE).test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
+    const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+").replace(uzbek ? /['’ʻʼ‘]/gu : /\uFFFF/gu, "['\u2019\u02BB\u02BC\u2018]");
     const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
-    if (["es", "es-AR", "pt-BR"].includes(language) && root.includes(" ")) {
+    if (uzbek && /[ \u00a0-]/u.test(root)) {
+      const roots = root.split(/([ \u00a0-]+)/u);
+      const terms = term.split(/([ \u00a0-]+)/u);
+      if (roots.length === terms.length) {
+        const particles = language === "uz" ? /^(?:va|har|qanday|bilan|uchun|ham|yoki)$/iu : /^(?:ва|ҳар|қандай|билан|учун|ҳам|ёки)$/iu;
+        const words = roots.map((word, index) => {
+          if (index % 2) return word.includes("-") ? "-" : "\\s+";
+          const stem = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/['’ʻʼ‘]/gu, "['\u2019\u02BB\u02BC\u2018]");
+          if (word.length < 4 || particles.test(word)) return stem;
+          return `${stem}(?:${suffixes}){${word === terms[index] ? 0 : 1},2}`;
+        });
+        return new RegExp(`(?<![\\p{L}\\p{N}])${words.join("")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+      }
+    }
+    if (["en-GB", "es", "es-AR", "pt-BR"].includes(language) && root === term) {
       const words = root.split(/\s+/u);
       const terms = term.split(/\s+/u);
       if (words.length === terms.length) {
         const pieces = words.map((word) => {
           const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const ending = /[aeiouáéíóúãõ]$/iu.test(word) ? "s" : "es";
-          return word.length >= 4 && !/s$/iu.test(word) ? `${escapedWord}(?:${ending})?` : escapedWord;
+          if (word.length < 4 || /s$/iu.test(word)) return escapedWord;
+          if (language === "en-GB" && /[^aeiou]y$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ies`;
+          if ((language === "es" || language === "es-AR") && /z$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ces`;
+          if (language === "pt-BR" && /m$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ns`;
+          const ending = language === "en-GB" ? /(?:s|x|ch|sh)$/iu.test(word) ? "es" : "s" : /[aeiouáéíóúãõ]$/iu.test(word) ? "s" : "es";
+          return `${escapedWord}(?:${ending})?`;
         });
-        return new RegExp(`(?<![\\p{L}\\p{N}])${pieces.join("\\s+")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+        return new RegExp(`(?<![\\p{L}\\p{N}])(?:${pieces.map((piece) => `(?:${piece})`).join("\\s+")})(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
       }
     }
     if (["ru", "uk"].includes(language) && /[ \u00a0-]/u.test(root)) {
@@ -709,7 +731,11 @@
     }
     const prepared = [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length).map((group) => ({
       ...group,
-      needles: [...new Set([group.sourceTerm, ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from))].filter(Boolean).map((term) => term.split(/[ \u00a0-]/u)[0].toLocaleLowerCase()))],
+      needles: [...new Set([
+        group.sourceTerm,
+        ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from)),
+        ...from === "en-GB" && /[^aeiou]y\b/iu.test(group.sourceTerm) ? [group.sourceTerm.replace(/y\b/iu, "")] : []
+      ].filter(Boolean).map((term) => term.split(/[ \u00a0-]/u)[0].toLocaleLowerCase()))],
       patterns: [phrasePattern(group.sourceTerm), ...group.entries.map((entry) => glossaryRootPattern(
         entry.sourceRoot === void 0 ? deriveGlossaryRoot(entry.sourceTerm, from) : entry.sourceRoot,
         entry.sourceTerm,
