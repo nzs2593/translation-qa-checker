@@ -26,3 +26,12 @@ export function evaluateCharacterLimit(rows, limit, scope = "total") {
     : totalTarget > threshold ? [{ index: 0, by: totalTarget - threshold }] : [];
   return { counts, totalSource, totalTarget, exceeded, limit: threshold };
 }
+
+export function updateSelectedRows(previous, visibleRows) {
+  const selected = new Map(previous);
+  for (const row of visibleRows) {
+    if (row.selected) selected.set(row.id, row);
+    else selected.delete(row.id);
+  }
+  return selected;
+}

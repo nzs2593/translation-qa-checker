@@ -78,7 +78,7 @@ button { font: inherit; cursor: pointer; }
 .cf-limit-custom[hidden], .cf-limit-hint[hidden] { display: none; }
 .cf-limit-hint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px; color: #4f6b90; font-size: 11px; }
 .cf-limit-hint button { border: 1px solid #b7ccea; border-radius: 5px; background: #fff; color: #1554b7; padding: 3px 6px; white-space: nowrap; }
-.cf-counter-rows { margin-top: 8px; }
+.cf-counter-rows { margin-top: 8px; max-height: 150px; overflow-y: auto; }
 .cf-counter-rows div, .cf-counter-rows strong { display: block; margin-top: 3px; font-size: 12px; }
 .cf-counter-rows .cf-count-over { color: #b23528; font-weight: 700; }
 .cf-counter-status { margin-top: 6px; color: #4f6b90; font-weight: 700; }

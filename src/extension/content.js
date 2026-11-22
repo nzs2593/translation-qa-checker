@@ -5,7 +5,7 @@ import { issueDescription, severityLabel } from "../i18n.js";
 import { editorLanguages, readCrowdinRows } from "./crowdin-adapter.js";
 import { DEFAULT_CHECKS, enabledIssues, normalizeChecks } from "./check-settings.js";
 import { clampTogglePosition, movedEnough } from "./drag-position.js";
-import { evaluateCharacterLimit, parseCharacterLimitHint } from "./character-counter.js";
+import { evaluateCharacterLimit, parseCharacterLimitHint, updateSelectedRows } from "./character-counter.js";
 import { findingKey, rawTargetRange } from "./finding-actions.js";
 
 const languages = editorLanguages(location.pathname);
@@ -19,7 +19,7 @@ const copy = russian ? {
   settings: "Настройки проверок", back: "К замечаниям", reset: "Включить все проверки",
   import: "Импорт словаря и GMT", glossary: "Открыть глоссарий", glossaryRow: "Открыть термин в глоссарии", settingsHint: "Выберите, какие замечания показывать в Crowdin.",
   characters: "Символы в выбранных строках", limit: "Лимит", scope: "Считать", total: "Вместе", each: "На каждую",
-  noLimit: "Без лимита", customLimit: "Свой лимит", chooseRows: "Выберите флажками одну или две строки в Crowdin.",
+  noLimit: "Без лимита", customLimit: "Свой лимит", chooseRows: "Отметьте нужные строки флажками в Crowdin.",
   tooManyRows: "Выбрано больше двух строк. Оставьте одну или две.", sourceCount: "Оригинал", targetCount: "Перевод",
   combined: "Итого", exceeded: "Лимит превышен", withinLimit: "В пределах лимита", charactersUnit: "симв.",
   fromSource: "В источнике", applyLimit: "Применить", rowLabel: "строка", focus: "Выделить в переводе", dismiss: "Отклонить", resetDismissed: "Вернуть отклонённые",
@@ -33,7 +33,7 @@ const copy = russian ? {
   settings: "Check settings", back: "Back to findings", reset: "Enable all checks",
   import: "Import glossary and GMT", glossary: "Open glossary", glossaryRow: "Open term in glossary", settingsHint: "Choose which findings to show in Crowdin.",
   characters: "Characters in selected strings", limit: "Limit", scope: "Apply to", total: "Together", each: "Each string",
-  noLimit: "No limit", customLimit: "Custom limit", chooseRows: "Select one or two Crowdin strings using their checkboxes.",
+  noLimit: "No limit", customLimit: "Custom limit", chooseRows: "Select the Crowdin strings to count using their checkboxes.",
   tooManyRows: "More than two strings selected. Leave one or two selected.", sourceCount: "Source", targetCount: "Translation",
   combined: "Total", exceeded: "Limit exceeded", withinLimit: "Within limit", charactersUnit: "chars",
   fromSource: "Source note", applyLimit: "Apply", rowLabel: "string", focus: "Select in translation", dismiss: "Dismiss", resetDismissed: "Restore dismissed",
@@ -44,7 +44,7 @@ const copy = russian ? {
 if (languages) start();
 
 function start() {
-  const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: new Map(), dismissed: new Set() };
+  const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: new Map(), dismissed: new Set(), selectedRows: new Map(), editorPath: location.pathname };
   const host = document.createElement("div");
   host.id = "checkform-extension-root";
   const shadow = host.attachShadow({ mode: "open" });
@@ -262,6 +262,10 @@ function start() {
   }, true);
 
   function scan() {
+    if (state.editorPath !== location.pathname) {
+      state.selectedRows.clear();
+      state.editorPath = location.pathname;
+    }
     const rows = readCrowdinRows();
     const glossaryRows = state.checks.glossary ? getGlossaryRows() : [];
     const currentIds = new Set();
@@ -283,6 +287,9 @@ function start() {
       updateBadge(item, issues, ordinal);
       return { ...item, issues, ordinal };
     });
+    // Crowdin may unmount rows while scrolling. Keep the last observed text for
+    // checked rows and remove it only when the row is visibly unchecked.
+    state.selectedRows = updateSelectedRows(state.selectedRows, state.results);
     for (const id of state.signatures.keys()) if (!currentIds.has(id)) state.signatures.delete(id);
     const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
     toggle.textContent = count ? `CHECKform · ${count}` : "CHECKform";
@@ -387,7 +394,7 @@ function start() {
   }
 
   function renderCounter() {
-    const selected = state.results.filter((row) => row.selected);
+    const selected = [...state.selectedRows.values()];
     const lines = panel.querySelector(".cf-counter-rows");
     const status = panel.querySelector(".cf-counter-status");
     const hint = panel.querySelector(".cf-limit-hint");
@@ -395,15 +402,15 @@ function start() {
     hint.replaceChildren();
     hint.hidden = true;
     status.classList.remove("cf-over-limit");
-    if (!selected.length || selected.length > 2) {
-      status.textContent = selected.length ? copy.tooManyRows : copy.chooseRows;
+    if (!selected.length) {
+      status.textContent = copy.chooseRows;
       return;
     }
     const result = evaluateCharacterLimit(selected, state.characterLimit, state.characterScope);
     const firstIndex = state.results.indexOf(selected[0]);
     const contextLimit = parseCharacterLimitHint(selected[0].limitContext);
     const appliesToSelection = contextLimit && (contextLimit.parts.length === 1 && selected.length === 1 ||
-      contextLimit.parts.length === 2 && selected.length === 2 && state.results[firstIndex + 1] === selected[1]);
+      contextLimit.parts.length === 2 && selected.length === 2 && firstIndex >= 0 && state.results[firstIndex + 1] === selected[1]);
     if (appliesToSelection) {
       hint.hidden = false;
       const label = document.createElement("span");
@@ -420,11 +427,11 @@ function start() {
     }
     for (const [index, item] of result.counts.entries()) {
       const line = document.createElement("div");
-      line.textContent = `${index + 1}. ${copy.sourceCount}: ${item.source} · ${copy.targetCount}: ${item.target} ${copy.charactersUnit}`;
+      line.textContent = `${index + 1}. ${copy.segment} ${item.id} · ${copy.sourceCount}: ${item.source} · ${copy.targetCount}: ${item.target} ${copy.charactersUnit}`;
       if (result.limit != null && state.characterScope === "each" && item.target > result.limit) line.classList.add("cf-count-over");
       lines.append(line);
     }
-    if (result.counts.length === 2) {
+    if (result.counts.length > 1) {
       const total = document.createElement("strong");
       total.textContent = `${copy.combined}: ${copy.sourceCount} ${result.totalSource} · ${copy.targetCount} ${result.totalTarget} ${copy.charactersUnit}`;
       if (result.limit != null && state.characterScope === "total" && result.totalTarget > result.limit) total.classList.add("cf-count-over");

@@ -71,5 +71,20 @@ assert.equal(checkGlossary("ставки", "інше слово", "ru", "uk", uk
 const country = [{ id: 2, terms: { "en-GB": "country", es: "territorio" } }];
 assert.equal(checkGlossary("These countries", "Estos territorios", "en", "es", country).length, 0);
 assert.equal(checkGlossary("These countries", "Otra cosa", "en", "es", country).length, 1);
+for (const [language, term, valid, invalid] of [
+  ["uz", "hisob balansi", "hisobning balansida", "hisobx balansida"],
+  ["uzb", "ҳисоб баланси", "ҳисобнинг балансида", "ҳисобх балансида"],
+  ["uz", "hisob ma'lumotlari", "hisobning ma’lumotlarini", "hisobx ma’lumotlarini"],
+  ["uzb", "ҳисоб маълумотлари", "ҳисобнинг маълумотларини", "ҳисобх маълумотларини"]
+]) {
+  const root = deriveGlossaryRoot(term, language);
+  const pattern = glossaryRootPattern(root, term, language);
+  assert.ok(pattern?.test(valid), `${language}: ${term} → ${valid}`);
+  assert.equal(pattern?.test(invalid), false, `${language}: rejects ${invalid}`);
+  const row = [{ id: 900, terms: { "en-GB": "account balance", [language]: term } }];
+  assert.equal(checkGlossary("account balance", valid, "en", language === "uz" ? "uz-Latn" : "uz-Cyrl", row).length, 0);
+  assert.equal(checkGlossary("account balance", invalid, "en", language === "uz" ? "uz-Latn" : "uz-Cyrl", row).length, 1);
+}
+assert.ok(glossaryRootPattern(deriveGlossaryRoot("o'yin", "uz"), "o'yin", "uz").test("o‘yinda"));
 
 console.log("Glossary root tests passed");

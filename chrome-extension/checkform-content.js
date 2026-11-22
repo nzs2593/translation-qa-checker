@@ -511,6 +511,8 @@
   });
   var LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,3}$/u;
   var ROOT_PHRASE = /^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u;
+  var UZBEK_LOWERCASE_PHRASE = /^[\p{Ll}]+(?:['’ʻʼ‘][\p{Ll}]+)*(?:[ \u00a0-][\p{Ll}]+(?:['’ʻʼ‘][\p{Ll}]+)*){0,3}$/u;
+  var UZBEK_ROOT_PHRASE = /^[\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*(?:[ \u00a0-][\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*){0,3}$/u;
   var CYRILLIC_ENDING = /[аяоеыийьії]$/u;
   var CURATED_GLOSSARY_ROOTS = Object.freeze({
     6: { ru: "\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A \u043D\u0430 \u044D\u043A\u0441\u043F\u0440\u0435\u0441\u0441" },
@@ -521,7 +523,8 @@
     461: { az: "\u015E\u0259rtl\u0259r v\u0259 Qaydalar" }
   });
   function deriveGlossaryRoot(term, language) {
-    if (!SUFFIXES[language] || !LOWERCASE_PHRASE.test(String(term ?? ""))) return "";
+    const uzbek = language === "uz" || language === "uzb";
+    if (!SUFFIXES[language] || !(uzbek ? UZBEK_LOWERCASE_PHRASE : LOWERCASE_PHRASE).test(String(term ?? ""))) return "";
     const words = term.split(/[ \u00a0-]/u);
     const last = words.at(-1);
     if (last.length < (words.length > 1 ? 4 : 5)) return "";
@@ -535,9 +538,24 @@
     return term;
   }
   function glossaryRootPattern(root, term, language, matchCase = false) {
-    if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
-    const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
+    const uzbek = language === "uz" || language === "uzb";
+    if (!root || !SUFFIXES[language] || !(uzbek ? UZBEK_ROOT_PHRASE : ROOT_PHRASE).test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
+    const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+").replace(uzbek ? /['’ʻʼ‘]/gu : /\uFFFF/gu, "['\u2019\u02BB\u02BC\u2018]");
     const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
+    if (uzbek && /[ \u00a0-]/u.test(root)) {
+      const roots = root.split(/([ \u00a0-]+)/u);
+      const terms = term.split(/([ \u00a0-]+)/u);
+      if (roots.length === terms.length) {
+        const particles = language === "uz" ? /^(?:va|har|qanday|bilan|uchun|ham|yoki)$/iu : /^(?:ва|ҳар|қандай|билан|учун|ҳам|ёки)$/iu;
+        const words = roots.map((word, index) => {
+          if (index % 2) return word.includes("-") ? "-" : "\\s+";
+          const stem = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/['’ʻʼ‘]/gu, "['\u2019\u02BB\u02BC\u2018]");
+          if (word.length < 4 || particles.test(word)) return stem;
+          return `${stem}(?:${suffixes}){${word === terms[index] ? 0 : 1},2}`;
+        });
+        return new RegExp(`(?<![\\p{L}\\p{N}])${words.join("")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+      }
+    }
     if (["en-GB", "es", "es-AR", "pt-BR"].includes(language) && root === term) {
       const words = root.split(/\s+/u);
       const terms = term.split(/\s+/u);
@@ -1549,6 +1567,14 @@
     const exceeded = threshold == null ? [] : scope === "each" ? counts.map((row, index) => ({ index: index + 1, by: row.target - threshold })).filter((row) => row.by > 0) : totalTarget > threshold ? [{ index: 0, by: totalTarget - threshold }] : [];
     return { counts, totalSource, totalTarget, exceeded, limit: threshold };
   }
+  function updateSelectedRows(previous, visibleRows) {
+    const selected = new Map(previous);
+    for (const row of visibleRows) {
+      if (row.selected) selected.set(row.id, row);
+      else selected.delete(row.id);
+    }
+    return selected;
+  }
 
   // src/extension/finding-actions.js
   function rawTargetRange(raw, start2, end) {
@@ -1617,7 +1643,7 @@
     each: "\u041D\u0430 \u043A\u0430\u0436\u0434\u0443\u044E",
     noLimit: "\u0411\u0435\u0437 \u043B\u0438\u043C\u0438\u0442\u0430",
     customLimit: "\u0421\u0432\u043E\u0439 \u043B\u0438\u043C\u0438\u0442",
-    chooseRows: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0444\u043B\u0430\u0436\u043A\u0430\u043C\u0438 \u043E\u0434\u043D\u0443 \u0438\u043B\u0438 \u0434\u0432\u0435 \u0441\u0442\u0440\u043E\u043A\u0438 \u0432 Crowdin.",
+    chooseRows: "\u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u043D\u0443\u0436\u043D\u044B\u0435 \u0441\u0442\u0440\u043E\u043A\u0438 \u0444\u043B\u0430\u0436\u043A\u0430\u043C\u0438 \u0432 Crowdin.",
     tooManyRows: "\u0412\u044B\u0431\u0440\u0430\u043D\u043E \u0431\u043E\u043B\u044C\u0448\u0435 \u0434\u0432\u0443\u0445 \u0441\u0442\u0440\u043E\u043A. \u041E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043E\u0434\u043D\u0443 \u0438\u043B\u0438 \u0434\u0432\u0435.",
     sourceCount: "\u041E\u0440\u0438\u0433\u0438\u043D\u0430\u043B",
     targetCount: "\u041F\u0435\u0440\u0435\u0432\u043E\u0434",
@@ -1665,7 +1691,7 @@
     each: "Each string",
     noLimit: "No limit",
     customLimit: "Custom limit",
-    chooseRows: "Select one or two Crowdin strings using their checkboxes.",
+    chooseRows: "Select the Crowdin strings to count using their checkboxes.",
     tooManyRows: "More than two strings selected. Leave one or two selected.",
     sourceCount: "Source",
     targetCount: "Translation",
@@ -1693,7 +1719,7 @@
   };
   if (languages) start();
   function start() {
-    const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: /* @__PURE__ */ new Map(), dismissed: /* @__PURE__ */ new Set() };
+    const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: /* @__PURE__ */ new Map(), dismissed: /* @__PURE__ */ new Set(), selectedRows: /* @__PURE__ */ new Map(), editorPath: location.pathname };
     const host = document.createElement("div");
     host.id = "checkform-extension-root";
     const shadow = host.attachShadow({ mode: "open" });
@@ -1941,6 +1967,10 @@
       if (event.target.matches?.('#texts_list input[name="translation_checkbox"]')) schedule();
     }, true);
     function scan() {
+      if (state.editorPath !== location.pathname) {
+        state.selectedRows.clear();
+        state.editorPath = location.pathname;
+      }
       const rows = readCrowdinRows();
       const glossaryRows = state.checks.glossary ? getGlossaryRows2() : [];
       const currentIds = /* @__PURE__ */ new Set();
@@ -1965,6 +1995,7 @@
         updateBadge(item, issues, ordinal);
         return { ...item, issues, ordinal };
       });
+      state.selectedRows = updateSelectedRows(state.selectedRows, state.results);
       for (const id of state.signatures.keys()) if (!currentIds.has(id)) state.signatures.delete(id);
       const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
       toggle.textContent = count ? `CHECKform \xB7 ${count}` : "CHECKform";
@@ -2073,7 +2104,7 @@
       row.target.setSelectionRange(range.start, range.end);
     }
     function renderCounter() {
-      const selected = state.results.filter((row) => row.selected);
+      const selected = [...state.selectedRows.values()];
       const lines = panel.querySelector(".cf-counter-rows");
       const status = panel.querySelector(".cf-counter-status");
       const hint = panel.querySelector(".cf-limit-hint");
@@ -2081,14 +2112,14 @@
       hint.replaceChildren();
       hint.hidden = true;
       status.classList.remove("cf-over-limit");
-      if (!selected.length || selected.length > 2) {
-        status.textContent = selected.length ? copy.tooManyRows : copy.chooseRows;
+      if (!selected.length) {
+        status.textContent = copy.chooseRows;
         return;
       }
       const result = evaluateCharacterLimit(selected, state.characterLimit, state.characterScope);
       const firstIndex = state.results.indexOf(selected[0]);
       const contextLimit = parseCharacterLimitHint(selected[0].limitContext);
-      const appliesToSelection = contextLimit && (contextLimit.parts.length === 1 && selected.length === 1 || contextLimit.parts.length === 2 && selected.length === 2 && state.results[firstIndex + 1] === selected[1]);
+      const appliesToSelection = contextLimit && (contextLimit.parts.length === 1 && selected.length === 1 || contextLimit.parts.length === 2 && selected.length === 2 && firstIndex >= 0 && state.results[firstIndex + 1] === selected[1]);
       if (appliesToSelection) {
         hint.hidden = false;
         const label = document.createElement("span");
@@ -2107,11 +2138,11 @@
       }
       for (const [index, item] of result.counts.entries()) {
         const line = document.createElement("div");
-        line.textContent = `${index + 1}. ${copy.sourceCount}: ${item.source} \xB7 ${copy.targetCount}: ${item.target} ${copy.charactersUnit}`;
+        line.textContent = `${index + 1}. ${copy.segment} ${item.id} \xB7 ${copy.sourceCount}: ${item.source} \xB7 ${copy.targetCount}: ${item.target} ${copy.charactersUnit}`;
         if (result.limit != null && state.characterScope === "each" && item.target > result.limit) line.classList.add("cf-count-over");
         lines.append(line);
       }
-      if (result.counts.length === 2) {
+      if (result.counts.length > 1) {
         const total = document.createElement("strong");
         total.textContent = `${copy.combined}: ${copy.sourceCount} ${result.totalSource} \xB7 ${copy.targetCount} ${result.totalTarget} ${copy.charactersUnit}`;
         if (result.limit != null && state.characterScope === "total" && result.totalTarget > result.limit) total.classList.add("cf-count-over");

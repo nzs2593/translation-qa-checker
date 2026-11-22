@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { countCharacters, evaluateCharacterLimit, parseCharacterLimitHint } from "../src/extension/character-counter.js";
+import { countCharacters, evaluateCharacterLimit, parseCharacterLimitHint, updateSelectedRows } from "../src/extension/character-counter.js";
 
 assert.equal(countCharacters("A B"), 3);
 assert.equal(countCharacters("<0>US$9K</0>"), 5);
@@ -19,5 +19,14 @@ assert.deepEqual(evaluateCharacterLimit(rows, 30), {
 assert.deepEqual(evaluateCharacterLimit(rows, 14).exceeded, [{ index: 0, by: 1 }]);
 assert.deepEqual(evaluateCharacterLimit(rows, 7, "each").exceeded, [{ index: 1, by: 1 }]);
 assert.deepEqual(evaluateCharacterLimit(rows.slice(0, 1), 7).exceeded, [{ index: 0, by: 1 }]);
+const three = [...rows, { id: "c", sourceRaw: "A B", targetRaw: "Uno dos" }];
+assert.equal(evaluateCharacterLimit(three, 21).totalTarget, 22);
+assert.deepEqual(evaluateCharacterLimit(three, 21).exceeded, [{ index: 0, by: 1 }]);
+assert.deepEqual(evaluateCharacterLimit(three, 7, "each").exceeded, [{ index: 1, by: 1 }]);
+let selected = updateSelectedRows(new Map(), three.map((row) => ({ ...row, selected: true })));
+selected = updateSelectedRows(selected, [{ ...three[2], selected: true }]); // first two rows unmounted
+assert.deepEqual([...selected.keys()], ["a", "b", "c"]);
+selected = updateSelectedRows(selected, [{ ...three[0], selected: false }]);
+assert.deepEqual([...selected.keys()], ["b", "c"]);
 
 console.log("Character counter tests passed");
