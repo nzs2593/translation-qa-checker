@@ -6,6 +6,7 @@ import { editorLanguages, readCrowdinRows } from "./crowdin-adapter.js";
 import { DEFAULT_CHECKS, enabledIssues, normalizeChecks } from "./check-settings.js";
 import { clampTogglePosition, movedEnough } from "./drag-position.js";
 import { evaluateCharacterLimit, parseCharacterLimitHint } from "./character-counter.js";
+import { findingKey, rawTargetRange } from "./finding-actions.js";
 
 const languages = editorLanguages(location.pathname);
 const GLOSSARY_URL = "https://nzs2593.github.io/translation-qa-checker/?view=glossary";
@@ -21,7 +22,7 @@ const copy = russian ? {
   noLimit: "Без лимита", customLimit: "Свой лимит", chooseRows: "Выберите флажками одну или две строки в Crowdin.",
   tooManyRows: "Выбрано больше двух строк. Оставьте одну или две.", sourceCount: "Оригинал", targetCount: "Перевод",
   combined: "Итого", exceeded: "Лимит превышен", withinLimit: "В пределах лимита", charactersUnit: "симв.",
-  fromSource: "В источнике", applyLimit: "Применить", rowLabel: "строка",
+  fromSource: "В источнике", applyLimit: "Применить", rowLabel: "строка", focus: "Выделить в переводе", dismiss: "Отклонить", resetDismissed: "Вернуть отклонённые",
   checkLabels: { glossary: "Глоссарий", dates: "Даты, время и GMT", numbers: "Числа и проценты",
     currencyComparison: "Сравнение валют и сумм", moneyFormat: "Формат сумм в переводе",
     spacing: "Пробелы", punctuation: "Пунктуация и регистр", placeholders: "Плейсхолдеры", other: "Другие правила" }
@@ -35,7 +36,7 @@ const copy = russian ? {
   noLimit: "No limit", customLimit: "Custom limit", chooseRows: "Select one or two Crowdin strings using their checkboxes.",
   tooManyRows: "More than two strings selected. Leave one or two selected.", sourceCount: "Source", targetCount: "Translation",
   combined: "Total", exceeded: "Limit exceeded", withinLimit: "Within limit", charactersUnit: "chars",
-  fromSource: "Source note", applyLimit: "Apply", rowLabel: "string",
+  fromSource: "Source note", applyLimit: "Apply", rowLabel: "string", focus: "Select in translation", dismiss: "Dismiss", resetDismissed: "Restore dismissed",
   checkLabels: { glossary: "Glossary", dates: "Dates, time and GMT", numbers: "Numbers and percentages",
     currencyComparison: "Compare currencies and amounts", moneyFormat: "Target money format",
     spacing: "Spacing", punctuation: "Punctuation and case", placeholders: "Placeholders", other: "Other rules" }
@@ -43,7 +44,7 @@ const copy = russian ? {
 if (languages) start();
 
 function start() {
-  const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: new Map() };
+  const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: new Map(), dismissed: new Set() };
   const host = document.createElement("div");
   host.id = "checkform-extension-root";
   const shadow = host.attachShadow({ mode: "open" });
@@ -59,14 +60,14 @@ function start() {
   const panel = document.createElement("section");
   panel.className = "cf-panel";
   panel.hidden = true;
-  panel.innerHTML = `<header><strong>CHECKform <small>Chrome preview</small></strong><div class="cf-header-actions"><button class="cf-config" type="button" aria-label="${copy.settings}" title="${copy.settings}">⚙</button><button class="cf-close" type="button" aria-label="${copy.close}">×</button></div></header>
+  panel.innerHTML = `<header><strong>CHECKform</strong><div class="cf-header-actions"><button class="cf-config" type="button" aria-label="${copy.settings}" title="${copy.settings}">⚙</button><button class="cf-close" type="button" aria-label="${copy.close}">×</button></div></header>
     <div class="cf-results-view"><div class="cf-controls"><span class="cf-lang"></span><button class="cf-open-settings" type="button">${copy.settings}</button></div>
     <div class="cf-counter"><strong>${copy.characters}</strong><div class="cf-counter-controls">
     <label>${copy.limit} <select class="cf-limit-preset"><option value="">${copy.noLimit}</option><option value="15">15</option><option value="20">20</option><option value="30">30</option><option value="50">50</option><option value="80">80</option><option value="100">100</option><option value="custom">${copy.customLimit}</option></select></label>
     <input class="cf-limit-custom" type="number" min="1" step="1" inputmode="numeric" aria-label="${copy.customLimit}" hidden>
     <label>${copy.scope} <select class="cf-limit-scope"><option value="total">${copy.total}</option><option value="each">${copy.each}</option></select></label></div>
     <div class="cf-limit-hint" hidden></div><div class="cf-counter-rows" aria-live="polite"></div><div class="cf-counter-status" aria-live="polite"></div></div>
-    <div class="cf-summary"></div><div class="cf-list"></div></div>
+    <div class="cf-summary"><span class="cf-summary-count"></span><button class="cf-restore" type="button" hidden>${copy.resetDismissed}</button></div><div class="cf-list"></div></div>
     <div class="cf-settings-view" hidden><button class="cf-back" type="button">← ${copy.back}</button><h2>${copy.settings}</h2><p>${copy.settingsHint}</p><div class="cf-check-list"></div>
     <button class="cf-reset" type="button">${copy.reset}</button><a class="cf-glossary-link" href="${GLOSSARY_URL}&lang=${encodeURIComponent(languages.targetLanguage)}" target="_blank" rel="noopener noreferrer">${copy.glossary}</a><button class="cf-import" type="button">${copy.import}</button></div>`;
   shadow.append(sheet, toggle, panel);
@@ -131,6 +132,11 @@ function start() {
   panel.querySelector(".cf-open-settings").addEventListener("click", () => showSettings(true));
   panel.querySelector(".cf-back").addEventListener("click", () => showSettings(false));
   panel.querySelector(".cf-import").addEventListener("click", () => chrome.runtime.openOptionsPage());
+  panel.querySelector(".cf-restore").addEventListener("click", () => {
+    state.dismissed.clear();
+    chrome.storage.local.set({ dismissedFindings: [] });
+    scan();
+  });
   panel.querySelector(".cf-reset").addEventListener("click", () => {
     state.checks = { ...DEFAULT_CHECKS };
     persistChecks();
@@ -201,13 +207,14 @@ function start() {
     loadGlossaryEdits(storage);
     loadTimezoneRules(storage);
   }
-  chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null, togglePosition: null, characterLimitConfig: null }, (saved) => {
+  chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null, togglePosition: null, characterLimitConfig: null, dismissedFindings: [] }, (saved) => {
     if (saved.togglePosition && Number.isFinite(saved.togglePosition.x) && Number.isFinite(saved.togglePosition.y)) placeToggle(saved.togglePosition);
     loadSettings(saved);
     state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
     const storedLimit = Number(saved.characterLimitConfig?.limit);
     state.characterLimit = Number.isInteger(storedLimit) && storedLimit > 0 ? storedLimit : null;
     state.characterScope = saved.characterLimitConfig?.scope === "each" ? "each" : "total";
+    state.dismissed = new Set(Array.isArray(saved.dismissedFindings) ? saved.dismissedFindings.filter((key) => typeof key === "string") : []);
     syncLimitControls();
     syncCheckControls();
     scan();
@@ -271,9 +278,10 @@ function start() {
         cached = { signature, issues };
         state.signatures.set(item.id, cached);
       }
-      const ordinal = cached.issues.length ? ++caseNumber : null;
-      updateBadge(item, cached.issues, ordinal);
-      return { ...item, issues: cached.issues, ordinal };
+      const issues = cached.issues.filter((issue) => !state.dismissed.has(findingKey(location.pathname, item.id, issue, item.targetText)));
+      const ordinal = issues.length ? ++caseNumber : null;
+      updateBadge(item, issues, ordinal);
+      return { ...item, issues, ordinal };
     });
     for (const id of state.signatures.keys()) if (!currentIds.has(id)) state.signatures.delete(id);
     const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
@@ -291,19 +299,20 @@ function start() {
       badge = document.createElement("button");
       badge.type = "button";
       badge.className = "checkform-row-badge";
-      badge.addEventListener("click", () => { state.selectedId = item.id; open(); renderPanel(); });
       container.append(badge);
     }
+    badge.onclick = () => { state.selectedId = item.id; open(); renderPanel(); if (issues[0]) focusFinding(item, issues[0]); };
     if (badge.textContent !== String(ordinal)) badge.textContent = String(ordinal);
     badge.title = issues.map((issue) => `${issue.error_type}: ${issueDescription(uiLocale, issue)}`).join("\n");
     badge.setAttribute("aria-label", `${copy.segment} ${ordinal}: ${issues.length} CHECKform ${copy.findings}`);
   }
 
   function renderPanel() {
-    const summary = panel.querySelector(".cf-summary");
+    const summary = panel.querySelector(".cf-summary-count");
     const list = panel.querySelector(".cf-list");
     const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
     summary.textContent = `${count} ${copy.findings} · ${state.results.length} ${copy.segments}`;
+    panel.querySelector(".cf-restore").hidden = state.dismissed.size === 0;
     if (!state.open) return;
     renderCounter();
     list.replaceChildren();
@@ -320,6 +329,7 @@ function start() {
         row.row.scrollIntoView({ block: "center", behavior: "smooth" });
         state.selectedId = row.id;
         renderPanel();
+          if (row.issues[0]) focusFinding(row, row.issues[0]);
       });
       group.append(heading);
       for (const issue of row.issues) {
@@ -332,7 +342,22 @@ function start() {
         const excerpt = document.createElement("code");
         const { start, end } = issue.location_in_target;
         excerpt.textContent = row.targetText.slice(start, end) || row.targetText.slice(0, 80);
+        const focus = document.createElement("button");
+        focus.type = "button";
+        focus.className = "cf-focus-finding";
+        focus.textContent = copy.focus;
+        focus.addEventListener("click", () => focusFinding(row, issue));
+        const dismiss = document.createElement("button");
+        dismiss.type = "button";
+        dismiss.className = "cf-dismiss";
+        dismiss.textContent = copy.dismiss;
+        dismiss.addEventListener("click", () => {
+          state.dismissed.add(findingKey(location.pathname, row.id, issue, row.targetText));
+          chrome.storage.local.set({ dismissedFindings: [...state.dismissed] });
+          scan();
+        });
         finding.append(type, detail, excerpt);
+        finding.append(focus, dismiss);
         if (issue.error_type.startsWith("GLOSSARY_") && issue.glossary?.rows?.length) {
           const link = document.createElement("a");
           link.className = "cf-glossary-row-link";
@@ -352,6 +377,13 @@ function start() {
       empty.textContent = copy.empty;
       list.append(empty);
     }
+  }
+
+  function focusFinding(row, issue) {
+    row.row.scrollIntoView({ block: "center", behavior: "smooth" });
+    row.target.focus({ preventScroll: true });
+    const range = rawTargetRange(row.target.value, issue.location_in_target?.start, issue.location_in_target?.end);
+    row.target.setSelectionRange(range.start, range.end);
   }
 
   function renderCounter() {

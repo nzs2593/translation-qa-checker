@@ -32,6 +32,24 @@ assert.equal(glossaryRootPattern("apuesta combinada", "apuesta combinada", "es")
 assert.equal(glossaryRootPattern("aposta combinada", "aposta combinada", "pt-BR").test("apostas combinadas"), true);
 assert.equal(glossaryRootPattern("apuesta combinada", "apuesta combinada", "es").test("desapuestas combinadas"), false);
 assert.equal(glossaryRootPattern("apuesta combinada", "apuesta combinada", "es").test("apuestaes combinadas"), false);
+for (const [language, term, valid, invalid] of [
+  ["en-GB", "country", "countries", "countryes"],
+  ["es", "actriz", "actrices", "actrizes"],
+  ["es-AR", "apuesta", "apuestas", "apuestaes"],
+  ["pt-BR", "origem", "origens", "origemes"],
+  ["da", "konto", "kontoer", "kontox"],
+  ["mn", "тоглолт", "тоглолтын", "тоглолтx"],
+  ["az", "əmsal", "əmsallı", "əmsalx"],
+  ["ru", "ставка", "ставки", "ставкахх"],
+  ["uk", "ставка", "ставки", "ставкахх"],
+  ["uz", "hisob", "hisoblar", "hisobx"],
+  ["uzb", "ҳисоб", "ҳисоблар", "ҳисобхх"]
+]) {
+  const root = deriveGlossaryRoot(term, language);
+  const pattern = glossaryRootPattern(root, term, language);
+  assert.ok(pattern?.test(valid), `${language}: ${term} → ${valid}`);
+  assert.equal(pattern?.test(invalid), false, `${language}: rejects ${invalid}`);
+}
 for (const [language, term, variants] of [
   ["ru", "угловой", ["углового", "угловым", "угловые"]],
   ["ru", "количество", ["количества", "количеству"]],
@@ -50,5 +68,8 @@ assert.equal(checkGlossary("This promotion", "Bu kampaniyax", "en", "az", campai
 const ukrainian = [{ id: 1, terms: { ru: "ставка", uk: "ставка" } }];
 assert.equal(checkGlossary("ставки", "ставки", "ru", "uk", ukrainian).length, 0);
 assert.equal(checkGlossary("ставки", "інше слово", "ru", "uk", ukrainian).length, 1);
+const country = [{ id: 2, terms: { "en-GB": "country", es: "territorio" } }];
+assert.equal(checkGlossary("These countries", "Estos territorios", "en", "es", country).length, 0);
+assert.equal(checkGlossary("These countries", "Otra cosa", "en", "es", country).length, 1);
 
 console.log("Glossary root tests passed");

@@ -83,7 +83,9 @@ button { font: inherit; cursor: pointer; }
 .cf-counter-rows .cf-count-over { color: #b23528; font-weight: 700; }
 .cf-counter-status { margin-top: 6px; color: #4f6b90; font-weight: 700; }
 .cf-counter-status.cf-over-limit { color: #b23528; }
-.cf-summary { padding: 0 16px 12px; color: #4f6b90; border-bottom: 1px solid #dbe8f7; }
+.cf-summary { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 16px 12px; color: #4f6b90; border-bottom: 1px solid #dbe8f7; }
+.cf-restore { border: 0; background: transparent; color: #1554b7; font-size: 11px; text-decoration: underline; }
+.cf-restore[hidden] { display: none; }
 .cf-list { flex: 1; overflow: auto; padding: 12px; }
 .cf-settings-view { overflow: auto; padding: 16px; }
 .cf-settings-view h2 { margin: 12px 0 4px; font-size: 18px; }
@@ -104,4 +106,6 @@ button { font: inherit; cursor: pointer; }
 .cf-finding strong { font-size: 11px; }
 .cf-finding p { margin: 5px 0; color: #41546c; }
 .cf-finding code { display: block; color: #102d51; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cf-focus-finding, .cf-dismiss { margin: 8px 6px 0 0; border: 1px solid #b7ccea; border-radius: 5px; padding: 4px 7px; background: #fff; color: #1554b7; font-size: 11px; }
+.cf-dismiss { color: #67576c; }
 .cf-empty { color: #60748e; padding: 12px; }

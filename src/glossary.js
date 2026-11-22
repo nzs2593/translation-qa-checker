@@ -209,7 +209,8 @@ function glossaryGroups(rows, from, to) {
   }
   const prepared = [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length).map((group) => ({
     ...group,
-    needles: [...new Set([group.sourceTerm, ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from))]
+    needles: [...new Set([group.sourceTerm, ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from)),
+      ...(from === "en-GB" && /[^aeiou]y\b/iu.test(group.sourceTerm) ? [group.sourceTerm.replace(/y\b/iu, "")] : [])]
       .filter(Boolean).map((term) => term.split(/[ \u00a0-]/u)[0].toLocaleLowerCase()))],
     patterns: [phrasePattern(group.sourceTerm), ...group.entries.map((entry) =>
       glossaryRootPattern(entry.sourceRoot === undefined ? deriveGlossaryRoot(entry.sourceTerm, from) : entry.sourceRoot,

@@ -509,7 +509,7 @@
     uz: ["lar", "ning", "ga", "da", "dan", "ni", "larining", "larga", "larda", "lardan", "si", "i", "li", "siz"],
     uzb: ["\u043B\u0430\u0440", "\u043D\u0438\u043D\u0433", "\u0433\u0430", "\u0434\u0430", "\u0434\u0430\u043D", "\u043D\u0438", "\u043B\u0430\u0440\u043D\u0438\u043D\u0433", "\u043B\u0430\u0440\u0433\u0430", "\u043B\u0430\u0440\u0434\u0430", "\u043B\u0430\u0440\u0434\u0430\u043D", "\u0441\u0438", "\u0438", "\u043B\u0438", "\u0441\u0438\u0437"]
   });
-  var LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,2}$/u;
+  var LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,3}$/u;
   var ROOT_PHRASE = /^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u;
   var CYRILLIC_ENDING = /[аяоеыийьії]$/u;
   var CURATED_GLOSSARY_ROOTS = Object.freeze({
@@ -538,16 +538,20 @@
     if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
     const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
     const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
-    if (["es", "es-AR", "pt-BR"].includes(language) && root.includes(" ")) {
+    if (["en-GB", "es", "es-AR", "pt-BR"].includes(language) && root === term) {
       const words = root.split(/\s+/u);
       const terms = term.split(/\s+/u);
       if (words.length === terms.length) {
         const pieces = words.map((word) => {
           const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const ending = /[aeiouáéíóúãõ]$/iu.test(word) ? "s" : "es";
-          return word.length >= 4 && !/s$/iu.test(word) ? `${escapedWord}(?:${ending})?` : escapedWord;
+          if (word.length < 4 || /s$/iu.test(word)) return escapedWord;
+          if (language === "en-GB" && /[^aeiou]y$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ies`;
+          if ((language === "es" || language === "es-AR") && /z$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ces`;
+          if (language === "pt-BR" && /m$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ns`;
+          const ending = language === "en-GB" ? /(?:s|x|ch|sh)$/iu.test(word) ? "es" : "s" : /[aeiouáéíóúãõ]$/iu.test(word) ? "s" : "es";
+          return `${escapedWord}(?:${ending})?`;
         });
-        return new RegExp(`(?<![\\p{L}\\p{N}])${pieces.join("\\s+")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+        return new RegExp(`(?<![\\p{L}\\p{N}])(?:${pieces.map((piece) => `(?:${piece})`).join("\\s+")})(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
       }
     }
     if (["ru", "uk"].includes(language) && /[ \u00a0-]/u.test(root)) {
@@ -669,7 +673,11 @@
     }
     const prepared = [...groups.values()].sort((a, b) => b.sourceTerm.length - a.sourceTerm.length).map((group) => ({
       ...group,
-      needles: [...new Set([group.sourceTerm, ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from))].filter(Boolean).map((term) => term.split(/[ \u00a0-]/u)[0].toLocaleLowerCase()))],
+      needles: [...new Set([
+        group.sourceTerm,
+        ...group.entries.map((entry) => entry.sourceRoot || deriveGlossaryRoot(entry.sourceTerm, from)),
+        ...from === "en-GB" && /[^aeiou]y\b/iu.test(group.sourceTerm) ? [group.sourceTerm.replace(/y\b/iu, "")] : []
+      ].filter(Boolean).map((term) => term.split(/[ \u00a0-]/u)[0].toLocaleLowerCase()))],
       patterns: [phrasePattern(group.sourceTerm), ...group.entries.map((entry) => glossaryRootPattern(
         entry.sourceRoot === void 0 ? deriveGlossaryRoot(entry.sourceTerm, from) : entry.sourceRoot,
         entry.sourceTerm,
@@ -1542,6 +1550,45 @@
     return { counts, totalSource, totalTarget, exceeded, limit: threshold };
   }
 
+  // src/extension/finding-actions.js
+  function rawTargetRange(raw, start2, end) {
+    const source = String(raw ?? "");
+    const visibleToRaw = [];
+    const tag = /<\/?\d+\s*\/?>/gu;
+    let match;
+    let cursor = 0;
+    while (match = tag.exec(source)) {
+      for (let i = cursor; i < match.index; i++) visibleToRaw.push(i);
+      cursor = tag.lastIndex;
+    }
+    for (let i = cursor; i < source.length; i++) visibleToRaw.push(i);
+    const visible = visibleToRaw.map((index) => source[index]).join("");
+    const leading = visible.length - visible.trimStart().length;
+    const length = visible.trim().length;
+    const from = Math.min(length, Math.max(0, Number(start2) || 0)) + leading;
+    const to = Math.min(length, Math.max(from - leading, Number(end) || 0)) + leading;
+    const rawStart = visibleToRaw[from] ?? source.length;
+    const rawEnd = to > from ? (visibleToRaw[to - 1] ?? rawStart) + 1 : rawStart;
+    return { start: rawStart, end: rawEnd };
+  }
+  function findingKey(documentPath, segmentId, issue, targetText) {
+    const input = JSON.stringify([
+      documentPath,
+      segmentId,
+      issue.error_type,
+      issue.location_in_target?.start,
+      issue.location_in_target?.end,
+      issue.glossary?.rows,
+      targetText
+    ]);
+    let hash = 2166136261;
+    for (let i = 0; i < input.length; i++) {
+      hash ^= input.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `${segmentId}:${(hash >>> 0).toString(16)}`;
+  }
+
   // src/extension/content.js
   var languages = editorLanguages(location.pathname);
   var GLOSSARY_URL = "https://nzs2593.github.io/translation-qa-checker/?view=glossary";
@@ -1581,6 +1628,9 @@
     fromSource: "\u0412 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0435",
     applyLimit: "\u041F\u0440\u0438\u043C\u0435\u043D\u0438\u0442\u044C",
     rowLabel: "\u0441\u0442\u0440\u043E\u043A\u0430",
+    focus: "\u0412\u044B\u0434\u0435\u043B\u0438\u0442\u044C \u0432 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0435",
+    dismiss: "\u041E\u0442\u043A\u043B\u043E\u043D\u0438\u0442\u044C",
+    resetDismissed: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u043E\u0442\u043A\u043B\u043E\u043D\u0451\u043D\u043D\u044B\u0435",
     checkLabels: {
       glossary: "\u0413\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439",
       dates: "\u0414\u0430\u0442\u044B, \u0432\u0440\u0435\u043C\u044F \u0438 GMT",
@@ -1626,6 +1676,9 @@
     fromSource: "Source note",
     applyLimit: "Apply",
     rowLabel: "string",
+    focus: "Select in translation",
+    dismiss: "Dismiss",
+    resetDismissed: "Restore dismissed",
     checkLabels: {
       glossary: "Glossary",
       dates: "Dates, time and GMT",
@@ -1640,7 +1693,7 @@
   };
   if (languages) start();
   function start() {
-    const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: /* @__PURE__ */ new Map() };
+    const state = { checks: normalizeChecks(), characterLimit: null, characterScope: "total", open: false, settingsOpen: false, results: [], selectedId: null, signatures: /* @__PURE__ */ new Map(), dismissed: /* @__PURE__ */ new Set() };
     const host = document.createElement("div");
     host.id = "checkform-extension-root";
     const shadow = host.attachShadow({ mode: "open" });
@@ -1656,14 +1709,14 @@
     const panel = document.createElement("section");
     panel.className = "cf-panel";
     panel.hidden = true;
-    panel.innerHTML = `<header><strong>CHECKform <small>Chrome preview</small></strong><div class="cf-header-actions"><button class="cf-config" type="button" aria-label="${copy.settings}" title="${copy.settings}">\u2699</button><button class="cf-close" type="button" aria-label="${copy.close}">\xD7</button></div></header>
+    panel.innerHTML = `<header><strong>CHECKform</strong><div class="cf-header-actions"><button class="cf-config" type="button" aria-label="${copy.settings}" title="${copy.settings}">\u2699</button><button class="cf-close" type="button" aria-label="${copy.close}">\xD7</button></div></header>
     <div class="cf-results-view"><div class="cf-controls"><span class="cf-lang"></span><button class="cf-open-settings" type="button">${copy.settings}</button></div>
     <div class="cf-counter"><strong>${copy.characters}</strong><div class="cf-counter-controls">
     <label>${copy.limit} <select class="cf-limit-preset"><option value="">${copy.noLimit}</option><option value="15">15</option><option value="20">20</option><option value="30">30</option><option value="50">50</option><option value="80">80</option><option value="100">100</option><option value="custom">${copy.customLimit}</option></select></label>
     <input class="cf-limit-custom" type="number" min="1" step="1" inputmode="numeric" aria-label="${copy.customLimit}" hidden>
     <label>${copy.scope} <select class="cf-limit-scope"><option value="total">${copy.total}</option><option value="each">${copy.each}</option></select></label></div>
     <div class="cf-limit-hint" hidden></div><div class="cf-counter-rows" aria-live="polite"></div><div class="cf-counter-status" aria-live="polite"></div></div>
-    <div class="cf-summary"></div><div class="cf-list"></div></div>
+    <div class="cf-summary"><span class="cf-summary-count"></span><button class="cf-restore" type="button" hidden>${copy.resetDismissed}</button></div><div class="cf-list"></div></div>
     <div class="cf-settings-view" hidden><button class="cf-back" type="button">\u2190 ${copy.back}</button><h2>${copy.settings}</h2><p>${copy.settingsHint}</p><div class="cf-check-list"></div>
     <button class="cf-reset" type="button">${copy.reset}</button><a class="cf-glossary-link" href="${GLOSSARY_URL}&lang=${encodeURIComponent(languages.targetLanguage)}" target="_blank" rel="noopener noreferrer">${copy.glossary}</a><button class="cf-import" type="button">${copy.import}</button></div>`;
     shadow.append(sheet, toggle, panel);
@@ -1753,6 +1806,11 @@
     panel.querySelector(".cf-open-settings").addEventListener("click", () => showSettings(true));
     panel.querySelector(".cf-back").addEventListener("click", () => showSettings(false));
     panel.querySelector(".cf-import").addEventListener("click", () => chrome.runtime.openOptionsPage());
+    panel.querySelector(".cf-restore").addEventListener("click", () => {
+      state.dismissed.clear();
+      chrome.storage.local.set({ dismissedFindings: [] });
+      scan();
+    });
     panel.querySelector(".cf-reset").addEventListener("click", () => {
       state.checks = { ...DEFAULT_CHECKS };
       persistChecks();
@@ -1827,13 +1885,14 @@
       loadGlossaryEdits(storage);
       loadTimezoneRules(storage);
     }
-    chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null, togglePosition: null, characterLimitConfig: null }, (saved) => {
+    chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null, togglePosition: null, characterLimitConfig: null, dismissedFindings: [] }, (saved) => {
       if (saved.togglePosition && Number.isFinite(saved.togglePosition.x) && Number.isFinite(saved.togglePosition.y)) placeToggle(saved.togglePosition);
       loadSettings(saved);
       state.checks = normalizeChecks(saved.checks, saved.checkCurrency);
       const storedLimit = Number(saved.characterLimitConfig?.limit);
       state.characterLimit = Number.isInteger(storedLimit) && storedLimit > 0 ? storedLimit : null;
       state.characterScope = saved.characterLimitConfig?.scope === "each" ? "each" : "total";
+      state.dismissed = new Set(Array.isArray(saved.dismissedFindings) ? saved.dismissedFindings.filter((key) => typeof key === "string") : []);
       syncLimitControls();
       syncCheckControls();
       scan();
@@ -1891,19 +1950,20 @@
         const signature = `${languages.sourceLanguage}|${languages.targetLanguage}|${JSON.stringify(state.checks)}|${item.sourceText}|${item.targetText}`;
         let cached = state.signatures.get(item.id);
         if (!cached || cached.signature !== signature) {
-          const issues = item.sourceText && item.targetText ? enabledIssues(runRuleEngine({
+          const issues2 = item.sourceText && item.targetText ? enabledIssues(runRuleEngine({
             source: item.sourceText,
             target: item.targetText,
             ...languages,
             checkCurrency: state.checks.currencyComparison,
             glossaryRows
           }), state.checks) : [];
-          cached = { signature, issues };
+          cached = { signature, issues: issues2 };
           state.signatures.set(item.id, cached);
         }
-        const ordinal = cached.issues.length ? ++caseNumber : null;
-        updateBadge(item, cached.issues, ordinal);
-        return { ...item, issues: cached.issues, ordinal };
+        const issues = cached.issues.filter((issue) => !state.dismissed.has(findingKey(location.pathname, item.id, issue, item.targetText)));
+        const ordinal = issues.length ? ++caseNumber : null;
+        updateBadge(item, issues, ordinal);
+        return { ...item, issues, ordinal };
       });
       for (const id of state.signatures.keys()) if (!currentIds.has(id)) state.signatures.delete(id);
       const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
@@ -1923,22 +1983,24 @@
         badge = document.createElement("button");
         badge.type = "button";
         badge.className = "checkform-row-badge";
-        badge.addEventListener("click", () => {
-          state.selectedId = item.id;
-          open();
-          renderPanel();
-        });
         container.append(badge);
       }
+      badge.onclick = () => {
+        state.selectedId = item.id;
+        open();
+        renderPanel();
+        if (issues[0]) focusFinding(item, issues[0]);
+      };
       if (badge.textContent !== String(ordinal)) badge.textContent = String(ordinal);
       badge.title = issues.map((issue) => `${issue.error_type}: ${issueDescription(uiLocale, issue)}`).join("\n");
       badge.setAttribute("aria-label", `${copy.segment} ${ordinal}: ${issues.length} CHECKform ${copy.findings}`);
     }
     function renderPanel() {
-      const summary = panel.querySelector(".cf-summary");
+      const summary = panel.querySelector(".cf-summary-count");
       const list = panel.querySelector(".cf-list");
       const count = state.results.reduce((sum, row) => sum + row.issues.length, 0);
       summary.textContent = `${count} ${copy.findings} \xB7 ${state.results.length} ${copy.segments}`;
+      panel.querySelector(".cf-restore").hidden = state.dismissed.size === 0;
       if (!state.open) return;
       renderCounter();
       list.replaceChildren();
@@ -1955,6 +2017,7 @@
           row.row.scrollIntoView({ block: "center", behavior: "smooth" });
           state.selectedId = row.id;
           renderPanel();
+          if (row.issues[0]) focusFinding(row, row.issues[0]);
         });
         group.append(heading);
         for (const issue of row.issues) {
@@ -1967,7 +2030,22 @@
           const excerpt = document.createElement("code");
           const { start: start2, end } = issue.location_in_target;
           excerpt.textContent = row.targetText.slice(start2, end) || row.targetText.slice(0, 80);
+          const focus = document.createElement("button");
+          focus.type = "button";
+          focus.className = "cf-focus-finding";
+          focus.textContent = copy.focus;
+          focus.addEventListener("click", () => focusFinding(row, issue));
+          const dismiss = document.createElement("button");
+          dismiss.type = "button";
+          dismiss.className = "cf-dismiss";
+          dismiss.textContent = copy.dismiss;
+          dismiss.addEventListener("click", () => {
+            state.dismissed.add(findingKey(location.pathname, row.id, issue, row.targetText));
+            chrome.storage.local.set({ dismissedFindings: [...state.dismissed] });
+            scan();
+          });
           finding.append(type, detail, excerpt);
+          finding.append(focus, dismiss);
           if (issue.error_type.startsWith("GLOSSARY_") && issue.glossary?.rows?.length) {
             const link = document.createElement("a");
             link.className = "cf-glossary-row-link";
@@ -1987,6 +2065,12 @@
         empty.textContent = copy.empty;
         list.append(empty);
       }
+    }
+    function focusFinding(row, issue) {
+      row.row.scrollIntoView({ block: "center", behavior: "smooth" });
+      row.target.focus({ preventScroll: true });
+      const range = rawTargetRange(row.target.value, issue.location_in_target?.start, issue.location_in_target?.end);
+      row.target.setSelectionRange(range.start, range.end);
     }
     function renderCounter() {
       const selected = state.results.filter((row) => row.selected);

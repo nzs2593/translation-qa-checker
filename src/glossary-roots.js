@@ -14,7 +14,7 @@ const SUFFIXES = Object.freeze({
   uzb: ["лар", "нинг", "га", "да", "дан", "ни", "ларнинг", "ларга", "ларда", "лардан", "си", "и", "ли", "сиз"]
 });
 
-const LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,2}$/u;
+const LOWERCASE_PHRASE = /^[\p{Ll}]+(?:[ \u00a0-][\p{Ll}]+){0,3}$/u;
 const ROOT_PHRASE = /^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u;
 const CYRILLIC_ENDING = /[аяоеыийьії]$/u;
 
@@ -49,16 +49,21 @@ export function glossaryRootPattern(root, term, language, matchCase = false) {
   if (!root || !SUFFIXES[language] || !ROOT_PHRASE.test(root) || root.split(/[ \u00a0-]/u).at(-1).length < 3) return null;
   const escaped = root.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[ \u00a0]+/g, "\\s+");
   const suffixes = [...SUFFIXES[language]].sort((a, b) => b.length - a.length).join("|");
-  if (["es", "es-AR", "pt-BR"].includes(language) && root.includes(" ")) {
+  if (["en-GB", "es", "es-AR", "pt-BR"].includes(language) && root === term) {
     const words = root.split(/\s+/u);
     const terms = term.split(/\s+/u);
     if (words.length === terms.length) {
       const pieces = words.map((word) => {
         const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const ending = /[aeiouáéíóúãõ]$/iu.test(word) ? "s" : "es";
-        return word.length >= 4 && !/s$/iu.test(word) ? `${escapedWord}(?:${ending})?` : escapedWord;
+        if (word.length < 4 || /s$/iu.test(word)) return escapedWord;
+        if (language === "en-GB" && /[^aeiou]y$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ies`;
+        if ((language === "es" || language === "es-AR") && /z$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ces`;
+        if (language === "pt-BR" && /m$/iu.test(word)) return `${escapedWord}|${escapedWord.slice(0, -1)}ns`;
+        const ending = language === "en-GB" ? /(?:s|x|ch|sh)$/iu.test(word) ? "es" : "s"
+          : /[aeiouáéíóúãõ]$/iu.test(word) ? "s" : "es";
+        return `${escapedWord}(?:${ending})?`;
       });
-      return new RegExp(`(?<![\\p{L}\\p{N}])${pieces.join("\\s+")}(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
+      return new RegExp(`(?<![\\p{L}\\p{N}])(?:${pieces.map((piece) => `(?:${piece})`).join("\\s+")})(?![\\p{L}\\p{N}])`, matchCase ? "gu" : "giu");
     }
   }
   if (["ru", "uk"].includes(language) && /[ \u00a0-]/u.test(root)) {
