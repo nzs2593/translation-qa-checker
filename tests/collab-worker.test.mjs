@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import { applyChange, codeHash } from "../collab-worker/index.js";
+
+const base = { schema: "checkform-shared-glossary-v1", version: 1, updatedAt: null,
+  overrides: {}, rootOverrides: {}, customRows: [] };
+const replace = { mode: "replace", rowId: 7, language: "es-AR", sourceTerm: "account",
+  previous: "cuenta", value: "cuenta personal", root: "cuent", baseVersion: 1 };
+const first = applyChange(structuredClone(base), replace, "zakharov.n");
+assert.equal(first.data.overrides[7]["es-AR"], "cuenta personal");
+assert.equal(first.data.rootOverrides[7]["es-AR"], "cuent");
+assert.equal(first.audit.actor, "zakharov.n");
+assert.equal(first.data.version, 2);
+assert.throws(() => applyChange(structuredClone(first.data), replace, "sitnikova.r"), /обновлён/u);
+const addition = applyChange(structuredClone(first.data), { ...replace, mode: "add", baseVersion: 2,
+  value: "otra cuenta", root: null }, "zyryanova.k");
+assert.equal(addition.data.customRows[0].terms["es-AR"], "otra cuenta");
+assert.equal(addition.data.customRows[0].terms["en-GB"], "account");
+assert.equal(addition.data.version, 3);
+const newTerm = applyChange(structuredClone(addition.data), { mode: "new", rowId: 0, language: "az",
+  sourceTerm: "test phrase", previous: "", value: "sınaq ifadəsi", root: "sınaq ifad", baseVersion: 3 }, "sitnikova.r");
+assert.equal(newTerm.data.customRows.at(-1).terms.az, "sınaq ifadəsi");
+assert.equal(newTerm.data.customRows.at(-1).terms["en-GB"], "test phrase");
+assert.equal(newTerm.audit.rowId, newTerm.data.customRows.at(-1).id);
+assert.throws(() => applyChange(structuredClone(first.data), { ...replace, baseVersion: 2,
+  sourceTerm: "wrong" }, "zakharov.n"), /Исходный/u);
+assert.throws(() => applyChange(structuredClone(first.data), { ...replace, baseVersion: 2,
+  previous: "wrong" }, "zakharov.n"), /Перевод/u);
+assert.equal(await codeHash("ABCD-EFGH-1234-5678-90XX", "test-pepper"),
+  await codeHash("abcdefgh1234567890xx", "test-pepper"));
+console.log("Collaboration worker tests passed");

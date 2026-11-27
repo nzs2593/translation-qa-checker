@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHECKform</title>
-    <link rel="stylesheet" href="styles.css?v=2.15" />
+    <link rel="stylesheet" href="styles.css?v=2.16" />
   </head>
   <body>
     <main class="app-shell">
@@ -161,20 +161,20 @@
         </div>
         <div class="glossary-footer"><span id="glossary-status" role="status"></span><button type="button" id="glossary-show-more" hidden>Show more</button></div>
         <section class="glossary-collab" aria-label="Совместная работа со словарём">
-          <div class="glossary-collab-head"><div><h3>Предложения по словарю</h3><p>Коллега предлагает изменение. Общий словарь меняется только после согласования. Предложения в публичном GitHub видны всем.</p></div><button type="button" id="glossary-load-proposals">Показать предложения</button></div>
+          <div class="glossary-collab-head"><div><h3>Общие правки словаря</h3><p>Личный код позволяет опубликовать правку для всей команды. Прямое редактирование таблицы выше сохраняется только в вашем браузере.</p></div><button type="button" id="glossary-new-shared">Новый термин для команды</button></div>
+          <div class="glossary-collab-access"><label>Личный код <input id="glossary-member-code" type="password" autocomplete="off" spellcheck="false" placeholder="Код участника" /></label><button type="button" id="glossary-save-code">Сохранить на этом устройстве</button><button type="button" id="glossary-forget-code">Забыть код</button></div>
           <form id="glossary-proposal-form" hidden>
-            <h4 id="glossary-proposal-title">Предложить правку</h4>
+            <h4 id="glossary-proposal-title">Общая правка</h4>
             <input id="glossary-proposal-row" type="hidden" />
             <input id="glossary-proposal-language" type="hidden" />
-            <input id="glossary-proposal-source" type="hidden" />
-            <div class="glossary-proposal-mode"><label><input type="radio" name="glossary-proposal-mode" value="add" checked /> Добавить допустимый перевод</label><label><input type="radio" name="glossary-proposal-mode" value="replace" /> Заменить перевод</label></div>
+            <label>Исходный термин<input id="glossary-proposal-source" readonly required maxlength="200" /></label>
+            <div class="glossary-proposal-mode"><label><input type="radio" name="glossary-proposal-mode" value="add" /> Добавить допустимый перевод</label><label><input type="radio" name="glossary-proposal-mode" value="replace" checked /> Заменить перевод</label></div>
             <label>Текущий перевод<input id="glossary-proposal-current" readonly /></label>
             <label>Новый перевод<input id="glossary-proposal-value" required maxlength="200" /></label>
             <label>Корень нового перевода<input id="glossary-proposal-root" maxlength="100" placeholder="Пусто — определить автоматически" /></label>
-            <div class="glossary-collab-actions"><button type="submit">Продолжить в GitHub</button><button type="button" id="glossary-proposal-cancel">Отмена</button></div>
+            <div class="glossary-collab-actions"><button type="submit">Опубликовать для команды</button><button type="button" id="glossary-proposal-cancel">Отмена</button></div>
           </form>
           <p id="glossary-collab-status" role="status"></p>
-          <div id="glossary-proposal-list"></div>
         </section>
       </section>
 
@@ -220,7 +220,7 @@
 
       <footer class="app-footer">
         <span id="footer-copy">Deterministic checks · No LLM · No auto-correction</span>
-        <span class="app-version" id="app-version">CHECKform v2.15</span>
+        <span class="app-version" id="app-version">CHECKform v2.16</span>
         <span id="checked-at">Ready</span>
       </footer>
     </main>
@@ -242,6 +242,6 @@
         </table>
       </div>
     </dialog>
-    <script defer src="checkform.bundle.js?v=2.17"></script>
+    <script defer src="checkform.bundle.js?v=2.18"></script>
   </body>
 </html>

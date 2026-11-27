@@ -1,0 +1,5 @@
+collab-worker/.wrangler/
+collab-worker/.wrangler-dry-run/
+member-codes.txt
+code-pepper.txt
+members.sql

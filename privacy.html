@@ -14,7 +14,7 @@
 </head>
 <body>
   <h1>CHECKform for Crowdin — Privacy Policy</h1>
-  <p>Last updated: 17 November 2026</p>
+  <p>Last updated: 27 November 2026</p>
   <p>CHECKform for Crowdin is a translation quality checker for visible segments in the configured Crowdin editor.</p>
 
   <h2>Data the extension uses</h2>
@@ -22,18 +22,19 @@
 
   <h2>Storage and sharing</h2>
   <p>Quality checks run locally in the browser. The extension does not send segment text or findings to the publisher or another server. It does not use analytics or advertising.</p>
-  <p>The extension downloads the published shared glossary JSON from nzs2593.github.io. This request contains no Crowdin segment text or findings. The last downloaded copy, check preferences, personal glossary edits, and time zone rules are stored locally using Chrome extension storage. Users can also import personal settings from a JSON file they choose.</p>
-  <p>On the CHECKform website, a user who chooses to propose a glossary change opens a GitHub Issue containing the selected term, language, proposed translation and optional root. Issues in the public repository are public. This action does not include source or target document contents.</p>
+  <p>The extension downloads shared glossary changes from checkform-glossary.nzs2593.workers.dev. This request contains no Crowdin segment text or findings. The last downloaded copy, check preferences, personal glossary edits, and time zone rules are stored locally using Chrome extension storage. Users can also import personal settings from a JSON file they choose.</p>
+  <p>Members who edit the shared glossary enter a personal access code on the CHECKform website. The code is saved in that browser's local storage only when the member chooses to save it, and is sent over HTTPS to the CHECKform Cloudflare Worker when publishing a glossary change. The Worker stores a one-way code hash, the assigned member name, glossary revisions and an audit history containing the changed term, language, previous and new translation, and optional root. It does not receive Crowdin document text. The publisher can revoke an individual code. Other team members do not receive access to the Cloudflare account or D1 console.</p>
+  <p>The shared glossary read endpoint is public, as the base glossary on the CHECKform website already is. Only publishing a change requires a personal code. Publishing sends the chosen source term, language, previous and new translation, and optional root to the Worker; it does not send source or target document contents.</p>
 
   <h2>Permissions</h2>
-  <p>The extension requests access to the configured Crowdin host to read and annotate visible editor segments, and to nzs2593.github.io to download the shared glossary. The storage permission keeps user-selected settings and the glossary cache on the device.</p>
+  <p>The extension requests access to the configured Crowdin host to read and annotate visible editor segments, to nzs2593.github.io for connection settings, and to checkform-glossary.nzs2593.workers.dev for shared glossary reading. The storage permission keeps user-selected settings and the glossary cache on the device.</p>
 
   <h2>Contact</h2>
   <p>Questions and bug reports: <a href="https://github.com/nzs2593/translation-qa-checker/issues">CHECKform issue tracker</a>.</p>
 
   <hr>
   <h2 lang="ru">Политика конфиденциальности</h2>
-  <p lang="ru">Обновлено 17 ноября 2026 года. CHECKform читает видимые исходные и переведённые сегменты в настроенном редакторе Crowdin и показывает замечания в той же вкладке. Проверка выполняется локально. Расширение не изменяет перевод, не передаёт тексты сегментов или замечания на сервер и не использует аналитику или рекламу.</p>
-  <p lang="ru">Расширение загружает опубликованный общий глоссарий с nzs2593.github.io и сохраняет последнюю копию в хранилище Chrome. Запрос не содержит текстов сегментов или замечаний. Личные настройки, правки словаря и правила GMT также хранятся в Chrome. Предложение по словарю, отправленное через сайт CHECKform, открывает публичный GitHub Issue с термином, языком, переводом и необязательным корнем. По вопросам работы расширения используйте <a href="https://github.com/nzs2593/translation-qa-checker/issues">раздел Issues</a>.</p>
+  <p lang="ru">Обновлено 27 ноября 2026 года. CHECKform читает видимые исходные и переведённые сегменты в настроенном редакторе Crowdin и показывает замечания в той же вкладке. Проверка выполняется локально. Расширение не изменяет перевод, не передаёт тексты сегментов или замечания на сервер и не использует аналитику или рекламу.</p>
+  <p lang="ru">Расширение загружает общие изменения словаря с сервера CHECKform в Cloudflare и сохраняет последнюю копию в хранилище Chrome. Для публикации правки на сайте CHECKform участник вводит персональный код. Сайт сохраняет код в локальном хранилище браузера только по желанию участника и отправляет его серверу по HTTPS при публикации. Сервер хранит хеш кода, имя назначенного участника, версии словаря и историю правок. Тексты документов Crowdin туда не передаются; доступ к аккаунту Cloudflare и консоли D1 есть только у владельца. Личные настройки и правила GMT остаются в Chrome. По вопросам работы расширения используйте <a href="https://github.com/nzs2593/translation-qa-checker/issues">раздел Issues</a>.</p>
 </body>
 </html>

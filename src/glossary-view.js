@@ -126,7 +126,7 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
       const propose = document.createElement("button");
       propose.type = "button"; propose.className = "glossary-propose-button";
       propose.dataset.proposeRow = String(row.id);
-      propose.textContent = locale === "ru" ? "Предложить" : "Propose";
+      propose.textContent = locale === "ru" ? "Общая правка" : "Shared edit";
       actions.append(propose);
       tr.append(number, from, to, notes, actions);
       fragment.append(tr);

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "CHECKform for Crowdin",
-  "version": "0.2.15",
-  "description": "Read-only translation QA for visible Crowdin segments.",
+  "version": "0.2.16",
+  "description": "Read-only translation QA for visible Crowdin segments with shared glossary sync.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -11,7 +11,7 @@
   },
   "permissions": ["storage"],
   "options_page": "options.html",
-  "host_permissions": ["https://marathonbetops.crowdin.com/*", "https://nzs2593.github.io/*"],
+  "host_permissions": ["https://marathonbetops.crowdin.com/*", "https://nzs2593.github.io/*", "https://checkform-glossary.nzs2593.workers.dev/*"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {

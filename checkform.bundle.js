@@ -804,9 +804,9 @@
   }
 
   // src/segments.js?v=1.1
-  var LABEL_RE = /^(\p{L}[\p{L} ]{1,28}):[ \t]*$/gmu;
+  var LABEL_RE = new RegExp("^(\\p{L}[\\p{L} ]{1,28}):[ \\t]*$", "gmu");
   function normalizeLabel(label) {
-    const plain = label.trim().toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+    const plain = label.trim().toLowerCase().normalize("NFD").replace(new RegExp("\\p{M}", "gu"), "");
     return { texto: "text", boton: "button", encabezado: "header", preencabezado: "preheader" }[plain] ?? plain;
   }
   function extractLabeledSegments(text) {
@@ -1990,7 +1990,7 @@
         propose.type = "button";
         propose.className = "glossary-propose-button";
         propose.dataset.proposeRow = String(row.id);
-        propose.textContent = locale === "ru" ? "\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0438\u0442\u044C" : "Propose";
+        propose.textContent = locale === "ru" ? "\u041E\u0431\u0449\u0430\u044F \u043F\u0440\u0430\u0432\u043A\u0430" : "Shared edit";
         actions.append(propose);
         tr.append(number, from, to, notes, actions);
         fragment.append(tr);
@@ -2120,18 +2120,6 @@
       return null;
     }
   }
-  function getGlossaryRows3() {
-    const sharedRows = Array.isArray(sharedGlossary3.customRows) ? sharedGlossary3.customRows : [];
-    return [...GLOSSARY_DEFAULTS, ...sharedRows, ...customRows3].map((row) => {
-      const terms = { ...row.terms, ...sharedGlossary3.overrides?.[row.id] ?? {}, ...overrides3[row.id] ?? {} };
-      const suggestedRoots = Object.fromEntries(Object.entries(terms).map(([language, term]) => [language, term === row.terms[language] && CURATED_GLOSSARY_ROOTS[row.id]?.[language] ? CURATED_GLOSSARY_ROOTS[row.id][language] : deriveGlossaryRoot(term, language)]));
-      return {
-        ...row,
-        terms,
-        roots: { ...suggestedRoots, ...row.roots, ...sharedGlossary3.rootOverrides?.[row.id] ?? {}, ...rootOverrides3[row.id] ?? {} }
-      };
-    });
-  }
   function setSharedGlossary(data, storage = null) {
     if (!data || data.schema !== "checkform-shared-glossary-v1" || !Number.isInteger(data.version) || !data.overrides || typeof data.overrides !== "object" || Array.isArray(data.overrides) || !data.rootOverrides || typeof data.rootOverrides !== "object" || Array.isArray(data.rootOverrides) || !Array.isArray(data.customRows)) return false;
     sharedGlossary3 = { overrides: data.overrides, rootOverrides: data.rootOverrides, customRows: data.customRows };
@@ -2165,29 +2153,28 @@
 
   // src/glossary-collab.js
   var $2 = (id) => document.getElementById(id);
-  var REPO = "nzs2593/translation-qa-checker";
-  var MARKER = "checkform-glossary-proposal-v1";
+  var CONFIG_URL = new URL("data/collaboration-config.json", document.baseURI);
   var DATA_URL = new URL("data/shared-glossary.json", document.baseURI);
-  var sharedVersion = 1;
-  function proposalFromIssue(issue) {
-    const match = issue.body?.match(/```checkform-glossary-proposal-v1\s*([\s\S]*?)```/u);
-    if (!match) return null;
-    try {
-      const data = JSON.parse(match[1]);
-      if (data.schema !== MARKER || !["add", "replace"].includes(data.mode) || !Number.isInteger(data.rowId) || !Number.isInteger(data.baseVersion) || !Object.values(GLOSSARY_LANGUAGES3).includes(data.language) || typeof data.value !== "string" || !data.value.trim()) return null;
-      return data;
-    } catch {
-      return null;
-    }
+  var CODE_KEY = "checkform-member-code-v1";
+  var api = "";
+  var sharedData = null;
+  function publishedTerm(row, language) {
+    return sharedData?.overrides?.[row.id]?.[language] ?? row.terms?.[language] ?? "";
+  }
+  function publishedRow(id) {
+    return GLOSSARY_DEFAULTS.find((row) => row.id === id) ?? sharedData?.customRows?.find((row) => row.id === id);
   }
   async function refreshSharedGlossary(onChange = () => {
   }) {
     try {
-      const response = await fetch(DATA_URL, { cache: "no-store" });
+      const configResponse = await fetch(CONFIG_URL, { cache: "no-store" });
+      const config = configResponse.ok ? await configResponse.json() : {};
+      api = /^https:\/\//u.test(config.collabApi ?? "") ? config.collabApi.replace(/\/$/u, "") : "";
+      const response = await fetch(api ? `${api}/v1/glossary` : DATA_URL, { cache: "no-store" });
       if (!response.ok) return false;
       const data = await response.json();
       if (!setSharedGlossary(data, globalThis.localStorage)) return false;
-      sharedVersion = data.version;
+      sharedData = data;
       onChange();
       return true;
     } catch {
@@ -2197,101 +2184,122 @@
   function initGlossaryCollab({ onChange, refreshView }) {
     const form = $2("glossary-proposal-form");
     const status = $2("glossary-collab-status");
-    const list = $2("glossary-proposal-list");
-    let approvalApi = "";
-    fetch(new URL("data/collaboration-config.json", document.baseURI)).then((response) => response.ok ? response.json() : {}).then((config) => {
-      approvalApi = /^https:\/\//u.test(config.approvalApi ?? "") ? config.approvalApi : "";
-    }).catch(() => {
-    });
+    const codeInput = $2("glossary-member-code");
+    try {
+      codeInput.value = localStorage.getItem(CODE_KEY) ?? "";
+    } catch {
+    }
+    function setMode(mode) {
+      form.dataset.mode = mode;
+      form.hidden = false;
+      $2("glossary-proposal-source").readOnly = mode !== "new";
+      $2("glossary-proposal-current").parentElement.hidden = mode === "new";
+      form.querySelector(".glossary-proposal-mode").hidden = mode === "new";
+      if (mode !== "new") form.querySelector(`input[name="glossary-proposal-mode"][value="${mode}"]`).checked = true;
+      form.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      $2(mode === "new" ? "glossary-proposal-source" : "glossary-proposal-value").focus();
+    }
     $2("glossary-table-body").addEventListener("click", (event) => {
       const button = event.target.closest("[data-propose-row]");
       if (!button) return;
-      const row = getGlossaryRows3().find((item) => String(item.id) === button.dataset.proposeRow);
+      const row = publishedRow(Number(button.dataset.proposeRow));
       const target = $2("glossary-language").value;
       const source = target === "uk" ? "ru" : "en";
       if (!row || !GLOSSARY_LANGUAGES3[target]) return;
       $2("glossary-proposal-row").value = String(row.id);
       $2("glossary-proposal-language").value = GLOSSARY_LANGUAGES3[target];
-      $2("glossary-proposal-source").value = row.terms[GLOSSARY_LANGUAGES3[source]] ?? "";
-      $2("glossary-proposal-current").value = row.terms[GLOSSARY_LANGUAGES3[target]] ?? "";
+      $2("glossary-proposal-source").value = publishedTerm(row, GLOSSARY_LANGUAGES3[source]);
+      $2("glossary-proposal-current").value = publishedTerm(row, GLOSSARY_LANGUAGES3[target]);
       $2("glossary-proposal-value").value = "";
       $2("glossary-proposal-root").value = "";
-      $2("glossary-proposal-title").textContent = `${row.terms[GLOSSARY_LANGUAGES3[source]] ?? "\u0422\u0435\u0440\u043C\u0438\u043D"} \xB7 ${target}`;
-      form.hidden = false;
-      form.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      $2("glossary-proposal-value").focus();
+      $2("glossary-proposal-title").textContent = `${publishedTerm(row, GLOSSARY_LANGUAGES3[source])} \xB7 ${target}`;
+      setMode("replace");
+    });
+    $2("glossary-new-shared").addEventListener("click", () => {
+      const target = $2("glossary-language").value;
+      if (!GLOSSARY_LANGUAGES3[target]) return;
+      $2("glossary-proposal-row").value = "0";
+      $2("glossary-proposal-language").value = GLOSSARY_LANGUAGES3[target];
+      $2("glossary-proposal-source").value = "";
+      $2("glossary-proposal-current").value = "";
+      $2("glossary-proposal-value").value = "";
+      $2("glossary-proposal-root").value = "";
+      $2("glossary-proposal-title").textContent = `\u041D\u043E\u0432\u044B\u0439 \u0442\u0435\u0440\u043C\u0438\u043D \xB7 ${target}`;
+      setMode("new");
     });
     $2("glossary-proposal-cancel").addEventListener("click", () => {
       form.hidden = true;
     });
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const value = $2("glossary-proposal-value").value.trim();
-      const root = $2("glossary-proposal-root").value.trim();
-      if (!value || root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root)) {
-        status.textContent = "\u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u0438 \u043A\u043E\u0440\u0435\u043D\u044C.";
-        return;
+    $2("glossary-save-code").addEventListener("click", () => {
+      const code = codeInput.value.trim();
+      if (code.replace(/[\s-]/gu, "").length < 20) return void (status.textContent = "\u041A\u043E\u0434 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u043A\u043E\u0440\u043E\u0442\u043A\u0438\u0439.");
+      try {
+        localStorage.setItem(CODE_KEY, code);
+        status.textContent = "\u041A\u043E\u0434 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D \u0432 \u044D\u0442\u043E\u043C \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435. \u041E\u043D \u0431\u0443\u0434\u0435\u0442 \u043F\u0440\u043E\u0432\u0435\u0440\u0435\u043D \u043F\u0440\u0438 \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0438.";
+      } catch {
+        status.textContent = "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043A\u043E\u0434 \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435.";
       }
-      const data = {
-        schema: MARKER,
-        mode: form.elements.namedItem("glossary-proposal-mode").value,
+    });
+    $2("glossary-forget-code").addEventListener("click", () => {
+      try {
+        localStorage.removeItem(CODE_KEY);
+      } catch {
+      }
+      codeInput.value = "";
+      status.textContent = "\u041A\u043E\u0434 \u0443\u0434\u0430\u043B\u0451\u043D \u0438\u0437 \u044D\u0442\u043E\u0433\u043E \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.";
+    });
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!api || !sharedData) return void (status.textContent = "\u041E\u0431\u0449\u0438\u0439 \u0441\u043B\u043E\u0432\u0430\u0440\u044C \u0435\u0449\u0451 \u043D\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D.");
+      const code = codeInput.value.trim();
+      if (!code) return void (status.textContent = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043B\u0438\u0447\u043D\u044B\u0439 \u043A\u043E\u0434.");
+      const root = $2("glossary-proposal-root").value.trim();
+      if (root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root))
+        return void (status.textContent = "\u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043A\u043E\u0440\u0435\u043D\u044C: \u0434\u043E \u0447\u0435\u0442\u044B\u0440\u0451\u0445 \u0441\u043B\u043E\u0432 \u0431\u0435\u0437 \u0446\u0438\u0444\u0440 \u0438 \u0437\u043D\u0430\u043A\u043E\u0432 \u043F\u0443\u043D\u043A\u0442\u0443\u0430\u0446\u0438\u0438.");
+      const mode = form.dataset.mode === "new" ? "new" : form.elements.namedItem("glossary-proposal-mode").value;
+      const change = {
+        mode,
         rowId: Number($2("glossary-proposal-row").value),
         language: $2("glossary-proposal-language").value,
-        sourceTerm: $2("glossary-proposal-source").value,
+        sourceTerm: $2("glossary-proposal-source").value.trim(),
         previous: $2("glossary-proposal-current").value,
-        value,
+        value: $2("glossary-proposal-value").value.trim(),
         root: root || null,
-        baseVersion: sharedVersion
+        baseVersion: sharedData.version
       };
-      const body = `\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0438\u0437 CHECKform.
-
-\`\`\`${MARKER}
-${JSON.stringify(data, null, 2)}
-\`\`\``;
-      const title = `[\u0413\u043B\u043E\u0441\u0441\u0430\u0440\u0438\u0439] ${data.sourceTerm} \u2192 ${value} (${data.language})`;
-      const url = `https://github.com/${REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
-      window.open(url, "_blank", "noopener,noreferrer");
-      status.textContent = "\u041E\u0442\u043A\u0440\u044B\u0442\u0430 \u0444\u043E\u0440\u043C\u0430 GitHub. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0442\u0430\u043C; \u043E\u0431\u0449\u0438\u0439 \u0441\u043B\u043E\u0432\u0430\u0440\u044C \u043F\u043E\u043A\u0430 \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0451\u043D.";
-    });
-    async function loadProposals() {
-      status.textContent = "\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u044E \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F\u2026";
+      if (!change.sourceTerm || !change.value) return void (status.textContent = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0438\u0441\u0445\u043E\u0434\u043D\u044B\u0439 \u0442\u0435\u0440\u043C\u0438\u043D \u0438 \u043F\u0435\u0440\u0435\u0432\u043E\u0434.");
+      const submit = form.querySelector('button[type="submit"]');
+      submit.disabled = true;
+      status.textContent = "\u041F\u0443\u0431\u043B\u0438\u043A\u0443\u044E\u2026";
       try {
-        const response = await fetch(`https://api.github.com/repos/${REPO}/issues?state=open&per_page=100`, { cache: "no-store" });
-        if (!response.ok) throw new Error(`GitHub: ${response.status}`);
-        const issues = (await response.json()).filter((issue) => !issue.pull_request).map((issue) => ({ issue, proposal: proposalFromIssue(issue) })).filter((item) => item.proposal);
-        list.replaceChildren();
-        status.textContent = issues.length ? `${issues.length} \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u043D\u0430 \u0440\u0430\u0441\u0441\u043C\u043E\u0442\u0440\u0435\u043D\u0438\u0438` : "\u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0439 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442.";
-        for (const { issue, proposal } of issues) {
-          const card = document.createElement("article");
-          card.className = "glossary-proposal-card";
-          const summary = document.createElement("p");
-          summary.textContent = `#${issue.number} \xB7 ${proposal.sourceTerm} \xB7 ${proposal.language} \xB7 ${proposal.mode === "add" ? "\u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0432\u0430\u0440\u0438\u0430\u043D\u0442" : "\u0437\u0430\u043C\u0435\u043D\u0438\u0442\u044C"}: ${proposal.previous || "\u2014"} \u2192 ${proposal.value}${proposal.root ? ` \xB7 \u043A\u043E\u0440\u0435\u043D\u044C: ${proposal.root}` : ""}`;
-          const link = document.createElement("a");
-          link.href = issue.html_url;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-          link.textContent = "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u0435";
-          const approval = document.createElement("a");
-          approval.className = "glossary-approve-link";
-          approval.textContent = "\u0421\u043E\u0433\u043B\u0430\u0441\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u043A\u043E\u0434\u0443";
-          approval.href = approvalApi ? `${approvalApi.replace(/\/$/u, "")}/review?issue=${issue.number}` : "#glossary-collab-status";
-          approval.target = approvalApi ? "_blank" : "_self";
-          approval.rel = "noopener noreferrer";
-          if (!approvalApi) approval.addEventListener("click", () => {
-            status.textContent = "\u0421\u0435\u0440\u0432\u0435\u0440 \u0441\u043E\u0433\u043B\u0430\u0441\u043E\u0432\u0430\u043D\u0438\u044F \u0435\u0449\u0451 \u043D\u0435 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D. \u041F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u043C\u043E\u0436\u043D\u043E \u043F\u0440\u043E\u0441\u043C\u0430\u0442\u0440\u0438\u0432\u0430\u0442\u044C, \u043D\u043E \u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u043A\u043E\u0434\u0443 \u043F\u043E\u043A\u0430 \u043D\u0435\u043B\u044C\u0437\u044F.";
-          });
-          card.append(summary, link, approval);
-          list.append(card);
+        const response = await fetch(`${api}/v1/changes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${code}` },
+          body: JSON.stringify(change)
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `\u041E\u0448\u0438\u0431\u043A\u0430 ${response.status}`);
+        try {
+          localStorage.setItem(CODE_KEY, code);
+        } catch {
         }
-        if (issues.length && !approvalApi) status.textContent += " \xB7 \u0423\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435 \u043F\u043E \u043A\u043E\u0434\u0443 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u0441\u0435\u0440\u0432\u0435\u0440\u043D\u043E\u0433\u043E \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430.";
+        const refreshed = await refreshSharedGlossary(() => {
+          onChange();
+          refreshView();
+        });
+        form.hidden = true;
+        status.textContent = refreshed ? `\u041E\u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u043D\u043E: \u0432\u0435\u0440\u0441\u0438\u044F ${result.version}, \u0430\u0432\u0442\u043E\u0440 ${result.actor}.` : `\u041E\u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u043D\u043E: \u0432\u0435\u0440\u0441\u0438\u044F ${result.version}. \u041E\u0431\u043D\u043E\u0432\u0438\u0442\u0435 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0443, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u043F\u0440\u0430\u0432\u043A\u0443.`;
       } catch (error) {
-        status.textContent = `\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F: ${error.message}`;
+        status.textContent = error.message;
+      } finally {
+        submit.disabled = false;
       }
-    }
-    $2("glossary-load-proposals").addEventListener("click", loadProposals);
+    });
     refreshSharedGlossary(() => {
       onChange();
       refreshView();
+    }).then((loaded) => {
+      status.textContent = loaded ? "\u041E\u0431\u0449\u0438\u0439 \u0441\u043B\u043E\u0432\u0430\u0440\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0451\u043D. \u0414\u043B\u044F \u043F\u0443\u0431\u043B\u0438\u043A\u0430\u0446\u0438\u0438 \u043F\u0440\u0430\u0432\u043A\u0438 \u043D\u0443\u0436\u0435\u043D \u043B\u0438\u0447\u043D\u044B\u0439 \u043A\u043E\u0434." : "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043E\u0431\u0449\u0438\u0439 \u0441\u043B\u043E\u0432\u0430\u0440\u044C. \u041B\u043E\u043A\u0430\u043B\u044C\u043D\u044B\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438 \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0430\u0442 \u0440\u0430\u0431\u043E\u0442\u0430\u0442\u044C.";
     });
     return { refreshSharedGlossary: () => refreshSharedGlossary(() => {
       onChange();

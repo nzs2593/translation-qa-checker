@@ -1,31 +1,31 @@
-import { GLOSSARY_LANGUAGES, getGlossaryRows, setSharedGlossary } from "./glossary.js";
+import { GLOSSARY_DEFAULTS } from "./glossary-data.js";
+import { GLOSSARY_LANGUAGES, setSharedGlossary } from "./glossary.js";
 
 const $ = (id) => document.getElementById(id);
-const REPO = "nzs2593/translation-qa-checker";
-const MARKER = "checkform-glossary-proposal-v1";
+const CONFIG_URL = new URL("data/collaboration-config.json", document.baseURI);
 const DATA_URL = new URL("data/shared-glossary.json", document.baseURI);
-let sharedVersion = 1;
+const CODE_KEY = "checkform-member-code-v1";
+let api = "";
+let sharedData = null;
 
-function proposalFromIssue(issue) {
-  const match = issue.body?.match(/```checkform-glossary-proposal-v1\s*([\s\S]*?)```/u);
-  if (!match) return null;
-  try {
-    const data = JSON.parse(match[1]);
-    if (data.schema !== MARKER || !["add", "replace"].includes(data.mode) ||
-        !Number.isInteger(data.rowId) || !Number.isInteger(data.baseVersion) ||
-        !Object.values(GLOSSARY_LANGUAGES).includes(data.language) ||
-        typeof data.value !== "string" || !data.value.trim()) return null;
-    return data;
-  } catch { return null; }
+function publishedTerm(row, language) {
+  return sharedData?.overrides?.[row.id]?.[language] ?? row.terms?.[language] ?? "";
+}
+
+function publishedRow(id) {
+  return GLOSSARY_DEFAULTS.find((row) => row.id === id) ?? sharedData?.customRows?.find((row) => row.id === id);
 }
 
 export async function refreshSharedGlossary(onChange = () => {}) {
   try {
-    const response = await fetch(DATA_URL, { cache: "no-store" });
+    const configResponse = await fetch(CONFIG_URL, { cache: "no-store" });
+    const config = configResponse.ok ? await configResponse.json() : {};
+    api = /^https:\/\//u.test(config.collabApi ?? "") ? config.collabApi.replace(/\/$/u, "") : "";
+    const response = await fetch(api ? `${api}/v1/glossary` : DATA_URL, { cache: "no-store" });
     if (!response.ok) return false;
     const data = await response.json();
     if (!setSharedGlossary(data, globalThis.localStorage)) return false;
-    sharedVersion = data.version;
+    sharedData = data;
     onChange();
     return true;
   } catch { return false; }
@@ -34,84 +34,97 @@ export async function refreshSharedGlossary(onChange = () => {}) {
 export function initGlossaryCollab({ onChange, refreshView }) {
   const form = $("glossary-proposal-form");
   const status = $("glossary-collab-status");
-  const list = $("glossary-proposal-list");
-  let approvalApi = "";
+  const codeInput = $("glossary-member-code");
+  try { codeInput.value = localStorage.getItem(CODE_KEY) ?? ""; } catch { /* file URLs may disallow storage */ }
 
-  fetch(new URL("data/collaboration-config.json", document.baseURI))
-    .then((response) => response.ok ? response.json() : {})
-    .then((config) => { approvalApi = /^https:\/\//u.test(config.approvalApi ?? "") ? config.approvalApi : ""; })
-    .catch(() => {});
+  function setMode(mode) {
+    form.dataset.mode = mode;
+    form.hidden = false;
+    $("glossary-proposal-source").readOnly = mode !== "new";
+    $("glossary-proposal-current").parentElement.hidden = mode === "new";
+    form.querySelector(".glossary-proposal-mode").hidden = mode === "new";
+    if (mode !== "new") form.querySelector(`input[name="glossary-proposal-mode"][value="${mode}"]`).checked = true;
+    form.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    $(mode === "new" ? "glossary-proposal-source" : "glossary-proposal-value").focus();
+  }
 
   $("glossary-table-body").addEventListener("click", (event) => {
     const button = event.target.closest("[data-propose-row]");
     if (!button) return;
-    const row = getGlossaryRows().find((item) => String(item.id) === button.dataset.proposeRow);
+    const row = publishedRow(Number(button.dataset.proposeRow));
     const target = $("glossary-language").value;
     const source = target === "uk" ? "ru" : "en";
     if (!row || !GLOSSARY_LANGUAGES[target]) return;
     $("glossary-proposal-row").value = String(row.id);
     $("glossary-proposal-language").value = GLOSSARY_LANGUAGES[target];
-    $("glossary-proposal-source").value = row.terms[GLOSSARY_LANGUAGES[source]] ?? "";
-    $("glossary-proposal-current").value = row.terms[GLOSSARY_LANGUAGES[target]] ?? "";
+    $("glossary-proposal-source").value = publishedTerm(row, GLOSSARY_LANGUAGES[source]);
+    $("glossary-proposal-current").value = publishedTerm(row, GLOSSARY_LANGUAGES[target]);
     $("glossary-proposal-value").value = "";
     $("glossary-proposal-root").value = "";
-    $("glossary-proposal-title").textContent = `${row.terms[GLOSSARY_LANGUAGES[source]] ?? "Термин"} · ${target}`;
-    form.hidden = false;
-    form.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    $("glossary-proposal-value").focus();
+    $("glossary-proposal-title").textContent = `${publishedTerm(row, GLOSSARY_LANGUAGES[source])} · ${target}`;
+    setMode("replace");
+  });
+  $("glossary-new-shared").addEventListener("click", () => {
+    const target = $("glossary-language").value;
+    if (!GLOSSARY_LANGUAGES[target]) return;
+    $("glossary-proposal-row").value = "0";
+    $("glossary-proposal-language").value = GLOSSARY_LANGUAGES[target];
+    $("glossary-proposal-source").value = "";
+    $("glossary-proposal-current").value = "";
+    $("glossary-proposal-value").value = "";
+    $("glossary-proposal-root").value = "";
+    $("glossary-proposal-title").textContent = `Новый термин · ${target}`;
+    setMode("new");
   });
   $("glossary-proposal-cancel").addEventListener("click", () => { form.hidden = true; });
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const value = $("glossary-proposal-value").value.trim();
-    const root = $("glossary-proposal-root").value.trim();
-    if (!value || (root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root))) {
-      status.textContent = "Проверьте перевод и корень.";
-      return;
-    }
-    const data = {
-      schema: MARKER, mode: form.elements.namedItem("glossary-proposal-mode").value,
-      rowId: Number($("glossary-proposal-row").value),
-      language: $("glossary-proposal-language").value,
-      sourceTerm: $("glossary-proposal-source").value,
-      previous: $("glossary-proposal-current").value,
-      value, root: root || null, baseVersion: sharedVersion
-    };
-    const body = `Предложение из CHECKform.\n\n\`\`\`${MARKER}\n${JSON.stringify(data, null, 2)}\n\`\`\``;
-    const title = `[Глоссарий] ${data.sourceTerm} → ${value} (${data.language})`;
-    const url = `https://github.com/${REPO}/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-    status.textContent = "Открыта форма GitHub. Отправьте предложение там; общий словарь пока не изменён.";
+  $("glossary-save-code").addEventListener("click", () => {
+    const code = codeInput.value.trim();
+    if (code.replace(/[\s-]/gu, "").length < 20) return void (status.textContent = "Код слишком короткий.");
+    try { localStorage.setItem(CODE_KEY, code); status.textContent = "Код сохранён в этом браузере. Он будет проверен при публикации."; }
+    catch { status.textContent = "Не удалось сохранить код в браузере."; }
   });
-
-  async function loadProposals() {
-    status.textContent = "Загружаю предложения…";
+  $("glossary-forget-code").addEventListener("click", () => {
+    try { localStorage.removeItem(CODE_KEY); } catch { /* no storage */ }
+    codeInput.value = "";
+    status.textContent = "Код удалён из этого браузера.";
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!api || !sharedData) return void (status.textContent = "Общий словарь ещё не подключён.");
+    const code = codeInput.value.trim();
+    if (!code) return void (status.textContent = "Введите личный код.");
+    const root = $("glossary-proposal-root").value.trim();
+    if (root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root))
+      return void (status.textContent = "Проверьте корень: до четырёх слов без цифр и знаков пунктуации.");
+    const mode = form.dataset.mode === "new" ? "new" : form.elements.namedItem("glossary-proposal-mode").value;
+    const change = {
+      mode, rowId: Number($("glossary-proposal-row").value),
+      language: $("glossary-proposal-language").value,
+      sourceTerm: $("glossary-proposal-source").value.trim(),
+      previous: $("glossary-proposal-current").value,
+      value: $("glossary-proposal-value").value.trim(),
+      root: root || null, baseVersion: sharedData.version
+    };
+    if (!change.sourceTerm || !change.value) return void (status.textContent = "Введите исходный термин и перевод.");
+    const submit = form.querySelector('button[type="submit"]');
+    submit.disabled = true;
+    status.textContent = "Публикую…";
     try {
-      const response = await fetch(`https://api.github.com/repos/${REPO}/issues?state=open&per_page=100`, { cache: "no-store" });
-      if (!response.ok) throw new Error(`GitHub: ${response.status}`);
-      const issues = (await response.json()).filter((issue) => !issue.pull_request)
-        .map((issue) => ({ issue, proposal: proposalFromIssue(issue) })).filter((item) => item.proposal);
-      list.replaceChildren();
-      status.textContent = issues.length ? `${issues.length} предложений на рассмотрении` : "Предложений пока нет.";
-      for (const { issue, proposal } of issues) {
-        const card = document.createElement("article"); card.className = "glossary-proposal-card";
-        const summary = document.createElement("p");
-        summary.textContent = `#${issue.number} · ${proposal.sourceTerm} · ${proposal.language} · ${proposal.mode === "add" ? "добавить вариант" : "заменить"}: ${proposal.previous || "—"} → ${proposal.value}${proposal.root ? ` · корень: ${proposal.root}` : ""}`;
-        const link = document.createElement("a"); link.href = issue.html_url; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = "Открыть предложение";
-        const approval = document.createElement("a"); approval.className = "glossary-approve-link";
-        approval.textContent = "Согласовать по коду";
-        approval.href = approvalApi ? `${approvalApi.replace(/\/$/u, "")}/review?issue=${issue.number}` : "#glossary-collab-status";
-        approval.target = approvalApi ? "_blank" : "_self";
-        approval.rel = "noopener noreferrer";
-        if (!approvalApi) approval.addEventListener("click", () => {
-          status.textContent = "Сервер согласования ещё не подключён. Предложения можно просматривать, но публиковать по коду пока нельзя.";
-        });
-        card.append(summary, link, approval); list.append(card);
-      }
-      if (issues.length && !approvalApi) status.textContent += " · Утверждение по коду ожидает подключения серверного маршрута.";
-    } catch (error) { status.textContent = `Не удалось загрузить предложения: ${error.message}`; }
-  }
-  $("glossary-load-proposals").addEventListener("click", loadProposals);
-  refreshSharedGlossary(() => { onChange(); refreshView(); });
+      const response = await fetch(`${api}/v1/changes`, { method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${code}` }, body: JSON.stringify(change) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Ошибка ${response.status}`);
+      try { localStorage.setItem(CODE_KEY, code); } catch { /* session still works */ }
+      const refreshed = await refreshSharedGlossary(() => { onChange(); refreshView(); });
+      form.hidden = true;
+      status.textContent = refreshed ? `Опубликовано: версия ${result.version}, автор ${result.actor}.` :
+        `Опубликовано: версия ${result.version}. Обновите страницу, чтобы увидеть правку.`;
+    } catch (error) { status.textContent = error.message; }
+    finally { submit.disabled = false; }
+  });
+  refreshSharedGlossary(() => { onChange(); refreshView(); }).then((loaded) => {
+    status.textContent = loaded ? "Общий словарь подключён. Для публикации правки нужен личный код." :
+      "Не удалось загрузить общий словарь. Локальные проверки продолжат работать.";
+  });
   return { refreshSharedGlossary: () => refreshSharedGlossary(() => { onChange(); refreshView(); }) };
 }

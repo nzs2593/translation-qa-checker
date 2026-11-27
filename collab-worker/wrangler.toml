@@ -1,0 +1,8 @@
+name = "checkform-glossary"
+main = "index.js"
+compatibility_date = "2026-11-27"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "checkform-glossary"
+database_id = "18d706c1-ac9b-4ce8-8a57-8abcbdf4d8bb"
