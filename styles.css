@@ -541,7 +541,7 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
 .glossary-add-form { grid-area: add; padding: 16px 22px 14px; background: #fff; }
 .glossary-local-label { grid-column: 1 / -1; color: #79879a; font-size: 11px; }
 .glossary-add-form button { background: #eef3fa; color: #174b98; border: 1px solid #ccdaee; }
-.glossary-table-scroll { grid-area: table; max-height: min(66vh, 760px); border-top: 1px solid #e7ebf0; }
+.glossary-table-scroll { grid-area: table; height: 720px; max-height: none; border-top: 1px solid #e7ebf0; }
 .glossary-table { font-size: 13px; }
 .glossary-table th { padding: 12px 15px; background: #f7f9fc; color: #59677a; font-size: 11px; letter-spacing: .025em; }
 .glossary-table td { padding: 10px 15px; border-color: #e9edf2; }
@@ -586,6 +586,7 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
 @media (max-width: 1000px) {
   .glossary-view { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "toolbar" "side" "add" "table" "footer"; }
   .glossary-collab { position: static; min-height: 0; border-left: 0; border-bottom: 1px solid #e2e8ef; }
+  .glossary-table-scroll { height: min(66vh, 720px); }
   .glossary-collab-access { max-width: 500px; }
   #glossary-proposal-form { max-width: 600px; }
 }
