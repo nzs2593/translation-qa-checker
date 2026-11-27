@@ -1,5 +1,5 @@
 import { LANGUAGE_PROFILES } from "./profiles.js";
-import { formatTimezone, getTimezoneRule, seasonalOffsetMinutes, timezoneSourceLanguage, updateTimezoneRule } from "./timezone-rules.js";
+import { formatTimezone, getTimezoneRule, seasonalOffsetMinutes, setSharedTimezoneRules, timezoneSourceLanguage } from "./timezone-rules.js";
 import { profileLabel, t } from "./i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -12,6 +12,31 @@ function clockAt(offsetMinutes) {
 export function initGmtView({ getLocale, onChange }) {
   const body = $("gmt-table-body");
   const status = $("gmt-status");
+  const codeInput = $("gmt-member-code");
+  let api = "";
+  let sharedData = null;
+  try { codeInput.value = localStorage.getItem("checkform-member-code-v1") ?? ""; } catch { /* storage unavailable */ }
+  codeInput.addEventListener("change", () => {
+    try { localStorage.setItem("checkform-member-code-v1", codeInput.value.trim()); } catch { /* code still works this session */ }
+  });
+
+  async function refreshShared() {
+    try {
+      const configResponse = await fetch(new URL("data/collaboration-config.json", document.baseURI), { cache: "no-store" });
+      const config = configResponse.ok ? await configResponse.json() : {};
+      api = /^https:\/\//u.test(config.collabApi ?? "") ? config.collabApi.replace(/\/$/u, "") : "";
+      if (!api) throw new Error("Общая таблица GMT недоступна.");
+      const response = await fetch(`${api}/v1/timezones`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`Ошибка загрузки GMT: ${response.status}`);
+      const data = await response.json();
+      if (!setSharedTimezoneRules(data)) throw new Error("Некорректные правила GMT.");
+      sharedData = data;
+      refresh();
+      onChange();
+      status.textContent = `Общие правила GMT загружены · версия ${data.version}.`;
+      return true;
+    } catch (error) { status.textContent = error.message; return false; }
+  }
 
   function refresh() {
     const locale = getLocale();
@@ -61,7 +86,7 @@ export function initGmtView({ getLocale, onChange }) {
     }
   }
 
-  body.addEventListener("change", (event) => {
+  body.addEventListener("change", async (event) => {
     const input = event.target.closest("select, input");
     const row = input?.closest("tr[data-language]");
     if (!row) return;
@@ -73,15 +98,33 @@ export function initGmtView({ getLocale, onChange }) {
       mode, label, offsetMinutes: ["MSK", "МСК"].includes(label) ? 180 : Math.round(offset * 60),
       ...(mode === "seasonal" ? { zone: getTimezoneRule(code).zone ?? (code === "da" ? "Europe/Copenhagen" : "Europe/Kyiv") } : {})
     };
-    if (!Number.isFinite(offset) || Math.abs(offset * 60 - next.offsetMinutes) > 0.001 || !updateTimezoneRule(code, next)) {
+    if (!Number.isFinite(offset) || Math.abs(offset * 60 - next.offsetMinutes) > 0.001) {
       status.textContent = t(getLocale(), "gmtSaveError");
+      refresh();
       return;
     }
-    status.textContent = t(getLocale(), "gmtSaved");
-    refresh();
-    onChange();
+    const memberCode = codeInput.value.trim();
+    if (!api || !sharedData || !memberCode) {
+      status.textContent = "Для изменения общей таблицы GMT введите личный код.";
+      refresh();
+      return;
+    }
+    input.disabled = true;
+    status.textContent = "Сохраняю правило GMT для команды…";
+    try {
+      const response = await fetch(`${api}/v1/timezone-changes`, { method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${memberCode}` },
+        body: JSON.stringify({ language: code, rule: next, baseVersion: sharedData.version }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `Ошибка ${response.status}`);
+      try { localStorage.setItem("checkform-member-code-v1", memberCode); } catch { /* session still works */ }
+      await refreshShared();
+      status.textContent = `Правило GMT опубликовано · версия ${result.version}, автор ${result.actor}.`;
+    } catch (error) { status.textContent = error.message; refresh(); }
+    finally { input.disabled = false; }
   });
 
   refresh();
-  return { refresh };
+  refreshShared();
+  return { refresh, refreshShared };
 }

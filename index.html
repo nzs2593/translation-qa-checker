@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHECKform</title>
-    <link rel="stylesheet" href="styles.css?v=2.18" />
+    <link rel="stylesheet" href="styles.css?v=2.19" />
   </head>
   <body>
     <main class="app-shell">
@@ -186,10 +186,11 @@
           <div>
             <span class="panel-kicker">TIME ZONES</span>
             <h2 id="gmt-title">GMT rules</h2>
-            <p id="gmt-intro">Set the expected time marker for each target language. Changes are saved in this browser and used in the next check.</p>
+            <p id="gmt-intro">Set the expected time marker for each target language. Changes are shared with the team and used in the next check.</p>
           </div>
         </div>
         <p id="gmt-note" class="gmt-note">A language is not a time zone. Unconfirmed locales inherit the source marker; edit a row when the project's market rule is known. English is the usual source; Ukrainian normally uses Russian as source.</p>
+        <div class="gmt-access"><label for="gmt-member-code">Личный код для изменения общей таблицы GMT</label><input id="gmt-member-code" type="password" autocomplete="off" placeholder="Код участника" /><span>Тот же код, что и для глоссария.</span></div>
         <div class="glossary-table-scroll">
           <table class="gmt-table">
             <thead><tr><th id="gmt-language-heading">Goal language</th><th id="gmt-source-heading">Usual source</th><th id="gmt-rule-heading">Rule</th><th id="gmt-marker-heading">Marker</th><th id="gmt-offset-heading">Offset from GMT (hours)</th><th id="gmt-example-heading">Example from 20:59 GMT</th></tr></thead>
@@ -223,7 +224,7 @@
 
       <footer class="app-footer">
         <span id="footer-copy">Deterministic checks · No LLM · No auto-correction</span>
-        <span class="app-version" id="app-version">CHECKform v2.16</span>
+        <span class="app-version" id="app-version">CHECKform v2.17</span>
         <span id="checked-at">Ready</span>
       </footer>
     </main>
@@ -245,6 +246,6 @@
         </table>
       </div>
     </dialog>
-    <script defer src="checkform.bundle.js?v=2.19"></script>
+    <script defer src="checkform.bundle.js?v=2.20"></script>
   </body>
 </html>

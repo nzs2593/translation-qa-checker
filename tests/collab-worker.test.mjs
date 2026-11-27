@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { applyChange, codeHash } from "../collab-worker/index.js";
+import { applyChange, applyTimezoneChange, codeHash } from "../collab-worker/index.js";
 
 const base = { schema: "checkform-shared-glossary-v1", version: 1, updatedAt: null,
   overrides: {}, rootOverrides: {}, customRows: [] };
@@ -31,4 +31,12 @@ assert.throws(() => applyChange(structuredClone(first.data), { ...replace, baseV
   previous: "wrong" }, "zakharov.n"), /Перевод/u);
 assert.equal(await codeHash("ABCD-EFGH-1234-5678-90XX", "test-pepper"),
   await codeHash("abcdefgh1234567890xx", "test-pepper"));
+const timezones = { schema: "checkform-shared-timezones-v1", version: 1, updatedAt: null, overrides: {} };
+const timezoneEdit = { language: "az", rule: { mode: "fixed", label: "GMT", offsetMinutes: 240 }, baseVersion: 1 };
+const changedTimezone = applyTimezoneChange(structuredClone(timezones), timezoneEdit, "zakharov.n");
+assert.equal(changedTimezone.data.version, 2);
+assert.equal(changedTimezone.data.overrides.az.offsetMinutes, 240);
+assert.equal(changedTimezone.audit.actor, "zakharov.n");
+assert.throws(() => applyTimezoneChange(structuredClone(changedTimezone.data), timezoneEdit, "sitnikova.r"), /обновлена/u);
+assert.throws(() => applyTimezoneChange(structuredClone(timezones), { ...timezoneEdit, rule: { ...timezoneEdit.rule, offsetMinutes: 900 } }, "zakharov.n"), /Некорректное/u);
 console.log("Collaboration worker tests passed");

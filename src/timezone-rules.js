@@ -16,6 +16,15 @@ const DEFAULTS = Object.freeze(Object.fromEntries(Object.keys(LANGUAGE_PROFILES)
 ])));
 
 let edits = {};
+let shared = {};
+
+export function setSharedTimezoneRules(data) {
+  if (data?.schema !== "checkform-shared-timezones-v1" || !Number.isInteger(data.version) ||
+      !data.overrides || typeof data.overrides !== "object" || Array.isArray(data.overrides) ||
+      Object.entries(data.overrides).some(([code, rule]) => !(code in DEFAULTS) || !validTimezoneRule(rule))) return false;
+  shared = Object.fromEntries(Object.entries(data.overrides).map(([code, rule]) => [code, { ...rule }]));
+  return true;
+}
 
 function browserStorage() {
   try { return globalThis.localStorage; } catch { return null; }
@@ -43,11 +52,11 @@ export function loadTimezoneRules(storage = browserStorage()) {
 }
 
 export function getTimezoneRules() {
-  return Object.fromEntries(Object.entries(DEFAULTS).map(([code, rule]) => [code, { ...(edits[code] ?? rule) }]));
+  return Object.fromEntries(Object.entries(DEFAULTS).map(([code, rule]) => [code, { ...(shared[code] ?? edits[code] ?? rule) }]));
 }
 
 export function getTimezoneRule(code) {
-  return { ...(edits[code] ?? DEFAULTS[code] ?? DEFAULTS.en) };
+  return { ...(shared[code] ?? edits[code] ?? DEFAULTS[code] ?? DEFAULTS.en) };
 }
 
 export function updateTimezoneRule(code, rule, storage = browserStorage()) {

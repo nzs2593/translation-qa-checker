@@ -1,4 +1,6 @@
 import { GLOSSARY_DEFAULTS } from "../src/glossary-data.js";
+import { LANGUAGE_PROFILES } from "../src/profiles.js";
+import { validTimezoneRule } from "../src/timezone-rules.js";
 
 const LANGUAGES = new Set(["az", "da", "mn", "pt-BR", "ru", "es", "es-AR", "uk", "uz", "uzb"]);
 const ALLOWED_ORIGIN = "https://nzs2593.github.io";
@@ -85,6 +87,22 @@ export function applyChange(data, change, actor) {
   return { data, audit: { actor, mode: change.mode, rowId: change.rowId, language: change.language, sourceTerm, previous, value, root } };
 }
 
+export function applyTimezoneChange(data, change, actor) {
+  if (data?.schema !== "checkform-shared-timezones-v1" || !Number.isInteger(data.version) ||
+      !data.overrides || typeof data.overrides !== "object" || Array.isArray(data.overrides) ||
+      !Number.isInteger(change?.baseVersion) || change.baseVersion !== data.version ||
+      !(change.language in LANGUAGE_PROFILES) || !validTimezoneRule(change.rule))
+    throw new Error("Некорректное правило GMT или таблица уже обновлена. Загрузите свежую версию.");
+  const previous = data.overrides[change.language] ?? null;
+  data.overrides[change.language] = {
+    mode: change.rule.mode, label: change.rule.label, offsetMinutes: change.rule.offsetMinutes,
+    ...(change.rule.mode === "seasonal" ? { zone: change.rule.zone } : {})
+  };
+  data.version += 1;
+  data.updatedAt = new Date().toISOString();
+  return { data, audit: { actor, language: change.language, previous, rule: data.overrides[change.language] } };
+}
+
 async function blocked(db, clientKey) {
   const now = Math.floor(Date.now() / 1000);
   const row = await db.prepare("SELECT window_start, failures FROM login_attempts WHERE client_key = ?").bind(clientKey).first();
@@ -111,7 +129,12 @@ export default {
       const row = await env.DB.prepare("SELECT glossary_json FROM revisions ORDER BY version DESC LIMIT 1").first();
       return row ? response(JSON.parse(row.glossary_json), 200, origin) : response({ error: "Словарь не загружен." }, 503, origin);
     }
-    if (request.method !== "POST" || url.pathname !== "/v1/changes") return response({ error: "Маршрут не найден." }, 404, origin);
+    if (request.method === "GET" && url.pathname === "/v1/timezones") {
+      const row = await env.DB.prepare("SELECT rules_json FROM timezone_revisions ORDER BY version DESC LIMIT 1").first();
+      return row ? response(JSON.parse(row.rules_json), 200, origin) : response({ error: "Таблица GMT не загружена." }, 503, origin);
+    }
+    if (request.method !== "POST" || !["/v1/changes", "/v1/timezone-changes"].includes(url.pathname))
+      return response({ error: "Маршрут не найден." }, 404, origin);
     const clientKey = request.headers.get("CF-Connecting-IP") ?? "unknown";
     if (await blocked(env.DB, clientKey)) return response({ error: "Слишком много попыток. Повторите через 15 минут." }, 429, origin);
     const match = /^Bearer\s+(.+)$/iu.exec(request.headers.get("Authorization") ?? "");
@@ -128,13 +151,19 @@ export default {
     }
     let change;
     try { change = await request.json(); } catch { return response({ error: "Ожидается JSON." }, 400, origin); }
-    const latest = await env.DB.prepare("SELECT glossary_json FROM revisions ORDER BY version DESC LIMIT 1").first();
-    if (!latest) return response({ error: "Словарь не загружен." }, 503, origin);
+    const timezones = url.pathname === "/v1/timezone-changes";
+    const latest = await env.DB.prepare(timezones ?
+      "SELECT rules_json FROM timezone_revisions ORDER BY version DESC LIMIT 1" :
+      "SELECT glossary_json FROM revisions ORDER BY version DESC LIMIT 1").first();
+    if (!latest) return response({ error: timezones ? "Таблица GMT не загружена." : "Словарь не загружен." }, 503, origin);
     let next;
-    try { next = applyChange(JSON.parse(latest.glossary_json), change, member.id); }
+    try { next = timezones ? applyTimezoneChange(JSON.parse(latest.rules_json), change, member.id) :
+      applyChange(JSON.parse(latest.glossary_json), change, member.id); }
     catch (error) { return response({ error: error.message }, 409, origin); }
     try {
-      await env.DB.prepare("INSERT INTO revisions(version, glossary_json, actor_id, changed_at, change_json) VALUES (?, ?, ?, ?, ?)")
+      await env.DB.prepare(timezones ?
+        "INSERT INTO timezone_revisions(version, rules_json, actor_id, changed_at, change_json) VALUES (?, ?, ?, ?, ?)" :
+        "INSERT INTO revisions(version, glossary_json, actor_id, changed_at, change_json) VALUES (?, ?, ?, ?, ?)")
         .bind(next.data.version, JSON.stringify(next.data), member.id, next.data.updatedAt, JSON.stringify(next.audit)).run();
       return response({ version: next.data.version, actor: member.id, updatedAt: next.data.updatedAt }, 200, origin);
     } catch { return response({ error: "Словарь обновился параллельно. Повторите правку после обновления." }, 409, origin); }

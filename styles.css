@@ -579,6 +579,10 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
 .glossary-proposal-mode { display: grid; gap: 9px; padding: 12px; border-radius: 8px; background: #f1f5fb; font-size: 12px; }
 .glossary-collab-actions button[type="submit"] { background: #185bb5; color: #fff; border-color: #185bb5; }
 .glossary-local-note { margin-top: 22px !important; padding-top: 14px; border-top: 1px solid #e2e8ef; color: #78869a; font-size: 11px; line-height: 1.45; }
+.gmt-access { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 14px; padding: 13px 22px; border-bottom: 1px solid #e2e8ef; background: #f7f9fc; font-size: 12px; }
+.gmt-access label { font-weight: 600; color: #33445a; }
+.gmt-access input { width: min(260px, 100%); min-height: 35px; padding: 6px 9px; border: 1px solid #cbd6e3; border-radius: 6px; background: #fff; }
+.gmt-access span { color: #697b90; }
 @media (min-width: 1450px) {
   .glossary-table th:nth-child(2), .glossary-table th:nth-child(3) { width: 27%; }
   .glossary-table th:nth-child(4), .glossary-table td:nth-child(4) { display: table-cell; }
@@ -594,4 +598,78 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
   .glossary-head, .glossary-toolbar { padding-inline: 16px; }
   .glossary-table { min-width: 680px; }
   .glossary-add-form { padding-inline: 16px; }
+}
+
+/* One visual language across the checker, glossary, GMT and reference tables. */
+:root {
+  --bg: #f4f6fa;
+  --panel: #fff;
+  --text: #243145;
+  --muted: #68778b;
+  --line: #dfe5ed;
+  --green: #3157d5;
+  --green-dark: #243fa8;
+  --ink: #1d2b40;
+  --soft: #eef1ff;
+  --shadow: 0 8px 26px rgba(30, 49, 86, .045);
+}
+body { background: var(--bg); font-family: "Segoe UI", Arial, sans-serif; }
+.app-shell { max-width: 1920px; width: 100%; margin-inline: auto; gap: 16px; padding: clamp(12px, 1.7vw, 28px); }
+.header-main { align-items: center; padding: 20px 24px; border-color: var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.header-main::before { height: 2px; background: var(--green); }
+.header-main.has-profile-rules { grid-template-columns: minmax(180px, .7fr) minmax(350px, 1.5fr) auto; }
+.header-main .profile-rules { border: 0; background: #f7f9fc; }
+.header-main .profile-rules-heading { padding: 8px 10px; border-color: #e7ebf2; }
+.header-main .profile-rules tr { border-color: #e2e7ef; }
+#app-title { margin: 4px 0 3px; font-family: "Segoe UI", Arial, sans-serif; font-size: clamp(26px, 2vw, 32px); letter-spacing: -.045em; }
+.subtitle { color: #748196; }
+.eyebrow, .panel-kicker { color: #485a91; letter-spacing: .12em; }
+.header-actions > button, .settings-export { color: var(--green-dark); }
+.workspace-tabs { gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: #fff; box-shadow: var(--shadow); overflow-x: auto; }
+.workspace-tab { flex: none; min-height: 37px; padding: 0 15px; border: 0; border-radius: 7px; }
+.workspace-tab.active { color: var(--green-dark); background: var(--soft); box-shadow: inset 0 -2px var(--green); }
+.settings-export { margin: 0 2px 0 auto; white-space: nowrap; }
+button:hover { background: #eef1ff; color: var(--green-dark); border-color: #b8c5f2; box-shadow: none; }
+select:focus, input:focus, button:focus-visible, textarea:focus-visible { outline: 2px solid rgba(49,87,213,.2); outline-offset: 1px; }
+.text-card, .language-card, .target-review-card, .issues-card, .gmt-view, .glossary-view { border-color: var(--line); border-radius: 13px; box-shadow: var(--shadow); }
+.card-heading, .issues-heading { padding: 17px 20px; background: #fff; }
+.card-heading h2, .issues-heading h2 { margin-top: 5px; font-size: 17px; }
+.card-tools select { background: #f9fafe; }
+.file-button { border-color: #bccaf4; background: #f5f7ff; }
+.source-editor, .target-editor { background: #fff; }
+.language-body { background: #fbfcfe; }
+.profile-summary strong { color: var(--green-dark); }
+.issues-list { gap: 8px; padding: 16px 20px 20px; background: #fbfcfe; }
+.issue-row { border: 1px solid var(--line); border-left: 3px solid #a8b9d4; border-radius: 8px; box-shadow: none; }
+.issue-row:hover, .issue-row:focus-visible { background: #f8faff; border-color: #b9c9e5; box-shadow: none; }
+.issue-index { background: #506b9a; }
+.issue-row.excluded { background: #f7f8fa; }
+.severity-dot.minor { background: #628ab7; }
+.empty-state { background: #f7f9fd; }
+.gmt-view .glossary-head { padding: 25px 28px 21px; }
+.gmt-view .glossary-head h2 { font-size: 27px; letter-spacing: -.035em; }
+.gmt-note { padding: 14px 28px; background: #f7f9fc; }
+.gmt-view .glossary-table-scroll { height: auto; max-height: none; overflow: auto; }
+.gmt-table, .language-rules-table { font-size: 13px; }
+.gmt-table th, .language-rules-table th { padding: 13px 15px; background: #f4f6fa; color: #56677d; font-size: 11px; letter-spacing: .025em; }
+.gmt-table td, .language-rules-table td { padding: 13px 15px; border-color: #e9edf2; }
+.gmt-table tbody tr:nth-child(even), .language-rules-table tbody tr:nth-child(even) { background: #fbfcfe; }
+.gmt-table tbody tr:hover, .language-rules-table tbody tr:hover { background: #f1f5ff; }
+.gmt-table td:first-child, .language-rules-table td:first-child { color: #203149; font-weight: 600; }
+.gmt-table select, .gmt-table input { border-color: #d7e0eb; background: #fff; }
+.gmt-examples { gap: 18px; padding: 17px 28px; background: #fbfcfe; }
+.gmt-view .glossary-footer { padding: 13px 28px; }
+dialog { border-radius: 13px; }
+.dialog-heading { padding: 22px 24px; }
+.error-table-wrap th { background: #f4f6fa; }
+@media (max-width: 1000px) {
+  .header-main.has-profile-rules { grid-template-columns: minmax(0, 1fr) auto; }
+  .gmt-view .glossary-head, .gmt-note, .gmt-examples { padding-inline: 18px; }
+}
+@media (max-width: 760px) {
+  .app-shell { padding: 10px; }
+  .header-main { padding: 17px; }
+  .workspace-grid { gap: 12px; }
+  .issues-list { padding: 12px; }
+  .gmt-examples { display: grid; gap: 5px; }
 }

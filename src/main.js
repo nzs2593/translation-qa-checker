@@ -602,10 +602,12 @@ for (const tab of document.querySelectorAll(".workspace-tab")) {
       else button.removeAttribute("aria-current");
     }
     if (view === "glossary") glossaryView.refresh();
-    if (view === "gmt") gmtView.refresh();
+    if (view === "gmt") gmtView.refreshShared();
     if (view === "rules") languageRulesView.refresh();
   });
 }
+
+setInterval(() => gmtView.refreshShared(), 5 * 60 * 1000);
 
 applyTranslations();
 render();

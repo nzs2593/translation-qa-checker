@@ -205,6 +205,12 @@
     code === "es-AR" || code === "pt-BR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 } : code === "ru" ? { mode: "fixed", label: "\u041C\u0421\u041A", offsetMinutes: 180 } : code === "az" ? { mode: "fixed", label: "GMT", offsetMinutes: 240 } : code === "uz-Cyrl" || code === "uz-Latn" ? { mode: "fixed", label: "GMT", offsetMinutes: 300 } : code === "mn" ? { mode: "fixed", label: "GMT", offsetMinutes: 480 } : code === "da" ? { mode: "seasonal", label: "GMT", offsetMinutes: 0, zone: "Europe/Copenhagen" } : code === "uk" ? { mode: "seasonal", label: "GMT", offsetMinutes: 0, zone: "Europe/Kyiv" } : code === "es" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 } : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 } : { mode: "source", label: "GMT", offsetMinutes: 0 }
   ])));
   var edits = {};
+  var shared = {};
+  function setSharedTimezoneRules(data) {
+    if (data?.schema !== "checkform-shared-timezones-v1" || !Number.isInteger(data.version) || !data.overrides || typeof data.overrides !== "object" || Array.isArray(data.overrides) || Object.entries(data.overrides).some(([code, rule]) => !(code in DEFAULTS) || !validTimezoneRule(rule))) return false;
+    shared = Object.fromEntries(Object.entries(data.overrides).map(([code, rule]) => [code, { ...rule }]));
+    return true;
+  }
   function browserStorage() {
     try {
       return globalThis.localStorage;
@@ -225,10 +231,10 @@
     return getTimezoneRules();
   }
   function getTimezoneRules() {
-    return Object.fromEntries(Object.entries(DEFAULTS).map(([code, rule]) => [code, { ...edits[code] ?? rule }]));
+    return Object.fromEntries(Object.entries(DEFAULTS).map(([code, rule]) => [code, { ...shared[code] ?? edits[code] ?? rule }]));
   }
   function getTimezoneRule(code) {
-    return { ...edits[code] ?? DEFAULTS[code] ?? DEFAULTS.en };
+    return { ...shared[code] ?? edits[code] ?? DEFAULTS[code] ?? DEFAULTS.en };
   }
   function formatTimezone(label, offsetMinutes) {
     if (label === "MSK" || label === "\u041C\u0421\u041A") return label;
@@ -1931,6 +1937,13 @@
     });
     syncSharedGlossary();
     setInterval(syncSharedGlossary, 5 * 60 * 1e3);
+    const syncSharedTimezones = () => chrome.runtime.sendMessage({ type: "checkform-shared-timezones" }, (response) => {
+      if (chrome.runtime.lastError || !response?.data || !setSharedTimezoneRules(response.data)) return;
+      state.signatures.clear();
+      scan();
+    });
+    syncSharedTimezones();
+    setInterval(syncSharedTimezones, 5 * 60 * 1e3);
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== "local" || !changes.glossarySettings && !changes.timezoneSettings && !changes.checks) return;
       chrome.storage.local.get({ checkCurrency: true, checks: null, glossarySettings: null, timezoneSettings: null }, (saved) => {

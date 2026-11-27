@@ -205,6 +205,12 @@
     code === "es-AR" || code === "pt-BR" ? { mode: "fixed", label: "GMT", offsetMinutes: -180 } : code === "ru" ? { mode: "fixed", label: "\u041C\u0421\u041A", offsetMinutes: 180 } : code === "az" ? { mode: "fixed", label: "GMT", offsetMinutes: 240 } : code === "uz-Cyrl" || code === "uz-Latn" ? { mode: "fixed", label: "GMT", offsetMinutes: 300 } : code === "mn" ? { mode: "fixed", label: "GMT", offsetMinutes: 480 } : code === "da" ? { mode: "seasonal", label: "GMT", offsetMinutes: 0, zone: "Europe/Copenhagen" } : code === "uk" ? { mode: "seasonal", label: "GMT", offsetMinutes: 0, zone: "Europe/Kyiv" } : code === "es" ? { mode: "equivalent", label: "GMT", offsetMinutes: 0 } : code === "en" ? { mode: "fixed", label: "GMT", offsetMinutes: 0 } : { mode: "source", label: "GMT", offsetMinutes: 0 }
   ])));
   var edits = {};
+  var shared = {};
+  function setSharedTimezoneRules(data) {
+    if (data?.schema !== "checkform-shared-timezones-v1" || !Number.isInteger(data.version) || !data.overrides || typeof data.overrides !== "object" || Array.isArray(data.overrides) || Object.entries(data.overrides).some(([code, rule]) => !(code in DEFAULTS) || !validTimezoneRule(rule))) return false;
+    shared = Object.fromEntries(Object.entries(data.overrides).map(([code, rule]) => [code, { ...rule }]));
+    return true;
+  }
   function browserStorage() {
     try {
       return globalThis.localStorage;
@@ -228,26 +234,10 @@
     return getTimezoneRules();
   }
   function getTimezoneRules() {
-    return Object.fromEntries(Object.entries(DEFAULTS).map(([code, rule]) => [code, { ...edits[code] ?? rule }]));
+    return Object.fromEntries(Object.entries(DEFAULTS).map(([code, rule]) => [code, { ...shared[code] ?? edits[code] ?? rule }]));
   }
   function getTimezoneRule(code) {
-    return { ...edits[code] ?? DEFAULTS[code] ?? DEFAULTS.en };
-  }
-  function updateTimezoneRule(code, rule, storage = browserStorage()) {
-    if (!(code in DEFAULTS) || !validTimezoneRule(rule)) return false;
-    const next = { ...edits, [code]: {
-      mode: rule.mode,
-      label: rule.label,
-      offsetMinutes: rule.offsetMinutes,
-      ...rule.mode === "seasonal" ? { zone: rule.zone } : {}
-    } };
-    try {
-      storage?.setItem(STORAGE_KEY, JSON.stringify(next));
-      edits = next;
-      return true;
-    } catch {
-      return false;
-    }
+    return { ...shared[code] ?? edits[code] ?? DEFAULTS[code] ?? DEFAULTS.en };
   }
   function formatTimezone(label, offsetMinutes) {
     if (label === "MSK" || label === "\u041C\u0421\u041A") return label;
@@ -1604,7 +1594,7 @@
       glossaryTab: "Glossary",
       gmtTab: "GMT",
       gmtTitle: "GMT & time zones",
-      gmtIntro: "Set the expected marker and offset by target language. Changes are saved in this browser and applied to the next check.",
+      gmtIntro: "Set the expected marker and offset by target language. Changes are shared with the team and applied to the next check.",
       gmtNote: "A language is not a time zone. Until a market-specific rule is confirmed, keep the source marker and offset. English is the usual source; Ukrainian normally uses Russian.",
       gmtSource: "Usual source",
       gmtRule: "Target rule",
@@ -1730,7 +1720,7 @@
       glossaryTab: "\u0421\u043B\u043E\u0432\u0430\u0440\u044C",
       gmtTab: "GMT",
       gmtTitle: "GMT \u0438 \u0447\u0430\u0441\u043E\u0432\u044B\u0435 \u043F\u043E\u044F\u0441\u0430",
-      gmtIntro: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0435\u0440 \u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u0446\u0435\u043B\u0435\u0432\u043E\u0433\u043E \u044F\u0437\u044B\u043A\u0430. \u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 \u0438 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435.",
+      gmtIntro: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0435\u0440 \u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u0446\u0435\u043B\u0435\u0432\u043E\u0433\u043E \u044F\u0437\u044B\u043A\u0430. \u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B \u0432\u0441\u0435\u0439 \u043A\u043E\u043C\u0430\u043D\u0434\u0435 \u0438 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435.",
       gmtNote: "\u042F\u0437\u044B\u043A \u043D\u0435 \u0440\u0430\u0432\u0435\u043D \u0447\u0430\u0441\u043E\u0432\u043E\u043C\u0443 \u043F\u043E\u044F\u0441\u0443. \u041F\u043E\u043A\u0430 \u043F\u0440\u0430\u0432\u0438\u043B\u043E \u0440\u044B\u043D\u043A\u0430 \u043D\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u043E, \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u043C \u043C\u0430\u0440\u043A\u0435\u0440 \u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0430. \u041E\u0431\u044B\u0447\u043D\u043E \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438\u0439; \u0434\u043B\u044F \u0443\u043A\u0440\u0430\u0438\u043D\u0441\u043A\u043E\u0433\u043E \u2014 \u0440\u0443\u0441\u0441\u043A\u0438\u0439.",
       gmtSource: "\u041E\u0431\u044B\u0447\u043D\u044B\u0439 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B",
       gmtRule: "\u041F\u0440\u0430\u0432\u0438\u043B\u043E \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430",
@@ -2328,6 +2318,39 @@
   function initGmtView({ getLocale: getLocale2, onChange }) {
     const body = $3("gmt-table-body");
     const status = $3("gmt-status");
+    const codeInput = $3("gmt-member-code");
+    let api2 = "";
+    let sharedData2 = null;
+    try {
+      codeInput.value = localStorage.getItem("checkform-member-code-v1") ?? "";
+    } catch {
+    }
+    codeInput.addEventListener("change", () => {
+      try {
+        localStorage.setItem("checkform-member-code-v1", codeInput.value.trim());
+      } catch {
+      }
+    });
+    async function refreshShared() {
+      try {
+        const configResponse = await fetch(new URL("data/collaboration-config.json", document.baseURI), { cache: "no-store" });
+        const config = configResponse.ok ? await configResponse.json() : {};
+        api2 = /^https:\/\//u.test(config.collabApi ?? "") ? config.collabApi.replace(/\/$/u, "") : "";
+        if (!api2) throw new Error("\u041E\u0431\u0449\u0430\u044F \u0442\u0430\u0431\u043B\u0438\u0446\u0430 GMT \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430.");
+        const response = await fetch(`${api2}/v1/timezones`, { cache: "no-store" });
+        if (!response.ok) throw new Error(`\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 GMT: ${response.status}`);
+        const data = await response.json();
+        if (!setSharedTimezoneRules(data)) throw new Error("\u041D\u0435\u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u0430 GMT.");
+        sharedData2 = data;
+        refresh();
+        onChange();
+        status.textContent = `\u041E\u0431\u0449\u0438\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u0430 GMT \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u044B \xB7 \u0432\u0435\u0440\u0441\u0438\u044F ${data.version}.`;
+        return true;
+      } catch (error) {
+        status.textContent = error.message;
+        return false;
+      }
+    }
     function refresh() {
       const locale = getLocale2();
       for (const [id, key] of [
@@ -2388,7 +2411,7 @@
         body.append(row);
       }
     }
-    body.addEventListener("change", (event) => {
+    body.addEventListener("change", async (event) => {
       const input = event.target.closest("select, input");
       const row = input?.closest("tr[data-language]");
       if (!row) return;
@@ -2402,16 +2425,43 @@
         offsetMinutes: ["MSK", "\u041C\u0421\u041A"].includes(label) ? 180 : Math.round(offset * 60),
         ...mode === "seasonal" ? { zone: getTimezoneRule(code).zone ?? (code === "da" ? "Europe/Copenhagen" : "Europe/Kyiv") } : {}
       };
-      if (!Number.isFinite(offset) || Math.abs(offset * 60 - next.offsetMinutes) > 1e-3 || !updateTimezoneRule(code, next)) {
+      if (!Number.isFinite(offset) || Math.abs(offset * 60 - next.offsetMinutes) > 1e-3) {
         status.textContent = t(getLocale2(), "gmtSaveError");
+        refresh();
         return;
       }
-      status.textContent = t(getLocale2(), "gmtSaved");
-      refresh();
-      onChange();
+      const memberCode = codeInput.value.trim();
+      if (!api2 || !sharedData2 || !memberCode) {
+        status.textContent = "\u0414\u043B\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u043E\u0431\u0449\u0435\u0439 \u0442\u0430\u0431\u043B\u0438\u0446\u044B GMT \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u043B\u0438\u0447\u043D\u044B\u0439 \u043A\u043E\u0434.";
+        refresh();
+        return;
+      }
+      input.disabled = true;
+      status.textContent = "\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u044E \u043F\u0440\u0430\u0432\u0438\u043B\u043E GMT \u0434\u043B\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u044B\u2026";
+      try {
+        const response = await fetch(`${api2}/v1/timezone-changes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${memberCode}` },
+          body: JSON.stringify({ language: code, rule: next, baseVersion: sharedData2.version })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `\u041E\u0448\u0438\u0431\u043A\u0430 ${response.status}`);
+        try {
+          localStorage.setItem("checkform-member-code-v1", memberCode);
+        } catch {
+        }
+        await refreshShared();
+        status.textContent = `\u041F\u0440\u0430\u0432\u0438\u043B\u043E GMT \u043E\u043F\u0443\u0431\u043B\u0438\u043A\u043E\u0432\u0430\u043D\u043E \xB7 \u0432\u0435\u0440\u0441\u0438\u044F ${result.version}, \u0430\u0432\u0442\u043E\u0440 ${result.actor}.`;
+      } catch (error) {
+        status.textContent = error.message;
+        refresh();
+      } finally {
+        input.disabled = false;
+      }
     });
     refresh();
-    return { refresh };
+    refreshShared();
+    return { refresh, refreshShared };
   }
 
   // src/language-rules-view.js
@@ -2644,7 +2694,7 @@ ${GUIDE[code]}`
       glossaryTab: "Glossary",
       gmtTab: "GMT",
       gmtTitle: "GMT & time zones",
-      gmtIntro: "Set the expected marker and offset by target language. Changes are saved in this browser and applied to the next check.",
+      gmtIntro: "Set the expected marker and offset by target language. Changes are shared with the team and applied to the next check.",
       gmtNote: "A language is not a time zone. Until a market-specific rule is confirmed, keep the source marker and offset. English is the usual source; Ukrainian normally uses Russian.",
       gmtSource: "Usual source",
       gmtRule: "Target rule",
@@ -2770,7 +2820,7 @@ ${GUIDE[code]}`
       glossaryTab: "\u0421\u043B\u043E\u0432\u0430\u0440\u044C",
       gmtTab: "GMT",
       gmtTitle: "GMT \u0438 \u0447\u0430\u0441\u043E\u0432\u044B\u0435 \u043F\u043E\u044F\u0441\u0430",
-      gmtIntro: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0435\u0440 \u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u0446\u0435\u043B\u0435\u0432\u043E\u0433\u043E \u044F\u0437\u044B\u043A\u0430. \u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 \u0438 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435.",
+      gmtIntro: "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0435\u0440 \u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u0434\u043B\u044F \u0446\u0435\u043B\u0435\u0432\u043E\u0433\u043E \u044F\u0437\u044B\u043A\u0430. \u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B \u0432\u0441\u0435\u0439 \u043A\u043E\u043C\u0430\u043D\u0434\u0435 \u0438 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435.",
       gmtNote: "\u042F\u0437\u044B\u043A \u043D\u0435 \u0440\u0430\u0432\u0435\u043D \u0447\u0430\u0441\u043E\u0432\u043E\u043C\u0443 \u043F\u043E\u044F\u0441\u0443. \u041F\u043E\u043A\u0430 \u043F\u0440\u0430\u0432\u0438\u043B\u043E \u0440\u044B\u043D\u043A\u0430 \u043D\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u043E, \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u043C \u043C\u0430\u0440\u043A\u0435\u0440 \u0438 \u0441\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B\u0430. \u041E\u0431\u044B\u0447\u043D\u043E \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B \u0430\u043D\u0433\u043B\u0438\u0439\u0441\u043A\u0438\u0439; \u0434\u043B\u044F \u0443\u043A\u0440\u0430\u0438\u043D\u0441\u043A\u043E\u0433\u043E \u2014 \u0440\u0443\u0441\u0441\u043A\u0438\u0439.",
       gmtSource: "\u041E\u0431\u044B\u0447\u043D\u044B\u0439 \u043E\u0440\u0438\u0433\u0438\u043D\u0430\u043B",
       gmtRule: "\u041F\u0440\u0430\u0432\u0438\u043B\u043E \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u0430",
@@ -3616,10 +3666,11 @@ ${range.hint}`;
         else button.removeAttribute("aria-current");
       }
       if (view === "glossary") glossaryView.refresh();
-      if (view === "gmt") gmtView.refresh();
+      if (view === "gmt") gmtView.refreshShared();
       if (view === "rules") languageRulesView.refresh();
     });
   }
+  setInterval(() => gmtView.refreshShared(), 5 * 60 * 1e3);
   applyTranslations();
   render();
   var glossaryLink = new URLSearchParams(location.search);

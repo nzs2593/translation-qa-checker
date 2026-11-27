@@ -1,10 +1,18 @@
 import assert from "node:assert/strict";
 import { checkDatesAndTime, parseTemporal, parseTemporals } from "../src/dates-time.js";
 import { getProfile } from "../src/profiles.js";
-import { getTimezoneRule } from "../src/timezone-rules.js";
+import { getTimezoneRule, setSharedTimezoneRules } from "../src/timezone-rules.js";
 import { issueDescription } from "../src/i18n.js";
 
 const profile = { dateOrder: "YMD", language: "en" };
+
+assert.equal(setSharedTimezoneRules({ schema: "checkform-shared-timezones-v1", version: 2,
+  overrides: { az: { mode: "fixed", label: "GMT", offsetMinutes: 180 } } }), true);
+assert.equal(getTimezoneRule("az").offsetMinutes, 180);
+assert.equal(setSharedTimezoneRules({ schema: "checkform-shared-timezones-v1", version: 3,
+  overrides: { az: { mode: "fixed", label: "GMT", offsetMinutes: 900 } } }), false);
+assert.equal(getTimezoneRule("az").offsetMinutes, 180);
+assert.equal(setSharedTimezoneRules({ schema: "checkform-shared-timezones-v1", version: 1, overrides: {} }), true);
 
 assert.equal(parseTemporal("20:59 GMT").timezone.offsetMinutes, 0);
 assert.equal(parseTemporal("17:59 GMT-3").timezone.offsetMinutes, -180);
