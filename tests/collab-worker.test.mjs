@@ -21,6 +21,10 @@ const newTerm = applyChange(structuredClone(addition.data), { mode: "new", rowId
 assert.equal(newTerm.data.customRows.at(-1).terms.az, "sınaq ifadəsi");
 assert.equal(newTerm.data.customRows.at(-1).terms["en-GB"], "test phrase");
 assert.equal(newTerm.audit.rowId, newTerm.data.customRows.at(-1).id);
+const uzbekRoot = applyChange(structuredClone(base), { mode: "replace", rowId: 9, language: "uz",
+  sourceTerm: "account details", previous: "hisob ma'lumotlari", value: "hisob ma’lumotlari",
+  root: "hisob ma’lumot", baseVersion: 1 }, "zakharov.n");
+assert.equal(uzbekRoot.data.rootOverrides[9].uz, "hisob ma’lumot");
 assert.throws(() => applyChange(structuredClone(first.data), { ...replace, baseVersion: 2,
   sourceTerm: "wrong" }, "zakharov.n"), /Исходный/u);
 assert.throws(() => applyChange(structuredClone(first.data), { ...replace, baseVersion: 2,

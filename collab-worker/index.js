@@ -2,7 +2,7 @@ import { GLOSSARY_DEFAULTS } from "../src/glossary-data.js";
 
 const LANGUAGES = new Set(["az", "da", "mn", "pt-BR", "ru", "es", "es-AR", "uk", "uz", "uzb"]);
 const ALLOWED_ORIGIN = "https://nzs2593.github.io";
-const ROOT_PATTERN = /^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u;
+const ROOT_PATTERN = /^[\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*(?:[ \u00a0-][\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*){0,3}$/u;
 const BASE_ROWS = new Map(GLOSSARY_DEFAULTS.map((row) => [row.id, row]));
 
 function response(body, status = 200, origin = null) {

@@ -767,6 +767,7 @@
       for (const match of sourceMatches) {
         const start = match.index ?? 0;
         const end = start + match[0].length;
+        if (group.sourceTerm.toLocaleLowerCase() === "set" && /^\s+up\b/iu.test(source.slice(end))) continue;
         if (occupied.some((range) => start < range.end && end > range.start)) continue;
         occupied.push({ start, end });
         const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);
@@ -1513,7 +1514,7 @@
     const row = getGlossaryRows2().find((item) => String(item.id) === String(rowId));
     if (!row || !row.terms[language]) return false;
     const root = value == null ? null : String(value).trim();
-    if (root != null && root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root)) return false;
+    if (root != null && root && !/^[\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*(?:[ \u00a0-][\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*){0,3}$/u.test(root)) return false;
     const custom = customRows2.find((item) => String(item.id) === String(rowId));
     if (custom) {
       custom.roots ??= {};
@@ -1632,7 +1633,7 @@
       rulesChecksTitle: "Automated checks",
       rulesChecksCopy: "CHECKform checks comparable numeric values, dates, currency markers and placement, percent spacing, quotation style, and extra spaces. Ambiguous formats require review.",
       glossaryTitle: "Glossary",
-      glossaryIntro: "Edit a term or its inflection root here. Both are saved in this browser and used in the next check.",
+      glossaryIntro: "Find a term and publish a new translation for the team in the panel on the right.",
       glossaryRoot: "Root",
       glossaryRootNone: "Exact term only",
       glossaryRootReset: "Restore suggested root",
@@ -1758,7 +1759,7 @@
       rulesChecksTitle: "\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438",
       rulesChecksCopy: "CHECKform \u0441\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u0435\u0442 \u0447\u0438\u0441\u043B\u043E\u0432\u044B\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u0434\u0430\u0442\u044B, \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043E\u0431\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442, \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043F\u0435\u0440\u0435\u0434 %, \u043A\u0430\u0432\u044B\u0447\u043A\u0438 \u0438 \u043B\u0438\u0448\u043D\u0438\u0435 \u043F\u0440\u043E\u0431\u0435\u043B\u044B. \u041D\u0435\u043E\u0434\u043D\u043E\u0437\u043D\u0430\u0447\u043D\u044B\u0435 \u0444\u043E\u0440\u043C\u0430\u0442\u044B \u0442\u0440\u0435\u0431\u0443\u044E\u0442 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430.",
       glossaryTitle: "\u0421\u043B\u043E\u0432\u0430\u0440\u044C",
-      glossaryIntro: "\u0417\u0434\u0435\u0441\u044C \u043C\u043E\u0436\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u0438 \u0435\u0433\u043E \u043A\u043E\u0440\u0435\u043D\u044C \u0434\u043B\u044F \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C. \u041E\u0431\u0430 \u043F\u043E\u043B\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 \u0438 \u0443\u0447\u0438\u0442\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435.",
+      glossaryIntro: "\u041D\u0430\u0439\u0434\u0438\u0442\u0435 \u0442\u0435\u0440\u043C\u0438\u043D \u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u0434\u043B\u044F \u0432\u0441\u0435\u0439 \u043A\u043E\u043C\u0430\u043D\u0434\u044B \u0432 \u043F\u0430\u043D\u0435\u043B\u0438 \u0441\u043F\u0440\u0430\u0432\u0430.",
       glossaryRoot: "\u041A\u043E\u0440\u0435\u043D\u044C",
       glossaryRootNone: "\u0422\u043E\u043B\u044C\u043A\u043E \u0442\u043E\u0447\u043D\u044B\u0439 \u0442\u0435\u0440\u043C\u0438\u043D",
       glossaryRootReset: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0439 \u043A\u043E\u0440\u0435\u043D\u044C",
@@ -1985,13 +1986,24 @@
         const notes = document.createElement("td");
         notes.className = "glossary-note";
         notes.textContent = [row.notes?.[sourceCode], row.notes?.[targetCode]].filter(Boolean).join(" \xB7 ");
+        if (notes.textContent) {
+          from.title = notes.textContent;
+          to.title = notes.textContent;
+        }
         const actions = document.createElement("td");
         const propose = document.createElement("button");
         propose.type = "button";
         propose.className = "glossary-propose-button";
         propose.dataset.proposeRow = String(row.id);
-        propose.textContent = locale === "ru" ? "\u041E\u0431\u0449\u0430\u044F \u043F\u0440\u0430\u0432\u043A\u0430" : "Shared edit";
-        actions.append(propose);
+        propose.dataset.proposeMode = "replace";
+        propose.textContent = locale === "ru" ? "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C" : "Edit";
+        const variant = document.createElement("button");
+        variant.type = "button";
+        variant.className = "glossary-variant-button";
+        variant.dataset.proposeRow = String(row.id);
+        variant.dataset.proposeMode = "add";
+        variant.textContent = locale === "ru" ? "+ \u0412\u0430\u0440\u0438\u0430\u043D\u0442" : "+ Variant";
+        actions.append(propose, variant);
         tr.append(number, from, to, notes, actions);
         fragment.append(tr);
       }
@@ -2213,7 +2225,7 @@
       $2("glossary-proposal-value").value = "";
       $2("glossary-proposal-root").value = "";
       $2("glossary-proposal-title").textContent = `${publishedTerm(row, GLOSSARY_LANGUAGES3[source])} \xB7 ${target}`;
-      setMode("replace");
+      setMode(button.dataset.proposeMode === "add" ? "add" : "replace");
     });
     $2("glossary-new-shared").addEventListener("click", () => {
       const target = $2("glossary-language").value;
@@ -2254,7 +2266,7 @@
       const code = codeInput.value.trim();
       if (!code) return void (status.textContent = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043B\u0438\u0447\u043D\u044B\u0439 \u043A\u043E\u0434.");
       const root = $2("glossary-proposal-root").value.trim();
-      if (root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root))
+      if (root && !/^[\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*(?:[ \u00a0-][\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*){0,3}$/u.test(root))
         return void (status.textContent = "\u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043A\u043E\u0440\u0435\u043D\u044C: \u0434\u043E \u0447\u0435\u0442\u044B\u0440\u0451\u0445 \u0441\u043B\u043E\u0432 \u0431\u0435\u0437 \u0446\u0438\u0444\u0440 \u0438 \u0437\u043D\u0430\u043A\u043E\u0432 \u043F\u0443\u043D\u043A\u0442\u0443\u0430\u0446\u0438\u0438.");
       const mode = form.dataset.mode === "new" ? "new" : form.elements.namedItem("glossary-proposal-mode").value;
       const change = {
@@ -2661,7 +2673,7 @@ ${GUIDE[code]}`
       rulesChecksTitle: "Automated checks",
       rulesChecksCopy: "CHECKform checks comparable numeric values, dates, currency markers and placement, percent spacing, quotation style, and extra spaces. Ambiguous formats require review.",
       glossaryTitle: "Glossary",
-      glossaryIntro: "Edit a term or its inflection root here. Both are saved in this browser and used in the next check.",
+      glossaryIntro: "Find a term and publish a new translation for the team in the panel on the right.",
       glossaryRoot: "Root",
       glossaryRootNone: "Exact term only",
       glossaryRootReset: "Restore suggested root",
@@ -2787,7 +2799,7 @@ ${GUIDE[code]}`
       rulesChecksTitle: "\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0438",
       rulesChecksCopy: "CHECKform \u0441\u0440\u0430\u0432\u043D\u0438\u0432\u0430\u0435\u0442 \u0447\u0438\u0441\u043B\u043E\u0432\u044B\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u0434\u0430\u0442\u044B, \u043F\u0440\u043E\u0432\u0435\u0440\u044F\u0435\u0442 \u043E\u0431\u043E\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u0438 \u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0432\u0430\u043B\u044E\u0442, \u043F\u0440\u043E\u0431\u0435\u043B\u044B \u043F\u0435\u0440\u0435\u0434 %, \u043A\u0430\u0432\u044B\u0447\u043A\u0438 \u0438 \u043B\u0438\u0448\u043D\u0438\u0435 \u043F\u0440\u043E\u0431\u0435\u043B\u044B. \u041D\u0435\u043E\u0434\u043D\u043E\u0437\u043D\u0430\u0447\u043D\u044B\u0435 \u0444\u043E\u0440\u043C\u0430\u0442\u044B \u0442\u0440\u0435\u0431\u0443\u044E\u0442 \u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u0430.",
       glossaryTitle: "\u0421\u043B\u043E\u0432\u0430\u0440\u044C",
-      glossaryIntro: "\u0417\u0434\u0435\u0441\u044C \u043C\u043E\u0436\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0435\u0440\u043C\u0438\u043D \u0438 \u0435\u0433\u043E \u043A\u043E\u0440\u0435\u043D\u044C \u0434\u043B\u044F \u0441\u043B\u043E\u0432\u043E\u0444\u043E\u0440\u043C. \u041E\u0431\u0430 \u043F\u043E\u043B\u044F \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435 \u0438 \u0443\u0447\u0438\u0442\u044B\u0432\u0430\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435.",
+      glossaryIntro: "\u041D\u0430\u0439\u0434\u0438\u0442\u0435 \u0442\u0435\u0440\u043C\u0438\u043D \u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u0432\u043E\u0434 \u0434\u043B\u044F \u0432\u0441\u0435\u0439 \u043A\u043E\u043C\u0430\u043D\u0434\u044B \u0432 \u043F\u0430\u043D\u0435\u043B\u0438 \u0441\u043F\u0440\u0430\u0432\u0430.",
       glossaryRoot: "\u041A\u043E\u0440\u0435\u043D\u044C",
       glossaryRootNone: "\u0422\u043E\u043B\u044C\u043A\u043E \u0442\u043E\u0447\u043D\u044B\u0439 \u0442\u0435\u0440\u043C\u0438\u043D",
       glossaryRootReset: "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0439 \u043A\u043E\u0440\u0435\u043D\u044C",

@@ -12,6 +12,14 @@ const rows = [
 ];
 
 assert.equal(checkGlossary("account balance", "saldo de la cuenta", "en", "es", rows).length, 0);
+const setRows = [
+  { id: 423, terms: { "en-GB": "set", es: "set deportivo" } },
+  { id: 900, terms: { "en-GB": "set up", es: "configurar" } }
+];
+assert.deepEqual(checkGlossary("Set up the account", "Configurar la cuenta", "en", "es", setRows), []);
+assert.deepEqual(checkGlossary("Set up the account", "Otra cosa", "en", "es", setRows).map((issue) => issue.glossary.sourceTerm), ["Set up"]);
+assert.deepEqual(checkGlossary("A set ended", "Otra cosa", "en", "es", setRows).map((issue) => issue.glossary.sourceTerm), ["set"]);
+assert.deepEqual(checkGlossary("Set up the account", "Otra cosa", "en", "es", setRows.slice(0, 1)), []);
 const missing = checkGlossary("account balance", "saldo", "en", "es", rows);
 assert.equal(missing.length, 1);
 assert.equal(missing[0].glossary.sourceTerm, "account balance");
@@ -97,5 +105,8 @@ assert.equal(getGlossaryRows().find((row) => row.id === 461).roots.az, "Şərtl�
 assert.equal(updateGlossaryTerm(461, "az", "Yeni termin", storage), true);
 loadGlossaryEdits(storage);
 assert.equal(getGlossaryRows().find((row) => row.id === 461).roots.az, "");
+assert.equal(updateGlossaryRoot(9, "uz", "hisob ma’lumot", storage), true);
+loadGlossaryEdits(storage);
+assert.equal(getGlossaryRows().find((row) => row.id === 9).roots.uz, "hisob ma’lumot");
 
 console.log("Glossary tests passed");

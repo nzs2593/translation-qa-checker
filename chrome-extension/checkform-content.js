@@ -727,6 +727,7 @@
       for (const match of sourceMatches) {
         const start2 = match.index ?? 0;
         const end = start2 + match[0].length;
+        if (group.sourceTerm.toLocaleLowerCase() === "set" && /^\s+up\b/iu.test(source.slice(end))) continue;
         if (occupied.some((range) => start2 < range.end && end > range.start)) continue;
         occupied.push({ start: start2, end });
         const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);

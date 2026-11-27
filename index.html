@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CHECKform</title>
-    <link rel="stylesheet" href="styles.css?v=2.16" />
+    <link rel="stylesheet" href="styles.css?v=2.17" />
   </head>
   <body>
     <main class="app-shell">
@@ -136,7 +136,7 @@
           <div>
             <span class="panel-kicker">TERMINOLOGY</span>
             <h2 id="glossary-title">Glossary</h2>
-            <p id="glossary-intro">Edit a term here and CHECKform will use the new translation in the next check.</p>
+            <p id="glossary-intro">Find a term, review its translation and publish a change for the team.</p>
           </div>
           <div class="glossary-tools">
             <label id="glossary-language-label" for="glossary-language">Goal language</label>
@@ -149,6 +149,7 @@
           <span id="glossary-count"></span>
         </div>
         <form id="glossary-add-form" class="glossary-add-form">
+          <span class="glossary-local-label">Личный черновик · только на этом устройстве</span>
           <input id="glossary-add-source" required placeholder="New source term" />
           <input id="glossary-add-target" placeholder="New goal term" />
           <button type="submit" id="glossary-add-button">Add term</button>
@@ -161,7 +162,8 @@
         </div>
         <div class="glossary-footer"><span id="glossary-status" role="status"></span><button type="button" id="glossary-show-more" hidden>Show more</button></div>
         <section class="glossary-collab" aria-label="Совместная работа со словарём">
-          <div class="glossary-collab-head"><div><h3>Общие правки словаря</h3><p>Личный код позволяет опубликовать правку для всей команды. Прямое редактирование таблицы выше сохраняется только в вашем браузере.</p></div><button type="button" id="glossary-new-shared">Новый термин для команды</button></div>
+          <div class="glossary-collab-head"><div><span class="glossary-eyebrow">КОМАНДНЫЙ СЛОВАРЬ</span><h3>Правка термина</h3><p>Выберите термин в таблице, чтобы добавить перевод или заменить существующий.</p></div></div>
+          <button type="button" id="glossary-new-shared">+ Новый термин</button>
           <div class="glossary-collab-access"><label>Личный код <input id="glossary-member-code" type="password" autocomplete="off" spellcheck="false" placeholder="Код участника" /></label><button type="button" id="glossary-save-code">Сохранить на этом устройстве</button><button type="button" id="glossary-forget-code">Забыть код</button></div>
           <form id="glossary-proposal-form" hidden>
             <h4 id="glossary-proposal-title">Общая правка</h4>
@@ -175,6 +177,7 @@
             <div class="glossary-collab-actions"><button type="submit">Опубликовать для команды</button><button type="button" id="glossary-proposal-cancel">Отмена</button></div>
           </form>
           <p id="glossary-collab-status" role="status"></p>
+          <p class="glossary-local-note">Правки прямо в ячейках таблицы сохраняются только на этом устройстве.</p>
         </section>
       </section>
 
@@ -242,6 +245,6 @@
         </table>
       </div>
     </dialog>
-    <script defer src="checkform.bundle.js?v=2.18"></script>
+    <script defer src="checkform.bundle.js?v=2.19"></script>
   </body>
 </html>

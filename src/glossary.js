@@ -107,7 +107,7 @@ export function updateGlossaryRoot(rowId, language, value, storage = browserStor
   const row = getGlossaryRows().find((item) => String(item.id) === String(rowId));
   if (!row || !row.terms[language]) return false;
   const root = value == null ? null : String(value).trim();
-  if (root != null && root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root)) return false;
+  if (root != null && root && !/^[\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*(?:[ \u00a0-][\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*){0,3}$/u.test(root)) return false;
   const custom = customRows.find((item) => String(item.id) === String(rowId));
   if (custom) {
     custom.roots ??= {};
@@ -244,6 +244,8 @@ export function checkGlossary(source, target, sourceLanguage, targetLanguage, ro
     for (const match of sourceMatches) {
       const start = match.index ?? 0;
       const end = start + match[0].length;
+      // The sports noun "set" is unrelated to the phrasal verb "set up".
+      if (group.sourceTerm.toLocaleLowerCase() === "set" && /^\s+up\b/iu.test(source.slice(end))) continue;
       if (occupied.some((range) => start < range.end && end > range.start)) continue;
       occupied.push({ start, end });
       const exactEntries = group.entries.filter((entry) => entry.sourceTerm === match[0]);

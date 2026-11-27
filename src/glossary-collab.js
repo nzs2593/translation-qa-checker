@@ -62,7 +62,7 @@ export function initGlossaryCollab({ onChange, refreshView }) {
     $("glossary-proposal-value").value = "";
     $("glossary-proposal-root").value = "";
     $("glossary-proposal-title").textContent = `${publishedTerm(row, GLOSSARY_LANGUAGES[source])} · ${target}`;
-    setMode("replace");
+    setMode(button.dataset.proposeMode === "add" ? "add" : "replace");
   });
   $("glossary-new-shared").addEventListener("click", () => {
     const target = $("glossary-language").value;
@@ -94,7 +94,7 @@ export function initGlossaryCollab({ onChange, refreshView }) {
     const code = codeInput.value.trim();
     if (!code) return void (status.textContent = "Введите личный код.");
     const root = $("glossary-proposal-root").value.trim();
-    if (root && !/^[\p{L}]+(?:[ \u00a0-][\p{L}]+){0,3}$/u.test(root))
+    if (root && !/^[\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*(?:[ \u00a0-][\p{L}]+(?:['’ʻʼ‘][\p{L}]+)*){0,3}$/u.test(root))
       return void (status.textContent = "Проверьте корень: до четырёх слов без цифр и знаков пунктуации.");
     const mode = form.dataset.mode === "new" ? "new" : form.elements.namedItem("glossary-proposal-mode").value;
     const change = {

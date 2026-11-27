@@ -122,12 +122,19 @@ export function initGlossaryView({ getLocale, getGoalLanguage, onChange }) {
       const to = makeTermCell(row, target, t(locale, "glossaryMissing"));
       const notes = document.createElement("td"); notes.className = "glossary-note";
       notes.textContent = [row.notes?.[sourceCode], row.notes?.[targetCode]].filter(Boolean).join(" · ");
+      if (notes.textContent) { from.title = notes.textContent; to.title = notes.textContent; }
       const actions = document.createElement("td");
       const propose = document.createElement("button");
       propose.type = "button"; propose.className = "glossary-propose-button";
       propose.dataset.proposeRow = String(row.id);
-      propose.textContent = locale === "ru" ? "Общая правка" : "Shared edit";
-      actions.append(propose);
+      propose.dataset.proposeMode = "replace";
+      propose.textContent = locale === "ru" ? "Изменить" : "Edit";
+      const variant = document.createElement("button");
+      variant.type = "button"; variant.className = "glossary-variant-button";
+      variant.dataset.proposeRow = String(row.id);
+      variant.dataset.proposeMode = "add";
+      variant.textContent = locale === "ru" ? "+ Вариант" : "+ Variant";
+      actions.append(propose, variant);
       tr.append(number, from, to, notes, actions);
       fragment.append(tr);
     }

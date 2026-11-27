@@ -528,3 +528,69 @@ dialog { border-color: var(--line); border-radius: 10px; box-shadow: 0 18px 55px
 .glossary-collab-access { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; margin: 12px 0 16px; }
 .glossary-collab-access label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
 .glossary-collab-access input { min-height: 36px; min-width: 220px; padding: 6px 9px; border: 1px solid #b9cce3; border-radius: 6px; font: inherit; }
+
+/* Glossary workspace: a quiet index and a persistent editing desk. */
+.glossary-view { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 340px); grid-template-areas: "head head" "toolbar toolbar" "add side" "table side" "footer side"; align-items: start; border-color: #dce3eb; border-radius: 14px; box-shadow: 0 10px 28px rgba(28, 46, 70, .06); }
+.glossary-head { grid-area: head; padding: 25px 28px 22px; background: #fff; }
+.glossary-head .panel-kicker { color: #52637a; letter-spacing: .12em; }
+.glossary-head h2 { margin: 5px 0 6px; font-size: 27px; letter-spacing: -.035em; }
+.glossary-head p { max-width: 620px; line-height: 1.45; }
+.glossary-toolbar { grid-area: toolbar; padding: 14px 28px; background: #f7f9fc; }
+.glossary-toolbar input { max-width: 560px; background: #fff; }
+.glossary-toolbar #glossary-count { padding: 6px 10px; border-radius: 6px; background: #e9eef5; color: #46556b; font-weight: 600; }
+.glossary-add-form { grid-area: add; padding: 16px 22px 14px; background: #fff; }
+.glossary-local-label { grid-column: 1 / -1; color: #79879a; font-size: 11px; }
+.glossary-add-form button { background: #eef3fa; color: #174b98; border: 1px solid #ccdaee; }
+.glossary-table-scroll { grid-area: table; max-height: min(66vh, 760px); border-top: 1px solid #e7ebf0; }
+.glossary-table { font-size: 13px; }
+.glossary-table th { padding: 12px 15px; background: #f7f9fc; color: #59677a; font-size: 11px; letter-spacing: .025em; }
+.glossary-table td { padding: 10px 15px; border-color: #e9edf2; }
+.glossary-table tbody tr { background: #fff; transition: background-color .14s ease; }
+.glossary-table tbody tr:hover, .glossary-table tbody tr:focus-within { background: #f6f9fd; }
+.glossary-table tbody tr.glossary-linked-row { background: #ebf2ff; outline: 0; box-shadow: inset 3px 0 #2462b7; }
+.glossary-table th:first-child { width: 48px; }
+.glossary-table th:nth-child(2), .glossary-table th:nth-child(3) { width: 32%; }
+.glossary-table th:nth-child(4), .glossary-table td:nth-child(4) { display: none; }
+.glossary-table th:last-child { width: 174px; }
+.glossary-row-number { color: #8491a3; font-size: 11px; }
+.glossary-term-input { height: 31px; padding: 4px 7px; font-size: 13px; font-weight: 600; }
+.glossary-root-line { opacity: .72; padding: 0 7px 2px; }
+.glossary-table tr:hover .glossary-root-line, .glossary-table tr:focus-within .glossary-root-line { opacity: 1; }
+.glossary-root-input { background: transparent; color: #697b90; font-size: 11px; }
+.glossary-table td:last-child { white-space: nowrap; }
+.glossary-propose-button, .glossary-variant-button { padding: 6px 8px; border: 1px solid transparent; background: transparent; color: #315985; font-size: 12px; font-weight: 600; }
+.glossary-variant-button { color: #1558ac; }
+.glossary-propose-button:hover, .glossary-variant-button:hover { border-color: #bbd0e8; background: #e9f2fe; }
+.glossary-footer { grid-area: footer; min-height: 54px; border-top: 1px solid #e7ebf0; color: #52637a; }
+.glossary-collab { grid-area: side; align-self: stretch; position: sticky; top: 12px; min-height: min(66vh, 760px); margin: 0; padding: 22px 20px; border: 0; border-left: 1px solid #e2e8ef; border-radius: 0; background: #fcfdff; }
+.glossary-eyebrow { display: block; margin-bottom: 8px; color: #65768d; font-size: 10px; font-weight: 700; letter-spacing: .11em; }
+.glossary-collab h3 { margin: 0 0 8px; font-size: 19px; letter-spacing: -.02em; }
+.glossary-collab-head p { margin-bottom: 18px; color: #617087; font-size: 12px; line-height: 1.5; }
+#glossary-new-shared { width: 100%; min-height: 36px; border: 1px solid #b9cee8; background: #fff; color: #1855a0; font-weight: 600; }
+.glossary-collab-access { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 20px 0 14px; padding: 16px 0 0; border-top: 1px solid #e2e8ef; }
+.glossary-collab-access label { grid-column: 1 / -1; color: #33445a; }
+.glossary-collab-access input { width: 100%; min-width: 0; border-color: #cbd6e3; }
+.glossary-collab-access button { min-height: 34px; padding: 6px; font-size: 11px; }
+#glossary-proposal-form { max-width: none; margin-top: 18px; padding: 0; border: 0; border-top: 1px solid #e2e8ef; border-radius: 0; background: transparent; }
+#glossary-proposal-form h4 { margin: 16px 0 0; font-size: 14px; }
+#glossary-proposal-form > label { color: #33445a; font-size: 12px; }
+#glossary-proposal-form input:not([type="radio"]) { width: 100%; background: #fff; }
+#glossary-proposal-form input[readonly] { color: #68788d; background: #f2f5f9; }
+.glossary-proposal-mode { display: grid; gap: 9px; padding: 12px; border-radius: 8px; background: #f1f5fb; font-size: 12px; }
+.glossary-collab-actions button[type="submit"] { background: #185bb5; color: #fff; border-color: #185bb5; }
+.glossary-local-note { margin-top: 22px !important; padding-top: 14px; border-top: 1px solid #e2e8ef; color: #78869a; font-size: 11px; line-height: 1.45; }
+@media (min-width: 1450px) {
+  .glossary-table th:nth-child(2), .glossary-table th:nth-child(3) { width: 27%; }
+  .glossary-table th:nth-child(4), .glossary-table td:nth-child(4) { display: table-cell; }
+}
+@media (max-width: 1000px) {
+  .glossary-view { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "toolbar" "side" "add" "table" "footer"; }
+  .glossary-collab { position: static; min-height: 0; border-left: 0; border-bottom: 1px solid #e2e8ef; }
+  .glossary-collab-access { max-width: 500px; }
+  #glossary-proposal-form { max-width: 600px; }
+}
+@media (max-width: 700px) {
+  .glossary-head, .glossary-toolbar { padding-inline: 16px; }
+  .glossary-table { min-width: 680px; }
+  .glossary-add-form { padding-inline: 16px; }
+}
