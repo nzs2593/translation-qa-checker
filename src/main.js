@@ -612,6 +612,8 @@ setInterval(() => gmtView.refreshShared(), 5 * 60 * 1000);
 applyTranslations();
 render();
 const glossaryLink = new URLSearchParams(location.search);
+if (glossaryLink.get("view") === "gmt") $("gmt-tab").click();
+if (glossaryLink.get("view") === "rules") $("language-rules-tab").click();
 if (glossaryLink.get("view") === "glossary") {
   $("glossary-tab").click();
   if (glossaryLink.has("row")) glossaryView.focusRow(glossaryLink.get("row"), glossaryLink.get("lang") || "ru");

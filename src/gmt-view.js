@@ -22,6 +22,7 @@ export function initGmtView({ getLocale, onChange }) {
 
   async function refreshShared() {
     try {
+      if (!codeInput.value) codeInput.value = localStorage.getItem("checkform-member-code-v1") ?? "";
       const configResponse = await fetch(new URL("data/collaboration-config.json", document.baseURI), { cache: "no-store" });
       const config = configResponse.ok ? await configResponse.json() : {};
       api = /^https:\/\//u.test(config.collabApi ?? "") ? config.collabApi.replace(/\/$/u, "") : "";

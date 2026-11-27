@@ -634,6 +634,10 @@ select:focus, input:focus, button:focus-visible, textarea:focus-visible { outlin
 .text-card, .language-card, .target-review-card, .issues-card, .gmt-view, .glossary-view { border-color: var(--line); border-radius: 13px; box-shadow: var(--shadow); }
 .card-heading, .issues-heading { padding: 17px 20px; background: #fff; }
 .card-heading h2, .issues-heading h2 { margin-top: 5px; font-size: 17px; }
+@media (min-width: 921px) {
+  .workspace-grid:not(.both-loaded) .source-card .card-heading { flex-direction: column; align-items: stretch; }
+  .workspace-grid:not(.both-loaded) .source-card .card-tools { justify-content: flex-start; }
+}
 .card-tools select { background: #f9fafe; }
 .file-button { border-color: #bccaf4; background: #f5f7ff; }
 .source-editor, .target-editor { background: #fff; }

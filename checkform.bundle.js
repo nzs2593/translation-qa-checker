@@ -2333,6 +2333,7 @@
     });
     async function refreshShared() {
       try {
+        if (!codeInput.value) codeInput.value = localStorage.getItem("checkform-member-code-v1") ?? "";
         const configResponse = await fetch(new URL("data/collaboration-config.json", document.baseURI), { cache: "no-store" });
         const config = configResponse.ok ? await configResponse.json() : {};
         api2 = /^https:\/\//u.test(config.collabApi ?? "") ? config.collabApi.replace(/\/$/u, "") : "";
@@ -3674,6 +3675,8 @@ ${range.hint}`;
   applyTranslations();
   render();
   var glossaryLink = new URLSearchParams(location.search);
+  if (glossaryLink.get("view") === "gmt") $5("gmt-tab").click();
+  if (glossaryLink.get("view") === "rules") $5("language-rules-tab").click();
   if (glossaryLink.get("view") === "glossary") {
     $5("glossary-tab").click();
     if (glossaryLink.has("row")) glossaryView.focusRow(glossaryLink.get("row"), glossaryLink.get("lang") || "ru");
